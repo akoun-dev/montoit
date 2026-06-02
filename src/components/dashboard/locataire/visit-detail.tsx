@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Eye, Calendar, Clock, MapPin, Building2, MessageSquare, XCircle, Loader2, FileText } from 'lucide-react'
+import { Star, ArrowLeft, Eye, Calendar, Clock, MapPin, Building2, MessageSquare, XCircle, Loader2, FileText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,8 @@ interface VisitItem {
   counterDate: string | null
   counterTimeSlot: string | null
   ownerComment: string | null
+  tenantRating: number | null
+  tenantReview: string | null
   createdAt: string
   property: {
     id: string
@@ -37,6 +39,46 @@ interface VisitItem {
     images: Array<{ url: string }>
     owner?: { firstName: string; lastName: string }
   }
+}
+
+// ─── Interactive Stars ──────────────────────────────────────────────────────
+function InteractiveStars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [hovered, setHovered] = useState(0)
+  return (
+    <div className="flex gap-1 justify-center">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onChange(i)}
+          onMouseEnter={() => setHovered(i)}
+          onMouseLeave={() => setHovered(0)}
+          className="p-0.5 transition-transform hover:scale-110"
+        >
+          <Star
+            className={`size-8 transition-colors ${
+              i <= (hovered || value)
+                ? 'fill-amber-400 text-amber-400'
+                : 'text-neutral-200 hover:text-amber-300'
+            }`}
+          />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function StarsDisplay({ score }: { score: number }) {
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          className={`size-4 ${i <= score ? 'fill-amber-400 text-amber-400' : 'text-neutral-200'}`}
+        />
+      ))}
+    </div>
+  )
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -71,6 +113,10 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   const [cancelling, setCancelling] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [applying, setApplying] = useState(false)
+  const [showReviewDialog, setShowReviewDialog] = useState(false)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [submittingReview, setSubmittingReview] = useState(false)
 
   const fetchVisit = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -149,6 +195,38 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
       }
     } finally {
       setCancelling(false)
+    }
+  }
+
+  const handleSubmitReview = async () => {
+    if (!visit) return
+    if (reviewRating === 0) {
+      toast.error('Veuillez donner une note')
+      return
+    }
+    setSubmittingReview(true)
+    try {
+      const result = await authFetch<{ data: VisitItem }>(`/api/visits/${visit.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantRating: reviewRating,
+          tenantReview: reviewComment || undefined,
+        }),
+      })
+      if (result.data) {
+        setVisit(result.data)
+        setShowReviewDialog(false)
+        toast.success('Avis enregistré avec succès !')
+      }
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || "Erreur lors de l'envoi de l'avis")
+      } else {
+        toast.error("Erreur lors de l'envoi de l'avis")
+      }
+    } finally {
+      setSubmittingReview(false)
     }
   }
 
@@ -299,6 +377,44 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
         </Card>
       )}
 
+      {/* Avis du locataire — visible quand la visite est effectuée */}
+      {visit.status === 'COMPLETED' && (
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Star className="size-4" /> Mon avis sur le bien
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {visit.tenantRating ? (
+              <div className="space-y-2">
+                <StarsDisplay score={visit.tenantRating} />
+                {visit.tenantReview && (
+                  <p className="text-sm text-foreground italic">&ldquo;{visit.tenantReview}&rdquo;</p>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 h-7 text-xs text-muted-foreground"
+                  onClick={() => { setReviewRating(visit.tenantRating!); setReviewComment(visit.tenantReview || ''); setShowReviewDialog(true) }}
+                >
+                  Modifier mon avis
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => { setReviewRating(0); setReviewComment(''); setShowReviewDialog(true) }}
+              >
+                <Star className="size-4" />
+                Donner mon avis
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Postuler — visible quand la visite est confirmée ou effectuée */}
       {(visit.status === 'ACCEPTED' || visit.status === 'COMPLETED') && (
         <div className="pt-2">
@@ -378,6 +494,66 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
                 <>
                   <XCircle className="size-4" />
                   Confirmer l&apos;annulation
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Review Dialog */}
+      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Star className="size-5 text-amber-500" />
+              Donner mon avis
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Notez votre visite pour <span className="font-semibold text-foreground">{property?.title}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="text-center space-y-2">
+              <p className="text-sm text-muted-foreground">Votre note</p>
+              <InteractiveStars value={reviewRating} onChange={setReviewRating} />
+              <p className="text-xs text-muted-foreground">
+                {['', 'Très insatisfait', 'Insatisfait', 'Moyen', 'Satisfait', 'Très satisfait'][reviewRating]}
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Commentaire (optionnel)</label>
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="Partagez votre expérience de la visite..."
+                rows={3}
+                className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-brand-500 transition-colors resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowReviewDialog(false)}
+              disabled={submittingReview}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSubmitReview}
+              disabled={submittingReview || reviewRating === 0}
+              className="gap-2"
+            >
+              {submittingReview ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Envoi en cours...
+                </>
+              ) : (
+                <>
+                  <Star className="size-4" />
+                  Envoyer mon avis
                 </>
               )}
             </Button>

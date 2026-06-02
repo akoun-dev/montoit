@@ -130,12 +130,60 @@ export async function PATCH(
 
     const { id } = await params
     const body = await req.json()
-    const { status, counterDate, counterTimeSlot, ownerComment, assignedAgentId } = body as {
+    const { status, counterDate, counterTimeSlot, ownerComment, assignedAgentId, tenantRating, tenantReview } = body as {
       status?: string
       counterDate?: string
       counterTimeSlot?: string
       ownerComment?: string
       assignedAgentId?: string | null
+      tenantRating?: number
+      tenantReview?: string
+    }
+
+    // ─── LOCATAIRE review (after completed visit) ───────────────────────────
+    if (role === 'LOCATAIRE' && (tenantRating !== undefined || tenantReview !== undefined)) {
+      const { data: visit } = await admin
+        .from('visit_requests')
+        .select('*')
+        .eq('id', id)
+        .eq('tenant_id', userId)
+        .single()
+
+      if (!visit) {
+        return NextResponse.json({ error: 'Visite introuvable ou accès refusé' }, { status: 404 })
+      }
+
+      if (visit.status !== 'COMPLETED') {
+        return NextResponse.json(
+          { error: 'Vous ne pouvez évaluer que les visites terminées' },
+          { status: 400 }
+        )
+      }
+
+      if (tenantRating !== undefined && (!Number.isInteger(tenantRating) || tenantRating < 1 || tenantRating > 5)) {
+        return NextResponse.json(
+          { error: 'La note doit être un entier entre 1 et 5' },
+          { status: 400 }
+        )
+      }
+
+      const updateData: Record<string, any> = {}
+      if (tenantRating !== undefined) updateData.tenant_rating = tenantRating
+      if (tenantReview !== undefined) updateData.tenant_review = tenantReview
+
+      const { data: updated } = await (admin as any)
+        .from('visit_requests')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (!updated) {
+        return NextResponse.json({ error: 'Erreur lors de l\'enregistrement de l\'avis' }, { status: 500 })
+      }
+
+      const enriched = await enrichVisitDetail(admin, updated)
+      return NextResponse.json({ data: enriched })
     }
 
     // ─── LOCATAIRE cancellation ──────────────────────────────────────────────
@@ -412,6 +460,8 @@ async function enrichVisitDetail(admin: ReturnType<typeof getSupabaseAdminClient
     counterTimeSlot: visit.counter_time_slot,
     ownerComment: visit.owner_comment,
     tenantMessage: visit.tenant_message,
+    tenantRating: visit.tenant_rating,
+    tenantReview: visit.tenant_review,
     createdAt: visit.created_at,
     updatedAt: visit.updated_at,
     propertyId: visit.property_id,
