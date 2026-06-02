@@ -299,22 +299,6 @@ export function RegisterForm() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="reg-phone">Téléphone (optionnel)</Label>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-                          <Input
-                            id="reg-phone"
-                            type="tel"
-                            placeholder="01 40 98 43 43"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                            className="h-11 pl-9"
-                            disabled={isLoading}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
                         <Label htmlFor="reg-password">Mot de passe *</Label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
@@ -451,21 +435,6 @@ export function RegisterForm() {
                         <p className="text-xs text-neutral-400">Un code OTP sera envoyé pour vérifier ce numéro</p>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="sms-email">Email (optionnel)</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-                          <Input
-                            id="sms-email"
-                            type="email"
-                            placeholder="votre@email.ci"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="h-11 pl-9"
-                            disabled={isLoading}
-                          />
-                        </div>
-                      </div>
                     </div>
                   )}
 

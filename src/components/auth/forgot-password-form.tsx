@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Mail, Phone, ArrowLeft, Send, RotateCcw, Check, Eye, EyeOff, Lock } from 'lucide-react'
+import { Mail, ArrowLeft, Send, RotateCcw, Check, Eye, EyeOff, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,7 +12,6 @@ import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 
-type ResetMethod = 'email' | 'sms'
 type Step = 'request' | 'verify' | 'reset'
 
 const passwordRules = [
@@ -33,9 +32,7 @@ const slideVariants = {
 export function ForgotPasswordForm() {
   const { isLoading, setView } = useAuthStore()
 
-  const [method, setMethod] = useState<ResetMethod>('email')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -67,13 +64,9 @@ export function ForgotPasswordForm() {
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    const identifier = method === 'email' ? email.trim() : phone.trim()
+    const identifier = email.trim()
     if (!identifier) {
-      setError(method === 'email' ? 'Veuillez entrer votre email' : 'Veuillez entrer votre numéro')
-      return
-    }
-    if (method === 'sms' && identifier.length !== 10) {
-      setError('Veuillez entrer un numéro ivoirien valide (10 chiffres)')
+      setError('Veuillez entrer votre email')
       return
     }
 
@@ -82,7 +75,7 @@ export function ForgotPasswordForm() {
       const res = await apiFetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, method }),
+        body: JSON.stringify({ identifier, method: 'email' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
@@ -110,14 +103,11 @@ export function ForgotPasswordForm() {
     // Verify the code against the API before moving to reset step
     setSubmitting(true)
     try {
-      const identifier = method === 'email' ? email.trim() : phone.trim()
-      const verifyUrl = method === 'email' ? '/api/auth/verify-email-otp' : '/api/auth/verify-sms-otp'
-      const res = await apiFetch(verifyUrl, {
+      const res = await apiFetch('/api/auth/verify-email-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: method === 'email' ? identifier : undefined,
-          phone: method === 'sms' ? identifier : undefined,
+          email: email.trim(),
           code: code.trim(),
           purpose: 'password_reset',
         }),
@@ -145,23 +135,13 @@ export function ForgotPasswordForm() {
     if (cooldown > 0 || isResending) return
     setIsResending(true)
     try {
-      if (method === 'email') {
-        const res = await apiFetch('/api/auth/send-email-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email.trim(), purpose: 'password_reset' }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erreur')
-      } else {
-        const res = await apiFetch('/api/auth/forgot-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ identifier: phone.trim(), method: 'sms' }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erreur')
-      }
+      const res = await apiFetch('/api/auth/send-email-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), purpose: 'password_reset' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
 
       setCooldown(RESEND_COOLDOWN)
       toast.success('Nouveau code envoyé !')
@@ -170,7 +150,7 @@ export function ForgotPasswordForm() {
     } finally {
       setIsResending(false)
     }
-  }, [cooldown, isResending, method, email, phone])
+  }, [cooldown, isResending, email])
 
   // ─── Step 3: Reset password ───────────────────────────────────────────
   const handleReset = async (e: React.FormEvent) => {
@@ -191,8 +171,7 @@ export function ForgotPasswordForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: method === 'email' ? email.trim() : undefined,
-          phone: method === 'sms' ? phone.trim() : undefined,
+          email: email.trim(),
           code: code.trim(),
           newPassword,
         }),
@@ -271,7 +250,7 @@ export function ForgotPasswordForm() {
             </div>
             <CardTitle className="text-2xl font-bold text-foreground">Mot de passe oublié</CardTitle>
             <CardDescription className="text-muted-foreground">
-              {step === 'request' && 'Entrez votre email ou numéro pour recevoir un code de réinitialisation'}
+              {step === 'request' && 'Entrez votre email pour recevoir un code de réinitialisation'}
               {step === 'verify' && 'Entrez le code de vérification reçu'}
               {step === 'reset' && 'Créez votre nouveau mot de passe'}
             </CardDescription>
@@ -292,67 +271,23 @@ export function ForgotPasswordForm() {
                   transition={{ duration: 0.25, ease: 'easeInOut' }}
                 >
                   <form onSubmit={handleRequest} className="space-y-4">
-                    {/* Method toggle */}
-                    <div className="flex rounded-lg border border-border p-1 bg-muted">
-                      <button
-                        type="button"
-                        onClick={() => { setError(''); setMethod('email') }}
-                        className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
-                          method === 'email' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        <Mail className="size-4" />
-                        Email
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setError(''); setMethod('sms') }}
-                        className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
-                          method === 'sms' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        <Phone className="size-4" />
-                        SMS
-                      </button>
+                    <div className="space-y-2">
+                      <Label htmlFor="fp-email">Adresse email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+                        <Input
+                          id="fp-email"
+                          type="email"
+                          placeholder="votre@email.ci"
+                          value={email}
+                          onChange={(e) => { setError(''); setEmail(e.target.value) }}
+                          className="h-11 pl-9"
+                          disabled={submitting}
+                          required
+                          autoFocus
+                        />
+                      </div>
                     </div>
-
-                    {method === 'email' ? (
-                      <div className="space-y-2">
-                        <Label htmlFor="fp-email">Adresse email</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-                          <Input
-                            id="fp-email"
-                            type="email"
-                            placeholder="votre@email.ci"
-                            value={email}
-                            onChange={(e) => { setError(''); setEmail(e.target.value) }}
-                            className="h-11 pl-9"
-                            disabled={submitting}
-                            required
-                            autoFocus
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <Label htmlFor="fp-phone">Numéro de téléphone</Label>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-                          <Input
-                            id="fp-phone"
-                            type="tel"
-                            placeholder="01 40 98 43 43"
-                            value={phone}
-                            onChange={(e) => { setError(''); setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)) }}
-                            className="h-11 pl-9"
-                            disabled={submitting}
-                            required
-                            autoFocus
-                          />
-                        </div>
-                      </div>
-                    )}
 
                     <Button
                       type="submit"
@@ -392,7 +327,7 @@ export function ForgotPasswordForm() {
                   <form onSubmit={handleVerify} className="space-y-4">
                     <div className="rounded-lg bg-brand-50 border border-brand-100 p-3 mb-2">
                       <p className="text-xs text-muted-foreground">
-                        Code envoyé à <span className="font-semibold text-foreground">{method === 'email' ? email : phone}</span>
+                        Code envoyé à <span className="font-semibold text-foreground">{email}</span>
                       </p>
                     </div>
 

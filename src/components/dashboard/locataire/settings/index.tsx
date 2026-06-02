@@ -22,6 +22,8 @@ import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
+import { SearchableSelect } from '@/components/ui/searchable-select'
+import { CITIES } from '@/lib/cities'
 import type { ProfileData, ScoringData, SessionInfo, NotificationPreferences, SettingsTab } from './types'
 import { ScoreCircle, ScoreComponentCard } from './sub-components'
 import { KycVerificationModal } from './kyc-modal'
@@ -1092,14 +1094,14 @@ export function SettingsSection() {
 
                   {/* City */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="city" className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                    <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
                       <MapPin className="size-3" /> Ville
                     </Label>
-                    <Input
-                      id="city"
+                    <SearchableSelect
+                      options={CITIES.map((c) => ({ value: c.name, label: c.name }))}
                       value={formState.city}
-                      onChange={(e) => setFormState((prev) => ({ ...prev, city: e.target.value }))}
-                      placeholder="Ex: Abidjan"
+                      onChange={(v) => setFormState((prev) => ({ ...prev, city: v }))}
+                      placeholder="Sélectionnez une ville"
                       className="h-9 text-sm"
                     />
                   </div>

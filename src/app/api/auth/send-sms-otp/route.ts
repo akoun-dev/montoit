@@ -79,7 +79,11 @@ export async function POST(req: NextRequest) {
     const smsResult = await sendOtpSms(normalizedPhone, otpCode, smsPurpose)
 
     if (!smsResult.success) {
-      console.warn(`[Send SMS OTP] SMS send failed for ${phone}, but OTP stored in DB. Code: ${otpCode}`)
+      console.error(`[Send SMS OTP] SMS send failed for ${phone}: ${smsResult.message}`)
+      return NextResponse.json(
+        { error: 'Impossible d\'envoyer le SMS. Vérifiez que le numéro est valide ou réessayez plus tard.' },
+        { status: 502 }
+      )
     }
 
     const isDev = process.env.NODE_ENV !== 'production'
