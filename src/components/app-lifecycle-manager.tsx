@@ -26,7 +26,6 @@ async function runResumeLogic(refreshNotifications?: () => void) {
       await state.checkAuth()
       if (useAuthStore.getState().isAuthenticated) {
         useAuthStore.getState().setView('dashboard')
-        useAuthStore.getState().setDashboardSection('overview')
       }
     } catch {
       // Network error — keep current state

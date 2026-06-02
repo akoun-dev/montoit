@@ -139,7 +139,7 @@ const typeLabels: Record<string, string> = {
 }
 
 export function InventoryReportForm() {
-  const { isAuthenticated, selectedItemId, selectedPropertyId, setDashboardSection, setSelectedItemId, setSelectedPropertyId } = useAuthStore()
+  const { user, isAuthenticated, selectedItemId, selectedPropertyId, setDashboardSection, setSelectedItemId, setSelectedPropertyId } = useAuthStore()
   const [grid, setGrid] = useState<GridState>(createDefaultGrid)
   const [inventoryType, setInventoryType] = useState<InventoryType>('INVENTORY_ENTRANCE')
   const [generalObservations, setGeneralObservations] = useState('')
@@ -155,7 +155,12 @@ export function InventoryReportForm() {
   const effectivePropertyId = selectedPropertyId || selectedItemId
 
   const navigateBack = () => {
-    if (selectedPropertyId && !selectedItemId) {
+    const role = user?.activeRole || user?.role
+    if (role === 'PROPRIETAIRE') {
+      setSelectedItemId('')
+      setSelectedPropertyId('')
+      setDashboardSection('my-properties')
+    } else if (selectedPropertyId && !selectedItemId) {
       // Venue de property-verify-detail → retour à la liste des biens à vérifier
       setSelectedItemId('')
       setSelectedPropertyId('')

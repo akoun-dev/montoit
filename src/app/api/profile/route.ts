@@ -97,7 +97,7 @@ export async function PUT(req: NextRequest) {
         }
 
         if (gender !== undefined) {
-            const validGenders = ["M", "F", "AUTRE"]
+            const validGenders = ["HOMME", "FEMME", "AUTRE"]
             if (gender && !validGenders.includes(gender)) {
                 return NextResponse.json(
                     { error: "Genre invalide" },
@@ -173,7 +173,7 @@ export async function PUT(req: NextRequest) {
             const details = error?.details || ''
             if (details.includes('phone')) {
                 return NextResponse.json(
-                    { error: "Ce numéro de téléphone est déjà utilisé par un autre compte." },
+                    { error: "Ce numéro est déjà utilisé." },
                     { status: 409 }
                 )
             }

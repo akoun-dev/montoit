@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
         if (existingPhone) {
           return NextResponse.json(
-            { error: 'Un compte existe déjà avec ce numéro de téléphone' },
+            { error: 'Ce numéro est déjà utilisé.' },
             { status: 400 }
           )
         }
@@ -292,7 +292,7 @@ export async function POST(req: NextRequest) {
       }
       if (details.includes('phone')) {
         return NextResponse.json(
-          { error: 'Ce numéro de téléphone est déjà utilisé par un autre compte.' },
+          { error: 'Ce numéro est déjà utilisé.' },
           { status: 409 }
         )
       }

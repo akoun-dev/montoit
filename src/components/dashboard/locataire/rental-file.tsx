@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  FileText, Upload, CheckCircle2, ChevronRight, ChevronLeft,
+  ArrowLeft, FileText, Upload, CheckCircle2, ChevronRight, ChevronLeft,
   Save, Send, AlertCircle,
   Eye, Trash2
 } from 'lucide-react'
@@ -97,7 +97,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
-export function RentalFileForm() {
+export function RentalFileForm({ onBack }: { onBack?: () => void }) {
   const { user, isAuthenticated } = useAuthStore()
   const [step, setStep] = useState(1)
   const [existingFile, setExistingFile] = useState<RentalFileItem | null>(null)
@@ -390,6 +390,11 @@ export function RentalFileForm() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
+        {onBack && (
+          <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground -ml-2 mb-3">
+            <ArrowLeft className="size-4" /> Retour
+          </Button>
+        )}
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dossier locatif</h1>
         <p className="text-muted-foreground mt-1">Complétez votre dossier pour postuler aux logements</p>
       </div>

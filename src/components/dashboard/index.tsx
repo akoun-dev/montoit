@@ -132,7 +132,7 @@ function LocataireDashboard({ section }: { section: string }) {
 
   const goToRentalFile = () => setDashboardSection('rental-file')
 
-  const goBackFromRentalFile = () => goBackToList('applications')
+  const goBackFromRentalFile = () => setDashboardSection('settings')
 
   switch (section) {
     case 'overview': return <LocataireOverview />
@@ -140,7 +140,7 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'favorites': return <Favorites />
     case 'applications': return <Applications onDetail={goToApplicationDetail} />
     case 'application-detail': return <BackableSection sectionKey="application-detail" onBack={goBackToApplications}><ApplicationDetail applicationId={selectedItemId} onBack={goBackToApplications} /></BackableSection>
-    case 'rental-file': return <BackableSection sectionKey="rental-file" onBack={goBackFromRentalFile}><RentalFileForm /></BackableSection>
+    case 'rental-file': return <BackableSection sectionKey="rental-file" onBack={goBackFromRentalFile}><RentalFileForm onBack={goBackFromRentalFile} /></BackableSection>
     case 'my-visits': return <MyVisits onDetail={goToVisitDetail} />
     case 'visit-detail': return <BackableSection sectionKey="visit-detail" onBack={goBackToVisits}><VisitDetail visitId={selectedItemId} onBack={goBackToVisits} /></BackableSection>
     case 'my-leases': return <MyLeases onDetail={goToLeaseDetail} />
@@ -187,6 +187,7 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'payment-detail': return <OwnerFinances />
     case 'finances': return <OwnerFinances />
     case 'analytics': return <OwnerAnalytics />
+    case 'inventory-report-form': return <InventoryReportForm />
     case 'messages': return <ProprietaireMessages />
     case 'notifications': return <Notifications />
     case 'trust-score': return <TrustScore />

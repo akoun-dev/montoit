@@ -94,7 +94,7 @@ export async function PATCH(req: NextRequest) {
         }
 
         if (body.gender !== undefined) {
-            if (body.gender && !["HOMME", "FEMME"].includes(body.gender)) {
+            if (body.gender && !["HOMME", "FEMME", "AUTRE"].includes(body.gender)) {
                 return NextResponse.json(
                     { error: "Genre invalide" },
                     { status: 400 }

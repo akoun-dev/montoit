@@ -426,8 +426,7 @@ export const useAuthStore = create<AuthState>()(
                                 isLoading: false,
                                 currentView: "login",
                                 pendingEmail: data.email,
-                                pendingMessage:
-                                    "Un compte existe déjà avec cet email. Veuillez vous connecter.",
+                                pendingMessage: result.error,
                             })
                             return
                         }

@@ -477,50 +477,7 @@ export function ProprietaireOverview() {
         </motion.div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-          REVENUS PAR BIEN (compact)
-         ═══════════════════════════════════════════════════════════════════════ */}
-      {revenuePerProperty.length > 0 && (
-        <motion.div variants={itemVariants}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2"><BarChart3 className="size-5 text-brand-500" /><h2 className="text-base font-semibold text-foreground">Revenus par bien</h2></div>
-            <Button variant="ghost" size="sm" className="text-brand-500 gap-1" onClick={() => setDashboardSection('finances')}>
-              Détails <ArrowRight className="size-3" />
-            </Button>
-          </div>
-          <Card className="border-border">
-            <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2.5 px-3 text-[11px] font-medium text-muted-foreground">Bien</th>
-                    <th className="text-right py-2.5 px-3 text-[11px] font-medium text-muted-foreground">Collecté</th>
-                    <th className="text-right py-2.5 px-3 text-[11px] font-medium text-muted-foreground hidden sm:table-cell">En attente</th>
-                    <th className="text-right py-2.5 px-3 text-[11px] font-medium text-muted-foreground hidden sm:table-cell">En retard</th>
-                    <th className="text-right py-2.5 px-3 text-[11px] font-medium text-brand-600">Net</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {revenuePerProperty.slice(0, 10).map((prop) => (
-                    <tr key={prop.propertyId} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
-                      <td className="py-2.5 px-3">
-                        <div className="flex items-center gap-2">
-                          <div className="size-7 rounded bg-brand-50 flex items-center justify-center shrink-0"><Building2 className="size-3.5 text-brand-500" /></div>
-                          <span className="text-sm font-medium text-foreground truncate max-w-[140px]">{prop.propertyTitle}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-medium text-emerald-600">{prop.collected > 0 ? formatCurrency(prop.collected) : '—'}</td>
-                      <td className="py-2.5 px-3 text-right text-amber-600 hidden sm:table-cell">{prop.pending > 0 ? formatCurrency(prop.pending) : '—'}</td>
-                      <td className="py-2.5 px-3 text-right text-red-600 hidden sm:table-cell">{prop.late > 0 ? formatCurrency(prop.late) : '—'}</td>
-                      <td className="py-2.5 px-3 text-right font-semibold text-brand-600">{formatCurrency(prop.netRevenue)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+
     </motion.div>
   )
 }

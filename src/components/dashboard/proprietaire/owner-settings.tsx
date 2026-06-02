@@ -84,7 +84,7 @@ const itemVariants = {
 // ── Main Owner Settings Component ───────────────────────────────────────────
 
 export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: string; onTabConsumed?: () => void }) {
-  const { user, updateUser } = useAuthStore()
+  const { user, setDashboardSection, updateUser } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'profil' | 'verification' | 'notifications' | 'securite'>('profil')
 
@@ -122,6 +122,13 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
   const [oneciVerifying, setOneciVerifying] = useState(false)
   const [oneciResult, setOneciResult] = useState<{ verified: boolean; message: string; details?: string } | null>(null)
   const oneciSectionRef = useRef<HTMLDivElement>(null)
+
+  // Phone verification state
+  const [phoneSending, setPhoneSending] = useState(false)
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false)
+  const [phoneOtpCode, setPhoneOtpCode] = useState('')
+  const [phoneVerifyError, setPhoneVerifyError] = useState<string | null>(null)
+  const [phoneVerifySuccess, setPhoneVerifySuccess] = useState<string | null>(null)
 
   const fetchScoring = useCallback(async () => {
     try {
@@ -299,6 +306,60 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
       setProfileSaving(false)
     }
   }, [profileForm, updateUser])
+
+  // ── Phone verification ──────────────────────────────────────────────────
+  const handleSendPhoneVerification = useCallback(async () => {
+    if (!profileForm.phone.trim()) return
+    setPhoneSending(true)
+    setPhoneVerifyError(null)
+    setPhoneVerifySuccess(null)
+    setPhoneOtpSent(false)
+    try {
+      await authFetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: profileForm.phone.trim() }),
+      })
+      await authFetch('/api/auth/send-sms-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ phone: profileForm.phone.trim(), purpose: 'phone_verify' }),
+      })
+      setPhoneOtpSent(true)
+      setPhoneVerifySuccess('Code de vérification envoyé par SMS au ' + profileForm.phone.trim())
+    } catch (err) {
+      setPhoneVerifyError(err instanceof Error ? err.message : "Erreur lors de l'envoi du code")
+    } finally {
+      setPhoneSending(false)
+    }
+  }, [profileForm.phone])
+
+  const handleVerifyPhoneCode = useCallback(async () => {
+    if (!phoneOtpCode.trim() || !profileForm.phone.trim()) return
+    setPhoneSending(true)
+    setPhoneVerifyError(null)
+    try {
+      const result = await authFetch<{ verified: boolean; message: string }>('/api/auth/verify-phone-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ phone: profileForm.phone.trim(), code: phoneOtpCode.trim() }),
+      })
+      if (result.verified) {
+        setPhoneVerifySuccess('Numéro de téléphone vérifié avec succès !')
+        setPhoneOtpSent(false)
+        setPhoneOtpCode('')
+        const profileResult = await authFetch<{ user: OwnerProfileData }>('/api/profile')
+        setProfile(profileResult.user)
+        updateUser({ phone: profileResult.user.phone, isPhoneVerified: true })
+      }
+    } catch (err) {
+      setPhoneVerifyError(err instanceof Error ? err.message : 'Code invalide ou expiré')
+    } finally {
+      setPhoneSending(false)
+    }
+  }, [phoneOtpCode, profileForm.phone, updateUser])
 
   // ── Toggle notification preference ──────────────────────────────────────
   const handleToggleNotif = useCallback(async (key: keyof NotificationPreferences, value: boolean) => {
@@ -561,78 +622,6 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
                   </div>
                 </div>
 
-                {/* Phone with visibility toggle */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="owner-phone" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                    <Phone className="size-3" /> Téléphone
-                    {profile?.isPhoneVerified && (
-                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0 border">
-                        <CheckCircle2 className="size-2.5 mr-0.5" /> Vérifié
-                      </Badge>
-                    )}
-                  </Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      id="owner-phone"
-                      value={profileForm.phone}
-                      onChange={(e) => setProfileForm((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
-                      placeholder="07 00 00 00 00"
-                      className="h-9 text-sm flex-1"
-                    />
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Switch
-                        checked={profileForm.showPhone}
-                        onCheckedChange={(val) => setProfileForm((prev) => ({ ...prev, showPhone: val }))}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {profileForm.showPhone ? (
-                          <Eye className="size-3.5 text-emerald-500" />
-                        ) : (
-                          <EyeOff className="size-3.5 text-muted-foreground" />
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    {profileForm.showPhone ? 'Visible par les candidats' : 'Masqué pour les candidats'}
-                  </p>
-                </div>
-
-                {/* Email with visibility toggle */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                    <Mail className="size-3" /> Email
-                    {profile?.isEmailVerified && (
-                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0 border">
-                        <CheckCircle2 className="size-2.5 mr-0.5" /> Vérifié
-                      </Badge>
-                    )}
-                  </Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      value={profile?.email || user?.email || ''}
-                      disabled
-                      className="h-9 text-sm bg-muted text-muted-foreground flex-1"
-                    />
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Switch
-                        checked={profileForm.showEmail}
-                        onCheckedChange={(val) => setProfileForm((prev) => ({ ...prev, showEmail: val }))}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {profileForm.showEmail ? (
-                          <Eye className="size-3.5 text-emerald-500" />
-                        ) : (
-                          <EyeOff className="size-3.5 text-muted-foreground" />
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    {profileForm.showEmail ? 'Visible par les candidats' : 'Masqué pour les candidats'}
-                  </p>
-                </div>
-
                 {/* Gender & City */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
@@ -654,6 +643,132 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
                       placeholder="Sélectionnez une ville"
                       className="h-9 text-sm"
                     />
+                  </div>
+                </div>
+
+                {/* Phone & Email */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Phone */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="owner-phone" className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                      <Phone className="size-3" /> Téléphone
+                      {profile?.isPhoneVerified && (
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0 border">
+                          <CheckCircle2 className="size-2.5 mr-0.5" /> Vérifié
+                        </Badge>
+                      )}
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="owner-phone"
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                        placeholder="07 00 00 00 00"
+                        className="h-9 text-sm flex-1"
+                      />
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Switch
+                          checked={profileForm.showPhone}
+                          onCheckedChange={(val) => setProfileForm((prev) => ({ ...prev, showPhone: val }))}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {profileForm.showPhone ? (
+                            <Eye className="size-3.5 text-emerald-500" />
+                          ) : (
+                            <EyeOff className="size-3.5 text-muted-foreground" />
+                          )}
+                        </span>
+                      </div>
+                      {!profile?.isPhoneVerified && profileForm.phone && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 text-xs shrink-0 border-brand-200 text-brand-600 hover:bg-brand-50"
+                          onClick={handleSendPhoneVerification}
+                          disabled={phoneSending}
+                        >
+                          {phoneSending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <><CheckCircle2 className="size-3.5 mr-1" /> Vérifier</>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      {profileForm.showPhone ? 'Visible par les candidats' : 'Masqué pour les candidats'}
+                    </p>
+
+                    {phoneOtpSent && !profile?.isPhoneVerified && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex gap-2"
+                      >
+                        <Input
+                          placeholder="Code de vérification"
+                          value={phoneOtpCode}
+                          onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          className="h-9 text-sm text-center tracking-widest"
+                          maxLength={6}
+                          disabled={phoneSending}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-9 text-xs shrink-0 bg-brand-500 hover:bg-brand-600 text-white"
+                          onClick={handleVerifyPhoneCode}
+                          disabled={phoneSending || phoneOtpCode.length < 4}
+                        >
+                          {phoneSending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            'Confirmer'
+                          )}
+                        </Button>
+                      </motion.div>
+                    )}
+
+                    {phoneVerifyError && (
+                      <p className="text-[10px] text-red-500">{phoneVerifyError}</p>
+                    )}
+                    {phoneVerifySuccess && (
+                      <p className="text-[10px] text-emerald-600">{phoneVerifySuccess}</p>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                      <Mail className="size-3" /> Email
+                      {profile?.isEmailVerified && (
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0 border">
+                          <CheckCircle2 className="size-2.5 mr-0.5" /> Vérifié
+                        </Badge>
+                      )}
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={profile?.email || user?.email || ''}
+                        disabled
+                        className="h-9 text-sm bg-muted text-muted-foreground flex-1"
+                      />
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Switch
+                          checked={profileForm.showEmail}
+                          onCheckedChange={(val) => setProfileForm((prev) => ({ ...prev, showEmail: val }))}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {profileForm.showEmail ? (
+                            <Eye className="size-3.5 text-emerald-500" />
+                          ) : (
+                            <EyeOff className="size-3.5 text-muted-foreground" />
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      {profileForm.showEmail ? 'Visible par les candidats' : 'Masqué pour les candidats'}
+                    </p>
                   </div>
                 </div>
 
@@ -687,38 +802,7 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
             className="space-y-6"
           >
             {/* Score Overview */}
-            {scoring && (
-              <Card className="border-border overflow-hidden">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-6">
-                    <ScoreCircle score={scoring.score} statusColor={scoring.statusColor} size="lg" />
-                    <div className="flex-1 min-w-0 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Badge className={`border text-xs font-semibold px-2.5 py-1 ${
-                          scoring.statusColor === 'emerald'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : scoring.statusColor === 'amber'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-red-50 text-red-700 border-red-200'
-                        }`}>
-                          {scoring.statusColor === 'emerald' ? (
-                            <ShieldCheck className="size-3.5 mr-1" />
-                          ) : scoring.statusColor === 'amber' ? (
-                            <AlertTriangle className="size-3.5 mr-1" />
-                          ) : (
-                            <XCircle className="size-3.5 mr-1" />
-                          )}
-                          {scoring.statusLabel}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Votre Trust Score reflète votre fiabilité en tant que {scoring.roleLabel || 'propriétaire'}. Plus votre score est élevé, plus vos annonces seront mises en avant.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            
 
             {/* Score breakdown */}
             {scoring && (

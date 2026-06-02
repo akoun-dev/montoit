@@ -186,13 +186,6 @@ export async function POST(req: NextRequest) {
       .single() as any)
     const effectiveRole = profile?.active_role || profile?.role
 
-    if (effectiveRole !== 'TIERS_CONFIANCE') {
-      return NextResponse.json(
-        { error: 'Accès refusé — rôle TIERS_CONFIANCE requis' },
-        { status: 403 }
-      )
-    }
-
     const body = await req.json()
     const { propertyId, type, leaseId, items, generalObservations, totalKeys, status: requestedStatus } = body
 
@@ -208,11 +201,27 @@ export async function POST(req: NextRequest) {
 
     const { data: property } = await ((supabase as any)
       .from('properties')
-      .select('id')
+      .select('id, owner_id')
       .eq('id', propertyId)
       .single() as any)
     if (!property) {
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
+    }
+
+    if (effectiveRole === 'TIERS_CONFIANCE') {
+      // TC can create reports for any property
+    } else if (effectiveRole === 'PROPRIETAIRE') {
+      if (property.owner_id !== userId) {
+        return NextResponse.json(
+          { error: 'Vous ne pouvez créer un état des lieux que pour vos propres biens' },
+          { status: 403 }
+        )
+      }
+    } else {
+      return NextResponse.json(
+        { error: 'Accès refusé — rôle TIERS_CONFIANCE ou PROPRIETAIRE requis' },
+        { status: 403 }
+      )
     }
 
     if (leaseId) {

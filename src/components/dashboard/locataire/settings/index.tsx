@@ -1069,6 +1069,43 @@ export function SettingsSection() {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Gender */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                      <Users className="size-3" /> Genre
+                    </Label>
+                    <Select
+                      value={formState.gender || '_empty'}
+                      onValueChange={(val) => setFormState((prev) => ({ ...prev, gender: val === '_empty' ? '' : val }))}
+                    >
+                      <SelectTrigger className="h-9 text-sm w-full">
+                        <SelectValue placeholder="Sélectionnez" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_empty">— Non renseigné —</SelectItem>
+                        <SelectItem value="HOMME">Masculin</SelectItem>
+                        <SelectItem value="FEMME">Féminin</SelectItem>
+                        <SelectItem value="AUTRE">Autre</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* City */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="city" className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                      <MapPin className="size-3" /> Ville
+                    </Label>
+                    <Input
+                      id="city"
+                      value={formState.city}
+                      onChange={(e) => setFormState((prev) => ({ ...prev, city: e.target.value }))}
+                      placeholder="Ex: Abidjan"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
                   {/* Phone */}
                   <div className="space-y-1.5">
                     <Label htmlFor="phone" className="text-xs font-medium text-foreground flex items-center gap-1.5">
@@ -1080,15 +1117,13 @@ export function SettingsSection() {
                       )}
                     </Label>
                     <div className="flex gap-2">
-                      <div className="flex-1">
-                        <Input
-                          id="phone"
-                          value={formState.phone}
-                          onChange={(e) => setFormState((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
-                          placeholder="07 00 00 00 00"
-                          className="h-9 text-sm"
-                        />
-                      </div>
+                      <Input
+                        id="phone"
+                        value={formState.phone}
+                        onChange={(e) => setFormState((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                        placeholder="07 00 00 00 00"
+                        className="h-9 text-sm flex-1"
+                      />
                       {!profile?.isPhoneVerified && formState.phone && (
                         <Button
                           variant="outline"
@@ -1106,7 +1141,6 @@ export function SettingsSection() {
                       )}
                     </div>
 
-                    {/* Phone OTP input */}
                     {phoneOtpSent && !profile?.isPhoneVerified && (
                       <motion.div
                         initial={{ opacity: 0, y: -5 }}
@@ -1143,56 +1177,18 @@ export function SettingsSection() {
                       <p className="text-[10px] text-emerald-600">{phoneVerifySuccess}</p>
                     )}
                   </div>
-                  {/* Gender */}
+
+                  {/* Email */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                      <Users className="size-3" /> Genre
+                      <Mail className="size-3" /> Email
+                      {profile?.isEmailVerified && (
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0 border">
+                          <CheckCircle2 className="size-2.5 mr-0.5" /> Vérifié
+                        </Badge>
+                      )}
                     </Label>
-                    <Select
-                      value={formState.gender || '_empty'}
-                      onValueChange={(val) => setFormState((prev) => ({ ...prev, gender: val === '_empty' ? '' : val }))}
-                    >
-                      <SelectTrigger className="h-9 text-sm w-full">
-                        <SelectValue placeholder="Sélectionnez" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_empty">— Non renseigné —</SelectItem>
-                        <SelectItem value="M">Masculin</SelectItem>
-                        <SelectItem value="F">Féminin</SelectItem>
-                        <SelectItem value="AUTRE">Autre</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {/* City */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="city" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                      <MapPin className="size-3" /> Ville
-                    </Label>
-                    <Input
-                      id="city"
-                      value={formState.city}
-                      onChange={(e) => setFormState((prev) => ({ ...prev, city: e.target.value }))}
-                      placeholder="Ex: Abidjan"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Email */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                    <Mail className="size-3" /> Email
-                    {profile?.isEmailVerified && (
-                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0 border">
-                        <CheckCircle2 className="size-2.5 mr-0.5" /> Vérifié
-                      </Badge>
-                    )}
-                  </Label>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
+                    <div className="flex gap-2">
                       <Input
                         value={emailValue}
                         onChange={(e) => {
@@ -1203,37 +1199,34 @@ export function SettingsSection() {
                           setEmailOtpCode('')
                         }}
                         placeholder="email@exemple.ci"
-                        className="h-9 text-sm"
+                        className="h-9 text-sm flex-1"
                         disabled={emailSending}
                       />
+                      {(!profile?.isEmailVerified || emailValue !== (profile?.email || user?.email || '')) && emailValue && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 text-xs shrink-0 border-brand-200 text-brand-600 hover:bg-brand-50"
+                          onClick={handleSendEmailVerification}
+                          disabled={emailSending}
+                        >
+                          {emailSending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : emailOtpSent ? (
+                            'Renvoyer'
+                          ) : (
+                            <><CheckCircle2 className="size-3.5 mr-1" /> Vérifier</>
+                          )}
+                        </Button>
+                      )}
                     </div>
-                    {(!profile?.isEmailVerified || emailValue !== (profile?.email || user?.email || '')) && emailValue && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-9 text-xs shrink-0 border-brand-200 text-brand-600 hover:bg-brand-50"
-                        onClick={handleSendEmailVerification}
-                        disabled={emailSending}
-                      >
-                        {emailSending ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : emailOtpSent ? (
-                          'Renvoyer'
-                        ) : (
-                          <><CheckCircle2 className="size-3.5 mr-1" /> Vérifier</>
-                        )}
-                      </Button>
-                    )}
-                  </div>
 
-                  {/* Email OTP input */}
-                  {emailOtpSent && !profile?.isEmailVerified && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="space-y-2"
-                    >
-                      <div className="flex gap-2">
+                    {emailOtpSent && !profile?.isEmailVerified && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex gap-2"
+                      >
                         <Input
                           placeholder="Code de vérification"
                           value={emailOtpCode}
@@ -1254,16 +1247,16 @@ export function SettingsSection() {
                             'Confirmer'
                           )}
                         </Button>
-                      </div>
-                    </motion.div>
-                  )}
+                      </motion.div>
+                    )}
 
-                  {emailVerifyError && (
-                    <p className="text-[10px] text-red-500">{emailVerifyError}</p>
-                  )}
-                  {emailVerifySuccess && (
-                    <p className="text-[10px] text-emerald-600">{emailVerifySuccess}</p>
-                  )}
+                    {emailVerifyError && (
+                      <p className="text-[10px] text-red-500">{emailVerifyError}</p>
+                    )}
+                    {emailVerifySuccess && (
+                      <p className="text-[10px] text-emerald-600">{emailVerifySuccess}</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Error / Success messages */}
@@ -1308,31 +1301,7 @@ export function SettingsSection() {
             transition={{ duration: 0.2 }}
             className="space-y-6"
           >
-            {/* Score Overview */}
-            <Card className="border-border overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-6">
-                  <ScoreCircle score={scoring.score} statusColor={scoring.statusColor} size="lg" />
-                  <div className="flex-1 min-w-0 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Badge className={`border text-xs font-semibold px-2.5 py-1 ${statusBadgeClass}`}>
-                        {scoring.statusColor === 'emerald' ? (
-                          <ShieldCheck className="size-3.5 mr-1" />
-                        ) : scoring.statusColor === 'amber' ? (
-                          <AlertTriangle className="size-3.5 mr-1" />
-                        ) : (
-                          <XCircle className="size-3.5 mr-1" />
-                        )}
-                        {scoring.statusLabel}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Votre Trust Score reflète votre fiabilité en tant que {scoring.roleLabel || 'locataire'}. Plus votre score est élevé, plus vos candidatures seront favorisées.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+
 
             {/* Score breakdown components */}
             <div className="grid gap-4 sm:grid-cols-2">

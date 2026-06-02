@@ -64,7 +64,7 @@ const statCards = [
 ]
 
 export function MyProperties() {
-  const { user, isAuthenticated, setDashboardSection, setSettingsDefaultTab } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection, setSelectedPropertyId, setSettingsDefaultTab } = useAuthStore()
   const [properties, setProperties] = useState<PropertyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -190,6 +190,11 @@ export function MyProperties() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors du changement de statut')
     }
+  }
+
+  const handleEtatDesLieux = (propertyId: string) => {
+    setSelectedPropertyId(propertyId)
+    setDashboardSection('inventory-report-form')
   }
 
   const handleFormSuccess = () => {
@@ -359,6 +364,15 @@ export function MyProperties() {
               >
                 <Edit className="size-3.5" />
                 <span>Modifier</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 sm:h-9 gap-1.5 text-xs shrink-0 text-brand-600 border-brand-200 hover:bg-brand-50"
+                onClick={() => handleEtatDesLieux(p.id)}
+              >
+                <FileText className="size-3.5" />
+                <span>État des lieux</span>
               </Button>
               <Button
                 variant="outline"
