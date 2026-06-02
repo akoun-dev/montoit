@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eye, Calendar, Clock, MapPin, ChevronRight, Search, Building2, Star } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,19 +13,6 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
 import { PaginationControls } from '@/components/ui/pagination-controls'
-
-interface VisitData {
-  visitRequests: Array<{
-    id: string
-    status: string
-    requestedDate: string
-    timeSlot: string
-    counterDate: string | null
-    counterTimeSlot: string | null
-    ownerComment: string | null
-    property: { title: string; city: string; images: Array<{ url: string }> }
-  }>
-}
 
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
@@ -45,49 +33,44 @@ interface MyVisitsProps {
 
 export function MyVisits({ onDetail }: MyVisitsProps) {
   const { user, isAuthenticated, setDashboardSection } = useAuthStore()
-  const [data, setData] = useState<VisitData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
   // Filters
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
 
-  const fetchData = useCallback(async () => {
-    if (!isAuthenticated) {
-      setLoading(false)
-      return
-    }
+  const queryKey = ['dashboard-locataire']
 
-    try {
-      const d = await authFetch<VisitData>('/api/dashboard/locataire')
-      setData(d)
-    } catch (err) {
-      if (err instanceof AuthError && err.status === 401) {
-        setData(null)
-        return
-      }
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
-      setData(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const { data, isLoading, error } = useQuery({
+    queryKey,
+    queryFn: async () => {
+      const d = await authFetch<{ visitRequests: Array<{
+        id: string
+        status: string
+        requestedDate: string
+        timeSlot: string
+        counterDate: string | null
+        counterTimeSlot: string | null
+        ownerComment: string | null
+        property: { title: string; city: string; images: Array<{ url: string }> }
+      }> }>('/api/dashboard/locataire')
+      return d
+    },
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  })
 
   // ─── Realtime subscription for visit changes ────────────────────
   useRealtimeVisits({
     userId: user?.id,
     onVisitChange: (event, payload) => {
       if (event === 'UPDATE') {
-        setData((prev) => {
-          if (!prev) return prev
+        queryClient.setQueryData(queryKey, (prev: any) => {
+          if (!prev?.visitRequests) return prev
           return {
             ...prev,
-            visitRequests: prev.visitRequests.map((v) =>
+            visitRequests: prev.visitRequests.map((v: any) =>
               v.id === payload.id
                 ? {
                     ...v,
@@ -103,8 +86,7 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
           }
         })
       } else if (event === 'INSERT') {
-        // Re-fetch to get full property info for new visits
-        fetchData()
+        queryClient.invalidateQueries({ queryKey })
       }
     },
   })
@@ -140,16 +122,19 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
     return true
   })
 
+  const filterKey = `${statusFilter}-${search}`
+  const prevFilterKey = useRef(filterKey)
+  if (filterKey !== prevFilterKey.current) {
+    prevFilterKey.current = filterKey
+    if (page !== 1) setPage(1)
+  }
+
   const paginatedVisits = useMemo(() => {
     const start = (page - 1) * limit
     return filtered.slice(start, start + limit)
   }, [filtered, page, limit])
 
-  useEffect(() => {
-    setPage(1)
-  }, [statusFilter, search])
-
-  if (loading) {
+  if (isLoading) {
     return <div className="space-y-6">
       <div><div className="h-8 w-48 bg-muted animate-pulse rounded" /><div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" /></div>
       <div className="flex gap-2">{[1,2,3,4,5].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>
@@ -157,7 +142,7 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
     </div>
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
         <div>

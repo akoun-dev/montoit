@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileText, Building2, Clock, CheckCircle2, AlertCircle, ChevronRight, UserCheck } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -88,29 +89,25 @@ interface ApplicationsProps {
 
 export function Applications({ onDetail }: ApplicationsProps) {
   const { user, isAuthenticated, setDashboardSection } = useAuthStore()
-  const [applications, setApplications] = useState<ApplicationItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const limit = 10
-  const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState<Record<string, number>>({})
 
-  const fetchApplications = useCallback(async () => {
-    if (!isAuthenticated) { setLoading(false); return }
-    try {
+  const queryKey = ['applications']
+
+  const { data, isLoading, error } = useQuery<ApplicationsResponse>({
+    queryKey,
+    queryFn: async () => {
       const result = await authFetch<ApplicationsResponse>('/api/applications')
-      setApplications(result.data ?? [])
-      setStats(result.stats ?? {})
-    } catch (err) {
-      if (err instanceof AuthError && err.status === 401) { setApplications([]); return }
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
-      setApplications([])
-    } finally {
-      setLoading(false)
-    }
-  }, [isAuthenticated])
+      return result
+    },
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  })
 
-  useEffect(() => { fetchApplications() }, [fetchApplications])
+  const applications = data?.data ?? []
+  const stats = data?.stats ?? {}
 
   const paginatedApplications = useMemo(() => {
     const start = (page - 1) * limit
@@ -121,13 +118,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
   useRealtimeApplications({
     userId: user?.id,
     onApplicationChange: async () => {
-      try {
-        const result = await authFetch<ApplicationsResponse>('/api/applications', { skipCache: true })
-        setApplications(result.data ?? [])
-        setStats(result.stats ?? {})
-      } catch (err) {
-        if (err instanceof AuthError && err.status === 401) { setApplications([]); return }
-      }
+      queryClient.invalidateQueries({ queryKey })
     },
   })
 
@@ -136,7 +127,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
   }
 
   // ─── Loading skeleton ──────────────────────────────────────────────────
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div>
@@ -151,7 +142,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
   }
 
   // ─── Error state ───────────────────────────────────────────────────────
-  if (error) {
+  if (error && !data) {
     return (
       <div className="space-y-4">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Candidatures</h1>

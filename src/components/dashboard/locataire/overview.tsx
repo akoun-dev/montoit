@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Eye, MessageSquare, ShieldCheck, Home, MapPin, User, CreditCard,
   Calendar, Clock, CheckCircle2, AlertTriangle, Hourglass, ChevronRight,
@@ -113,64 +114,67 @@ function AlertIcon({ type }: { type: string }) {
 
 export function LocataireOverview() {
   const { user, isAuthenticated, setDashboardSection, setSelectedItemId } = useAuthStore()
-  const [data, setData] = useState<DashboardData>(defaultData)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set())
   const mapContainerRef = useRef<HTMLDivElement>(null)
 
-  const fetchData = useCallback(async () => {
-    if (!isAuthenticated) { setLoading(false); return }
-    try {
+  const queryKey = ['dashboard-locataire']
+
+  const { data, isLoading, error } = useQuery<DashboardData>({
+    queryKey,
+    queryFn: async () => {
       const d = await authFetch<DashboardData>('/api/dashboard/locataire')
-      setData(d)
-    } catch (err) {
-      if (err instanceof AuthError && err.status === 401) { setData(defaultData); return }
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
-    } finally { setLoading(false) }
-  }, [isAuthenticated])
+      return d ?? defaultData
+    },
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    placeholderData: defaultData,
+  })
 
-  useRealtimeNotifications({ userId: user?.id, onNotificationChange: () => fetchData() })
-  useRealtimeLeases({ userId: user?.id, onLeaseChange: () => fetchData() })
-  useRealtimeVisits({ userId: user?.id, onVisitChange: () => fetchData() })
-  useRealtimePayments({ userId: user?.id, onPaymentChange: () => fetchData() })
-  useRealtimeRentalFiles({ userId: user?.id, onRentalFileChange: () => fetchData() })
-  useRealtimeApplications({ userId: user?.id, onApplicationChange: () => fetchData() })
-  useRealtimeMaintenance({ userId: user?.id, onMaintenanceChange: () => fetchData() })
+  const theData = data ?? defaultData
 
-  useEffect(() => { fetchData() }, [fetchData])
+  const invalidate = () => queryClient.invalidateQueries({ queryKey })
+
+  useRealtimeNotifications({ userId: user?.id, onNotificationChange: invalidate })
+  useRealtimeLeases({ userId: user?.id, onLeaseChange: invalidate })
+  useRealtimeVisits({ userId: user?.id, onVisitChange: invalidate })
+  useRealtimePayments({ userId: user?.id, onPaymentChange: invalidate })
+  useRealtimeRentalFiles({ userId: user?.id, onRentalFileChange: invalidate })
+  useRealtimeApplications({ userId: user?.id, onApplicationChange: invalidate })
+  useRealtimeMaintenance({ userId: user?.id, onMaintenanceChange: invalidate })
 
   // Load map when primary lease has coordinates
   useEffect(() => {
-    if (!data.activeLeases[0]?.property?.latitude || !mapContainerRef.current) return
+    if (!theData.activeLeases[0]?.property?.latitude || !mapContainerRef.current) return
     let map: any = null
     import('leaflet').then((L) => {
       if (!mapContainerRef.current) return
       map = L.map(mapContainerRef.current).setView(
-        [data.activeLeases[0].property.latitude!, data.activeLeases[0].property.longitude!], 14
+        [theData.activeLeases[0].property.latitude!, theData.activeLeases[0].property.longitude!], 14
       )
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap',
       }).addTo(map)
-      L.marker([data.activeLeases[0].property.latitude!, data.activeLeases[0].property.longitude!])
+      L.marker([theData.activeLeases[0].property.latitude!, theData.activeLeases[0].property.longitude!])
         .addTo(map)
-        .bindPopup(`<b>${data.activeLeases[0].property.title}</b><br/>${data.activeLeases[0].property.address || data.activeLeases[0].property.city}`)
+        .bindPopup(`<b>${theData.activeLeases[0].property.title}</b><br/>${theData.activeLeases[0].property.address || theData.activeLeases[0].property.city}`)
     })
     return () => { if (map) map.remove() }
-  }, [data.activeLeases])
+  }, [theData.activeLeases])
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
-  if (error) return (
+  if (isLoading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
+  if (error && !data) return (
     <div className="space-y-4">
       <h1 className="text-xl sm:text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
       <Card className="border-amber-200 bg-amber-50"><CardContent className="p-4"><p className="text-sm text-amber-700">Impossible de charger vos données. Veuillez réessayer.</p></CardContent></Card>
     </div>
   )
 
-  const primaryLease = data.activeLeases[0] || null
+  const primaryLease = theData.activeLeases[0] || null
 
   // Active alerts (not dismissed)
-  const activeAlerts = data.alerts.filter(a => !dismissedAlerts.has(a.title))
+  const activeAlerts = theData.alerts.filter(a => !dismissedAlerts.has(a.title))
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
@@ -184,15 +188,15 @@ export function LocataireOverview() {
           <div className="flex flex-wrap gap-2 mt-4">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
               <Home className="size-3.5" />
-              {data.stats.activeLeases} contrat{data.stats.activeLeases !== 1 ? 's' : ''} actif{data.stats.activeLeases !== 1 ? 's' : ''}
+              {theData.stats.activeLeases} contrat{theData.stats.activeLeases !== 1 ? 's' : ''} actif{theData.stats.activeLeases !== 1 ? 's' : ''}
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
               <CreditCard className="size-3.5" />
-              {data.stats.totalPaid.toLocaleString('fr-FR')} FCFA payés
+              {theData.stats.totalPaid.toLocaleString('fr-FR')} FCFA payés
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
               <MessageSquare className="size-3.5" />
-              {data.stats.unreadMessages} message{data.stats.unreadMessages !== 1 ? 's' : ''} non lu{data.stats.unreadMessages !== 1 ? 's' : ''}
+              {theData.stats.unreadMessages} message{theData.stats.unreadMessages !== 1 ? 's' : ''} non lu{theData.stats.unreadMessages !== 1 ? 's' : ''}
             </span>
           </div>
         </div>
@@ -397,34 +401,34 @@ export function LocataireOverview() {
           onClick={() => setDashboardSection('my-leases')}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-lg bg-green-50"><FileSignature className="size-5 text-green-600" /></div>
-            <div><p className="text-xl font-bold text-foreground">{data.stats.activeLeases}</p><p className="text-xs text-muted-foreground">Contrat actif</p></div>
+            <div><p className="text-xl font-bold text-foreground">{theData.stats.activeLeases}</p><p className="text-xs text-muted-foreground">Contrat actif</p></div>
           </CardContent>
         </Card>
         <Card className="border-border cursor-pointer hover:shadow-sm transition-shadow"
           onClick={() => setDashboardSection('maintenance')}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50"><Wrench className="size-5 text-amber-600" /></div>
-            <div><p className="text-xl font-bold text-foreground">{data.stats.pendingMaintenance + data.stats.inProgressMaintenance}</p><p className="text-xs text-muted-foreground">Demandes en cours</p></div>
+            <div><p className="text-xl font-bold text-foreground">{theData.stats.pendingMaintenance + theData.stats.inProgressMaintenance}</p><p className="text-xs text-muted-foreground">Demandes en cours</p></div>
           </CardContent>
         </Card>
         <Card className="border-border cursor-pointer hover:shadow-sm transition-shadow"
           onClick={() => setDashboardSection('messages')}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50"><MessageSquare className="size-5 text-brand-600" /></div>
-            <div><p className="text-xl font-bold text-foreground">{data.stats.unreadMessages}</p><p className="text-xs text-muted-foreground">Messages</p></div>
+            <div><p className="text-xl font-bold text-foreground">{theData.stats.unreadMessages}</p><p className="text-xs text-muted-foreground">Messages</p></div>
           </CardContent>
         </Card>
         <Card className="border-border cursor-pointer hover:shadow-sm transition-shadow"
           onClick={() => setDashboardSection('my-visits')}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-lg bg-blue-50"><Eye className="size-5 text-blue-600" /></div>
-            <div><p className="text-xl font-bold text-foreground">{data.stats.pendingVisits}</p><p className="text-xs text-muted-foreground">Visites</p></div>
+            <div><p className="text-xl font-bold text-foreground">{theData.stats.pendingVisits}</p><p className="text-xs text-muted-foreground">Visites</p></div>
           </CardContent>
         </Card>
       </motion.div>
 
       {/* ─── 4. DEMANDES DE MAINTENANCE ────────────────────────────────── */}
-      {data.maintenanceRequests.length > 0 && (
+      {theData.maintenanceRequests.length > 0 && (
         <motion.div variants={itemVariants}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -437,7 +441,7 @@ export function LocataireOverview() {
           </div>
           <Card className="border-border">
             <CardContent className="p-4 space-y-2 max-h-64 overflow-y-auto">
-              {data.maintenanceRequests.map((m) => (
+              {theData.maintenanceRequests.map((m) => (
                 <div key={m.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors"
                   onClick={() => setDashboardSection('maintenance')}>
                   <div className="flex items-center gap-3 min-w-0">
@@ -465,7 +469,7 @@ export function LocataireOverview() {
       )}
 
       {/* ─── 5. DOCUMENTS ──────────────────────────────────────────────── */}
-      {data.myDocuments.length > 0 && (
+      {theData.myDocuments.length > 0 && (
         <motion.div variants={itemVariants}>
           <div className="flex items-center gap-2 mb-3">
             <FileText className="size-5 text-brand-500" />
@@ -474,7 +478,7 @@ export function LocataireOverview() {
           <Card className="border-border">
             <CardContent className="p-4">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {data.myDocuments.slice(0, 6).map((doc) => (
+                {theData.myDocuments.slice(0, 6).map((doc) => (
                   <a key={doc.id} href={doc.url} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-2 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors group">
                     <div className="flex size-9 items-center justify-center rounded-lg bg-brand-50 shrink-0">
@@ -497,7 +501,7 @@ export function LocataireOverview() {
       )}
 
       {/* ─── 6. RECOMMANDATIONS + FAVORIS ──────────────────────────────── */}
-      {(data.recommendedProperties.length > 0 || data.favoritePropIds.length > 0) && (
+      {(theData.recommendedProperties.length > 0 || theData.favoritePropIds.length > 0) && (
         <motion.div variants={itemVariants}>
           <div className="flex items-center gap-2 mb-3">
             <Star className="size-5 text-brand-500" />
@@ -506,7 +510,7 @@ export function LocataireOverview() {
           <Card className="border-border">
             <CardContent className="p-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {data.recommendedProperties.slice(0, 4).map((rec) => (
+                {theData.recommendedProperties.slice(0, 4).map((rec) => (
                   <div key={rec.id} className="flex gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors"
                     onClick={() => { setSelectedItemId(rec.id); setDashboardSection('search') }}>
                     <div className="size-16 rounded-lg bg-muted overflow-hidden shrink-0">
@@ -527,7 +531,7 @@ export function LocataireOverview() {
                       </div>
                     </div>
                     <Heart className={cn('size-4 shrink-0 mt-1',
-                      data.favoritePropIds.includes(rec.id) ? 'text-red-500 fill-red-500' : 'text-muted-foreground'
+                      theData.favoritePropIds.includes(rec.id) ? 'text-red-500 fill-red-500' : 'text-muted-foreground'
                     )} />
                   </div>
                 ))}
