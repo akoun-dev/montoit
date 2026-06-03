@@ -45,6 +45,7 @@ import { DossierValidations } from './tc/dossier-validations'
 import { RentalFilesQueue } from './tc/rental-files-queue'
 import { RentalFileDetail } from './tc/rental-file-detail'
 import { OwnerValidations } from './tc/owner-validations'
+import { OwnerDossierValidations } from './tc/owner-dossier-validations'
 import { AgencyValidations } from './tc/agency-validations'
 import { SlaMonitoring } from './tc/sla-monitoring'
 import { PropertyVerifications } from './tc/property-verifications'
@@ -211,6 +212,7 @@ function TcDashboard({ section }: { section: string }) {
     case 'rental-files-queue': return <RentalFilesQueue />
     case 'rental-file-detail': return <RentalFileDetail />
     case 'owner-validations': return <OwnerValidations />
+    case 'owner-dossiers': return <OwnerDossierValidations />
     case 'agency-validations': return <AgencyValidations />
     case 'inventory-reports': return <InventoryReportsList />
     case 'sla-monitoring': return <SlaMonitoring />

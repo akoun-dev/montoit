@@ -40,11 +40,12 @@ export async function GET(req: NextRequest) {
       .from('rental_files')
       .select('*', { count: 'exact' })
 
-    if (status) {
+    if (status && status !== 'ALL') {
       query = query.eq('status', status)
-    } else if (!overdue) {
+    } else if (!status && !overdue) {
       query = query.in('status', ['SUBMITTED', 'TC_REVIEW'])
     }
+    // status=ALL => no filter
 
     if (search) {
       const { data: matchingTenants } = await ((supabase as any)

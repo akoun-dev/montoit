@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { notifyMany } from '@/lib/notify'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -156,6 +157,30 @@ export async function POST(req: NextRequest) {
     }
 
     const enriched = await enrichOwnerFile(admin, ownerFile)
+
+    // Notify TC when submitted
+    if (submit) {
+      try {
+        const { data: tcUsers } = await admin
+          .from('users')
+          .select('id')
+          .eq('role', 'TIERS_CONFIANCE')
+          .eq('is_active', true)
+
+        if (tcUsers && tcUsers.length > 0) {
+          await notifyMany({
+            userIds: tcUsers.map((tc: any) => tc.id),
+            type: 'DOSSIER_UPDATE',
+            title: 'Nouveau dossier propriétaire soumis',
+            message: 'Un nouveau dossier propriétaire a été soumis et nécessite votre validation.',
+            actionUrl: 'owner-dossiers',
+            entityId: ownerFile.id,
+          })
+        }
+      } catch (notifyErr) {
+        console.error('Failed to notify TC about owner file submission:', notifyErr)
+      }
+    }
 
     return NextResponse.json({ data: enriched })
   } catch (error) {

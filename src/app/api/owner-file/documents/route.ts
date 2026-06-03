@@ -4,6 +4,10 @@ import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
 import { BUCKETS, deleteFromStorage, extractBucketAndPath, uploadFromBase64 } from '@/lib/supabase/storage'
 
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 export async function GET(req: NextRequest) {
   const auth = await resolveRequestUser(req)
   const { userId, applyCookies } = auth
@@ -37,7 +41,7 @@ export async function GET(req: NextRequest) {
 
     // Récupérer les documents associés
     const { data: documents } = await (supabase as any)
-      .from('owner_documents')
+      .from('owner_file_documents')
       .select('id, name, type, url, status')
       .in('owner_file_id', ownerFileIds)
 
@@ -106,7 +110,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: existingDoc } = await (supabase
-      .from('owner_documents')
+      .from('owner_file_documents')
       .select('id, url')
       .eq('owner_file_id', ownerFileId)
       .eq('type', type)
@@ -129,7 +133,7 @@ export async function POST(req: NextRequest) {
     let document: any
     if (existingDoc) {
       const { data: updated } = await ((supabase
-        .from('owner_documents') as any)
+        .from('owner_file_documents') as any)
         .update({ name, url, status: 'PENDING', tc_comment: null })
         .eq('id', existingDoc.id)
         .select()
@@ -137,8 +141,8 @@ export async function POST(req: NextRequest) {
       document = updated
     } else {
       const { data: created } = await (supabase
-        .from('owner_documents')
-        .insert({ owner_file_id: ownerFileId, type, name, url, status: 'PENDING' } as any)
+        .from('owner_file_documents')
+        .insert({ id: generateId(), owner_file_id: ownerFileId, type, name, url, status: 'PENDING' } as any)
         .select()
         .single() as any)
       document = created
@@ -156,7 +160,7 @@ export async function POST(req: NextRequest) {
         type: 'DOSSIER_UPDATE',
         title: 'Nouveau document de propriété soumis',
         message: 'Un nouveau document de propriété a été soumis et nécessite votre validation.',
-        actionUrl: 'owner-validations',
+        actionUrl: 'owner-dossiers',
         entityId: document.id,
       })
     }
@@ -200,8 +204,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { data: doc, error: docError } = await (supabase
-      .from('owner_documents')
-      .select('id, url, owner_file:owner_files!owner_documents_owner_file_id_fkey(owner_id, status)')
+      .from('owner_file_documents')
+      .select('id, url, owner_file:owner_files!owner_file_documents_owner_file_id_fkey(owner_id, status)')
       .eq('id', docId)
       .single() as any)
 
@@ -225,7 +229,7 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    await (supabase.from('owner_documents').delete().eq('id', docId) as any)
+    await (supabase.from('owner_file_documents').delete().eq('id', docId) as any)
 
     const response = NextResponse.json({ success: true })
     return applyCookies(response)

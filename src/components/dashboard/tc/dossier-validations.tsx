@@ -52,6 +52,17 @@ const CATEGORIES = [
   { key: 'agence' as FilterKey, label: 'Agences', icon: Building2, color: 'text-rose-600', bg: 'bg-rose-50', ring: 'ring-rose-400' },
 ]
 
+type StatusFilter = 'ALL' | 'SUBMITTED' | 'PENDING' | 'TC_REVIEW' | 'VALIDATED' | 'REJECTED'
+
+const STATUS_FILTERS: { key: StatusFilter; label: string; color: string; bg: string; ring: string }[] = [
+  { key: 'ALL', label: 'Tous', color: 'text-brand-600', bg: 'bg-brand-50', ring: 'ring-brand-400' },
+  { key: 'SUBMITTED', label: 'Soumis', color: 'text-amber-600', bg: 'bg-amber-50', ring: 'ring-amber-400' },
+  { key: 'PENDING', label: 'En attente', color: 'text-yellow-600', bg: 'bg-yellow-50', ring: 'ring-yellow-400' },
+  { key: 'TC_REVIEW', label: 'En revue', color: 'text-orange-600', bg: 'bg-orange-50', ring: 'ring-orange-400' },
+  { key: 'VALIDATED', label: 'Validé', color: 'text-green-600', bg: 'bg-green-50', ring: 'ring-green-400' },
+  { key: 'REJECTED', label: 'Rejeté', color: 'text-red-600', bg: 'bg-red-50', ring: 'ring-red-400' },
+]
+
 const CATEGORY_BADGE: Record<FilterKey, { label: string; class: string }> = {
   all: { label: '', class: '' },
   locataire: { label: 'Locataire', class: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -78,6 +89,7 @@ function isActionable(status: string) {
 export function DossierValidations() {
   const { isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
   const [filter, setFilter] = useState<FilterKey>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [stats, setStats] = useState<TcStats>(defaultStats)
   const [items, setItems] = useState<UnifiedItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -98,9 +110,10 @@ export function DossierValidations() {
     if (!isAuthenticated) { setLoading(false); return }
     setLoading(true)
     try {
-      const [rentalRes, ownerRes] = await Promise.all([
-        authFetch<{ files: any[] }>('/api/tc/rental-files?limit=200'),
+      const [rentalRes, ownerRes, ownerFileRes] = await Promise.all([
+        authFetch<{ files: any[] }>('/api/tc/rental-files?limit=200&status=ALL'),
         authFetch<{ docs: any[] }>('/api/tc/ownership-docs?limit=200&status=ALL'),
+        authFetch<{ files: any[] }>('/api/tc/owner-files?status=ALL'),
       ])
 
       const unified: UnifiedItem[] = [
@@ -124,6 +137,14 @@ export function DossierValidations() {
             type: d.type,
           }
         }),
+        ...(ownerFileRes.files ?? []).map((f: any) => ({
+          id: f.id,
+          category: 'proprietaire' as FilterKey,
+          name: `${f.owner?.firstName ?? ''} ${f.owner?.lastName ?? ''}`.trim() || 'N/A',
+          detail: 'Dossier propriétaire',
+          status: f.status,
+          createdAt: f.createdAt,
+        })),
       ]
 
       setItems(unified.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
@@ -138,8 +159,14 @@ export function DossierValidations() {
   useEffect(() => { fetchStats(); fetchItems() }, [fetchStats, fetchItems])
 
   const filteredItems = useMemo(
-    () => filter === 'all' ? items : items.filter(i => i.category === filter),
-    [items, filter]
+    () => {
+      let result = filter === 'all' ? items : items.filter(i => i.category === filter)
+      if (statusFilter !== 'ALL') {
+        result = result.filter(i => i.status === statusFilter || (statusFilter === 'VALIDATED' && i.status === 'APPROVED'))
+      }
+      return result
+    },
+    [items, filter, statusFilter]
   )
 
   const getCount = (key: FilterKey) => {
@@ -156,11 +183,17 @@ export function DossierValidations() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileIds: [item.id], action: 'APPROVE', comment: '' }),
         })
-      } else {
+      } else if (item.type) {
         await authFetch('/api/tc/ownership-docs', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ docIds: [item.id], action: 'APPROVE', comment: '' }),
+        })
+      } else {
+        await authFetch('/api/tc/owner-files', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileIds: [item.id], action: 'APPROVE', comment: '' }),
         })
       }
       toast.success('Document validé')
@@ -177,6 +210,8 @@ export function DossierValidations() {
     if (item.category === 'locataire') {
       setSelectedItemId(item.id)
       setDashboardSection('rental-file-detail')
+    } else if (!item.type) {
+      setDashboardSection('owner-dossiers')
     }
   }
 
@@ -273,6 +308,24 @@ export function DossierValidations() {
         </span>
       </div>
 
+      {/* ─── Filtres par statut ──────────────────────────────────── */}
+      <div className="flex flex-wrap gap-1.5">
+        {STATUS_FILTERS.map((sf) => (
+          <button
+            key={sf.key}
+            onClick={() => setStatusFilter(sf.key)}
+            className={cn(
+              'px-3 py-1.5 rounded-full text-xs font-medium transition-all border',
+              statusFilter === sf.key
+                ? cn(sf.ring, 'ring-1', sf.bg, 'border-transparent')
+                : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+            )}
+          >
+            {sf.label}
+          </button>
+        ))}
+      </div>
+
       {/* ─── Liste unifiée ──────────────────────────────────────── */}
       <Card className="border-border">
         <CardContent className="p-0 divide-y divide-border/40">
@@ -294,9 +347,9 @@ export function DossierValidations() {
                   key={item.id}
                   className={cn(
                     'flex items-center gap-3 px-4 sm:px-6 py-3.5 transition-colors',
-                    item.category === 'locataire' ? 'cursor-pointer hover:bg-muted/30' : ''
+                    item.category === 'locataire' || (item.category === 'proprietaire' && !item.type) ? 'cursor-pointer hover:bg-muted/30' : ''
                   )}
-                  onClick={() => item.category === 'locataire' && handleViewDetail(item)}
+                  onClick={() => handleViewDetail(item)}
                 >
                   <div className={cn('flex size-9 items-center justify-center rounded-lg shrink-0', cat.bg)}>
                     <Icon className={cn('size-4', cat.color)} />
@@ -334,7 +387,7 @@ export function DossierValidations() {
                         }
                       </Button>
                     )}
-                    {item.category === 'locataire' && (
+                    {(item.category === 'locataire' || (item.category === 'proprietaire' && !item.type)) && (
                       <ChevronRight className="size-4 text-muted-foreground/50" />
                     )}
                   </div>

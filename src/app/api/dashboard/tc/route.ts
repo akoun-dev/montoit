@@ -35,6 +35,9 @@ export async function GET(req: NextRequest) {
       pendingOwnerDocsCount,
       submittedRentalCount,
       tcReviewRentalCount,
+      pendingOwnerFilesCount,
+      submittedOwnerFileCount,
+      tcReviewOwnerFileCount,
     ] = await Promise.all([
       admin.from('rental_files').select('*').in('status', ['SUBMITTED', 'TC_REVIEW']).order('created_at', { ascending: true }),
       admin.from('ownership_documents').select('*').eq('status', 'PENDING').order('created_at', { ascending: true }),
@@ -46,6 +49,9 @@ export async function GET(req: NextRequest) {
       admin.from('ownership_documents').select('id', { count: 'exact', head: true }).eq('status', 'PENDING').in('type', ['TITRE_FONCIER', 'ACTE_NOTARIE', 'ATTESTATION_PROPRIETE']).then(({ count }) => count ?? 0),
       admin.from('rental_files').select('id', { count: 'exact', head: true }).eq('status', 'SUBMITTED').then(({ count }) => count ?? 0),
       admin.from('rental_files').select('id', { count: 'exact', head: true }).eq('status', 'TC_REVIEW').then(({ count }) => count ?? 0),
+      admin.from('owner_files').select('id', { count: 'exact', head: true }).in('status', ['SUBMITTED', 'TC_REVIEW']).then(({ count }) => count ?? 0),
+      admin.from('owner_files').select('id', { count: 'exact', head: true }).eq('status', 'SUBMITTED').then(({ count }) => count ?? 0),
+      admin.from('owner_files').select('id', { count: 'exact', head: true }).eq('status', 'TC_REVIEW').then(({ count }) => count ?? 0),
     ])
 
     const pendingRentalFiles = (pendingRentalFilesData ?? []) as any[]
@@ -211,6 +217,11 @@ export async function GET(req: NextRequest) {
         rentalFilesByStatus: {
           SUBMITTED: submittedRentalCount,
           TC_REVIEW: tcReviewRentalCount,
+        },
+        pendingOwnerFiles: pendingOwnerFilesCount,
+        ownerFilesByStatus: {
+          SUBMITTED: submittedOwnerFileCount,
+          TC_REVIEW: tcReviewOwnerFileCount,
         },
         pendingOwnerDocsByType: {
           TITRE_FONCIER: ownershipDocTypeCounts['TITRE_FONCIER'] || 0,

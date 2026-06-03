@@ -853,6 +853,9 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
                   statusColor={scoring.statusColor}
                   details={scoring.breakdown.roleSpecific.description}
                   actionLabel={scoring.breakdown.roleSpecific.hasFile ? "Voir le détail" : "Commencer"}
+                  onAction={() => setDashboardSection('owner-file')}
+                  redoLabel="Voir le détail"
+                  onRedo={() => setDashboardSection('owner-file')}
                 />
               </div>
             )}

@@ -31,7 +31,12 @@ interface TcStats {
   slaCompliance: number
   pendingAgencyDocs: number
   pendingOwnerDocs: number
+  pendingOwnerFiles: number
   rentalFilesByStatus: {
+    SUBMITTED: number
+    TC_REVIEW: number
+  }
+  ownerFilesByStatus?: {
     SUBMITTED: number
     TC_REVIEW: number
   }
@@ -129,7 +134,9 @@ const defaultStats: TcStats = {
   slaCompliance: 100,
   pendingAgencyDocs: 0,
   pendingOwnerDocs: 0,
+  pendingOwnerFiles: 0,
   rentalFilesByStatus: { SUBMITTED: 0, TC_REVIEW: 0 },
+  ownerFilesByStatus: { SUBMITTED: 0, TC_REVIEW: 0 },
   pendingOwnerDocsByType: { TITRE_FONCIER: 0, ACTE_NOTARIE: 0, ATTESTATION_PROPRIETE: 0 },
   pendingAgencyDocsByType: { AGREMENT: 0, RCCM: 0 },
 }
@@ -362,6 +369,20 @@ export function TcOverview() {
       breakdown: [
         { label: 'Titre foncier', count: stats.pendingOwnerDocsByType?.TITRE_FONCIER ?? 0, color: 'text-emerald-600' },
         { label: 'Acte notarié', count: stats.pendingOwnerDocsByType?.ACTE_NOTARIE ?? 0, color: 'text-emerald-600' },
+      ],
+    },
+    {
+      id: 'owner-dossiers',
+      label: 'Dossiers propriétaires',
+      count: stats.pendingOwnerFiles,
+      icon: FileText,
+      color: 'text-sky-600',
+      bgColor: 'bg-sky-50',
+      borderColor: 'border-sky-200',
+      hoverBg: 'hover:border-sky-300',
+      breakdown: [
+        { label: 'Soumis', count: stats.ownerFilesByStatus?.SUBMITTED ?? 0, color: 'text-sky-600' },
+        { label: 'En revue TC', count: stats.ownerFilesByStatus?.TC_REVIEW ?? 0, color: 'text-orange-600' },
       ],
     },
     {

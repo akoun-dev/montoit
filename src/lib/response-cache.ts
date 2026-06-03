@@ -237,7 +237,7 @@ export function autoInvalidateOnMutation(url: string): void {
 
     // ── User / profile / settings ─────────────────────────────────────────
     { pattern: /\/api\/auth/, clearPrefixes: ['/api/auth/me', '/api/dashboard/'] },
-    { pattern: /\/api\/user\//, clearPrefixes: ['/api/user', '/api/profile', '/api/auth/me'] },
+    { pattern: /\/api\/user\//, clearPrefixes: ['/api/user', '/api/profile', '/api/auth/me', '/api/scoring'] },
     { pattern: /\/api\/profile/, clearPrefixes: ['/api/profile', '/api/auth/me'] },
     { pattern: /\/api\/settings/, clearPrefixes: ['/api/settings', '/api/auth/me'] },
 
