@@ -125,15 +125,73 @@ export async function POST(req: NextRequest) {
           : 'Dossier propriétaire (brouillon) mis à jour',
         user_id: userId,
       })
-    } else {
-      const status = submit ? 'SUBMITTED' : 'DRAFT'
+    } else if (submit) {
+      // Resubmit from any non-validated status
+      const { data: existingFile } = await admin
+        .from('owner_files')
+        .select('*')
+        .eq('owner_id', userId)
+        .not('status', 'eq', 'VALIDATED')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
+      if (existingFile) {
+        const updateData: any = { status: 'SUBMITTED' }
+        // Only clear rejection fields if it was rejected
+        if (existingFile.status === 'REJECTED' || existingFile.status === 'EXPIRED') {
+          updateData.rejection_reason = null
+          updateData.tc_comment = null
+          updateData.reviewed_by_id = null
+          updateData.reviewed_at = null
+        }
+
+        const { data: updated } = await admin
+          .from('owner_files')
+          .update(updateData)
+          .eq('id', existingFile.id)
+          .select()
+          .single()
+
+        ownerFile = updated
+
+        await admin.from('audit_logs').insert({
+          id: generateId(),
+          action: 'SUBMIT',
+          entity: 'OwnerFile',
+          entity_id: existingFile.id,
+          details: 'Dossier propriétaire soumis à nouveau pour validation',
+          user_id: userId,
+        })
+      } else {
+        const { data: created } = await admin
+          .from('owner_files')
+          .insert({
+            id: generateId(),
+            owner_id: userId,
+            status: 'SUBMITTED',
+          })
+          .select()
+          .single()
+
+        ownerFile = created
+
+        await admin.from('audit_logs').insert({
+          id: generateId(),
+          action: 'SUBMIT',
+          entity: 'OwnerFile',
+          entity_id: created?.id,
+          details: 'Nouveau dossier propriétaire créé et soumis',
+          user_id: userId,
+        })
+      }
+    } else {
       const { data: created } = await admin
         .from('owner_files')
         .insert({
           id: generateId(),
           owner_id: userId,
-          status,
+          status: 'DRAFT',
         })
         .select()
         .single()
@@ -142,12 +200,10 @@ export async function POST(req: NextRequest) {
 
       await admin.from('audit_logs').insert({
         id: generateId(),
-        action: submit ? 'SUBMIT' : 'CREATE',
+        action: 'CREATE',
         entity: 'OwnerFile',
         entity_id: created?.id,
-        details: submit
-          ? 'Nouveau dossier propriétaire créé et soumis'
-          : 'Nouveau dossier propriétaire (brouillon) créé',
+        details: 'Nouveau dossier propriétaire (brouillon) créé',
         user_id: userId,
       })
     }

@@ -124,16 +124,17 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
     try {
       const result = await authFetch<RentalFileResponse>('/api/rental-file')
       const files = result.data ?? []
-      const draft = files.find((f) => f.status === 'DRAFT')
-      const submitted = files.find((f) => f.status !== 'DRAFT')
-      const selected = draft || submitted || files[0]
-      if (selected) {
-        setExistingFile(selected)
-        rentalFileIdRef.current = selected.id
+      const file = files.find((f) => f.status === 'DRAFT')
+        || files.find((f) => f.status === 'REJECTED')
+        || files.find((f) => f.status === 'TC_REVIEW')
+        || files[0]
+      if (file) {
+        setExistingFile(file)
+        rentalFileIdRef.current = file.id
         setFormData({
-          guarantorName: selected.guarantorName || '',
-          guarantorPhone: selected.guarantorPhone || '',
-          guarantorRelation: selected.guarantorRelation || '',
+          guarantorName: file.guarantorName || '',
+          guarantorPhone: file.guarantorPhone || '',
+          guarantorRelation: file.guarantorRelation || '',
         })
       } else {
         rentalFileIdRef.current = null
@@ -385,8 +386,8 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
     )
   }
 
-  // Check if existing file is already submitted (not DRAFT)
-  const isReadOnly = !!(existingFile && existingFile.status !== 'DRAFT')
+  // Read-only only when validated
+  const isReadOnly = !!(existingFile && existingFile.status === 'VALIDATED')
   const existingStatus = existingFile ? statusConfig[existingFile.status] : null
   const requiredDocs = documentRequirements
 
@@ -415,21 +416,58 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                 <FileText className="size-5 text-amber-600 shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium flex flex-wrap items-center gap-1.5">
-                    <span className="text-nowrap">Statut du dossier :</span>
-                    <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${existingStatus.color}`}>{existingStatus.label}</Badge>
-                  </p>
-                {existingFile.rejectionReason && (
-                  <p className="text-xs text-red-600 mt-1">Raison : {existingFile.rejectionReason}</p>
-                )}
-                {existingFile.tcComment && (
-                  <p className="text-xs text-muted-foreground mt-1">Commentaire TC : {existingFile.tcComment}</p>
-                )}
+                <p className="text-sm font-medium flex flex-wrap items-center gap-1.5">
+                  <span className="text-nowrap">Statut du dossier :</span>
+                  <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${existingStatus.color}`}>{existingStatus.label}</Badge>
+                </p>
                 {existingFile.validUntil && (
                   <p className="text-xs text-muted-foreground mt-1">Valide jusqu&apos;au {new Date(existingFile.validUntil).toLocaleDateString('fr-FR')}</p>
                 )}
               </div>
             </div>
+
+            {/* Rejection reason block */}
+            {existingFile.rejectionReason && (
+              <div className="mt-3 p-3 rounded-lg bg-red-50 border border-red-200">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="size-4 text-red-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold text-red-800">Motif du rejet</p>
+                    <p className="text-xs text-red-700 mt-0.5">{existingFile.rejectionReason}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TC comment block (when not rejected) */}
+            {existingFile.tcComment && !existingFile.rejectionReason && (
+              <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <div className="flex items-start gap-2">
+                  <FileText className="size-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold text-amber-800">Commentaire du Tiers de Confiance</p>
+                    <p className="text-xs text-amber-700 mt-0.5">{existingFile.tcComment}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Re-submit button for rejected/expired/tc_review */}
+            {existingFile.status !== 'DRAFT' && existingFile.status !== 'SUBMITTED' && existingFile.status !== 'VALIDATED' && (
+              <Button
+                size="sm"
+                className="mt-3 bg-brand-500 hover:bg-brand-600 text-white gap-1.5"
+                onClick={handleSubmit}
+                disabled={submitting || !hasDocuments}
+              >
+                {submitting ? (
+                  <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send className="size-3.5" />
+                )}
+                {submitting ? 'Envoi...' : 'Soumettre à nouveau'}
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -686,7 +724,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
               Précédent
             </Button>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto order-1 sm:order-2">
-              {!isReadOnly && (
+              {existingFile?.status === 'DRAFT' && (
                 <Button
                   variant="outline"
                   onClick={handleSaveDraft}
@@ -707,7 +745,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                   <ChevronRight className="size-4" />
                 </Button>
               ) : (
-                !isReadOnly && (
+                existingFile?.status !== 'SUBMITTED' && existingFile?.status !== 'VALIDATED' && (
                   <Button
                     onClick={handleSubmit}
                     disabled={submitting || !hasDocuments}
@@ -718,7 +756,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                     ) : (
                       <>
                         <Send className="size-4" />
-                        Soumettre le dossier
+                        {existingFile?.status === 'DRAFT' ? 'Soumettre le dossier' : 'Soumettre à nouveau'}
                       </>
                     )}
                   </Button>

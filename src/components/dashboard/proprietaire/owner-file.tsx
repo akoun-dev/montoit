@@ -88,7 +88,10 @@ export function OwnerFileForm() {
     try {
       const result = await authFetch<OwnerFileResponse>('/api/owner-file')
       const files = result.data ?? []
-      const draft = files.find((f) => f.status === 'DRAFT') || files[0]
+      const draft = files.find((f) => f.status === 'DRAFT')
+        || files.find((f) => f.status === 'REJECTED')
+        || files.find((f) => f.status === 'TC_REVIEW')
+        || files[0]
       if (draft) {
         setExistingFile(draft)
       }
@@ -257,7 +260,7 @@ export function OwnerFileForm() {
     )
   }
 
-  const isReadOnly = !!(existingFile && existingFile.status !== 'DRAFT')
+  const isReadOnly = !!(existingFile && existingFile.status === 'VALIDATED')
   const existingStatus = existingFile ? statusConfig[existingFile.status] : null
 
   return (
@@ -271,26 +274,61 @@ export function OwnerFileForm() {
       {existingFile && existingStatus && (
         <Card className={`border ${existingFile.status === 'VALIDATED' ? 'border-emerald-200 bg-emerald-50' : existingFile.status === 'REJECTED' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
           <CardContent className="p-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               {existingFile.status === 'VALIDATED' ? (
-                <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="size-6 text-emerald-600 shrink-0 mt-0.5" />
               ) : existingFile.status === 'REJECTED' ? (
-                <AlertCircle className="size-5 text-red-600 shrink-0" />
+                <AlertCircle className="size-6 text-red-600 shrink-0 mt-0.5" />
               ) : (
-                <FileText className="size-5 text-amber-600 shrink-0" />
+                <FileText className="size-6 text-amber-600 shrink-0 mt-0.5" />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">
-                  Statut du dossier : <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${existingStatus.color}`}>{existingStatus.label}</Badge>
-                </p>
-                {existingFile.rejectionReason && (
-                  <p className="text-xs text-red-600 mt-1">Raison : {existingFile.rejectionReason}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium">Statut du dossier :</span>
+                  <Badge variant="outline" className={`text-[11px] px-2 py-0.5 border ${existingStatus.color}`}>{existingStatus.label}</Badge>
+                </div>
+
+                {/* TC Comment - prominent for rejected */}
+                {existingFile.status === 'REJECTED' && (
+                  <div className="mt-3 p-3 rounded-lg bg-red-100/70 border border-red-200">
+                    <p className="text-xs font-semibold text-red-700 mb-1">Motif du rejet</p>
+                    <p className="text-sm text-red-800">{existingFile.rejectionReason || 'Aucune raison spécifiée'}</p>
+                    {existingFile.tcComment && (
+                      <>
+                        <p className="text-xs font-semibold text-red-700 mt-2 mb-1">Commentaire du Tiers de Confiance</p>
+                        <p className="text-sm text-red-800">{existingFile.tcComment}</p>
+                      </>
+                    )}
+                  </div>
                 )}
-                {existingFile.tcComment && (
-                  <p className="text-xs text-muted-foreground mt-1">Commentaire TC : {existingFile.tcComment}</p>
+
+                {/* TC Comment - visible for other non-draft statuses */}
+                {existingFile.status !== 'DRAFT' && existingFile.status !== 'REJECTED' && existingFile.tcComment && (
+                  <div className="mt-2 p-2.5 rounded-lg bg-amber-100/50 border border-amber-200">
+                    <p className="text-xs font-semibold text-amber-700">Commentaire du Tiers de Confiance</p>
+                    <p className="text-sm text-amber-800 mt-0.5">{existingFile.tcComment}</p>
+                  </div>
                 )}
+
                 {existingFile.validUntil && (
-                  <p className="text-xs text-muted-foreground mt-1">Valide jusqu&apos;au {new Date(existingFile.validUntil).toLocaleDateString('fr-FR')}</p>
+                  <p className="text-xs text-muted-foreground mt-2">Valide jusqu&apos;au {new Date(existingFile.validUntil).toLocaleDateString('fr-FR')}</p>
+                )}
+
+                {/* Re-submit button for rejected/expired/tc_review */}
+                {existingFile.status !== 'DRAFT' && existingFile.status !== 'SUBMITTED' && existingFile.status !== 'VALIDATED' && (
+                  <Button
+                    size="sm"
+                    className="mt-3 bg-brand-500 hover:bg-brand-600 text-white gap-1.5"
+                    onClick={handleSubmit}
+                    disabled={submitting || !hasDocuments}
+                  >
+                    {submitting ? (
+                      <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Send className="size-3.5" />
+                    )}
+                    {submitting ? 'Envoi...' : 'Soumettre à nouveau'}
+                  </Button>
                 )}
               </div>
             </div>
@@ -473,7 +511,7 @@ export function OwnerFileForm() {
           <div className="flex items-center justify-between pt-4 border-t border-border">
             <div />
             <div className="flex items-center gap-2">
-              {!isReadOnly && (
+              {existingFile?.status === 'DRAFT' && (
                 <Button
                   variant="outline"
                   onClick={handleSaveDraft}
@@ -484,7 +522,7 @@ export function OwnerFileForm() {
                   {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                 </Button>
               )}
-              {!isReadOnly && (
+              {existingFile?.status !== 'SUBMITTED' && existingFile?.status !== 'VALIDATED' && (
                 <Button
                   onClick={handleSubmit}
                   disabled={submitting || !hasDocuments}
@@ -495,7 +533,7 @@ export function OwnerFileForm() {
                   ) : (
                     <>
                       <Send className="size-4" />
-                      Soumettre le dossier
+                      {existingFile?.status === 'DRAFT' ? 'Soumettre le dossier' : 'Soumettre à nouveau'}
                     </>
                   )}
                 </Button>

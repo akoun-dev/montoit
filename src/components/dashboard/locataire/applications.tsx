@@ -91,6 +91,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
   const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const limit = 10
 
   const queryKey = ['applications']
@@ -109,10 +110,20 @@ export function Applications({ onDetail }: ApplicationsProps) {
   const applications = data?.data ?? []
   const stats = data?.stats ?? {}
 
+  const filteredApplications = useMemo(() => {
+    if (!statusFilter) return applications
+    return applications.filter((a) => a.status === statusFilter)
+  }, [applications, statusFilter])
+
   const paginatedApplications = useMemo(() => {
     const start = (page - 1) * limit
-    return applications.slice(start, start + limit)
-  }, [applications, page, limit])
+    return filteredApplications.slice(start, start + limit)
+  }, [filteredApplications, page, limit])
+
+  const handleStatusFilter = (status: string | null) => {
+    setStatusFilter(status)
+    setPage(1)
+  }
 
   // Realtime subscription for applications
   useRealtimeApplications({
@@ -185,8 +196,41 @@ export function Applications({ onDetail }: ApplicationsProps) {
         </div>
       </motion.div>
 
-      {applications.length === 0 ? (
-        /* Empty State */
+      {/* Status filter pills */}
+      <motion.div variants={itemVariants} className="flex flex-wrap gap-2">
+        <button
+          onClick={() => handleStatusFilter(null)}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+            statusFilter === null
+              ? 'bg-brand-500 text-white shadow-sm'
+              : 'bg-muted text-muted-foreground hover:bg-neutral-200'
+          }`}
+        >
+          Toutes ({applications.length})
+        </button>
+        {Object.entries(statusConfig).map(([status, cfg]) => {
+          const count = stats[status] ?? 0
+          if (count === 0 && statusFilter !== status) return null
+          const Icon = cfg.icon
+          return (
+            <button
+              key={status}
+              onClick={() => handleStatusFilter(status)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
+                statusFilter === status
+                  ? 'bg-brand-500 text-white shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-neutral-200'
+              }`}
+            >
+              <Icon className="size-3" />
+              {cfg.label} ({count})
+            </button>
+          )
+        })}
+      </motion.div>
+
+      {filteredApplications.length === 0 && applications.length === 0 ? (
+        /* Empty State (no applications at all) */
         <>
           <motion.div variants={itemVariants}>
             <Card className="border-dashed border-border bg-muted/50">
@@ -237,6 +281,21 @@ export function Applications({ onDetail }: ApplicationsProps) {
             </Card>
           </motion.div>
         </>
+      ) : filteredApplications.length === 0 ? (
+        /* Empty filter results */
+        <motion.div variants={itemVariants}>
+          <Card className="border-dashed border-border bg-muted/50">
+            <CardContent className="py-12 flex flex-col items-center text-center">
+              <AlertCircle className="size-10 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-1">
+                Aucune candidature avec ce statut
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Essayez de sélectionner un autre filtre.
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
       ) : (
         /* Applications List */
         <motion.div variants={containerVariants} className="space-y-3">
@@ -369,10 +428,10 @@ export function Applications({ onDetail }: ApplicationsProps) {
       )}
 
       {/* Pagination */}
-      {applications.length > limit && (
+      {filteredApplications.length > limit && (
         <PaginationControls
           page={page}
-          totalPages={Math.ceil(applications.length / limit)}
+          totalPages={Math.ceil(filteredApplications.length / limit)}
           onPageChange={setPage}
         />
       )}

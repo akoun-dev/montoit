@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      // SUBMITTED — créer et transférer les documents depuis l'éventuel DRAFT existant
+      // SUBMITTED — chercher un DRAFT existant, ou resoumettre un dossier non-validé
       const { data: existingDraft } = await admin
         .from('rental_files')
         .select('id')
@@ -226,24 +226,22 @@ export async function POST(req: NextRequest) {
         .eq('status', 'DRAFT')
         .maybeSingle()
 
-      let draftDocIds: string[] = []
       if (existingDraft) {
+        // Transférer les documents du DRAFT vers un nouveau SUBMITTED
         const { data: draftDocs } = await admin
           .from('rental_file_documents')
           .select('id')
           .eq('rental_file_id', existingDraft.id)
-        draftDocIds = (draftDocs ?? []).map((d) => d.id)
-      }
+        const draftDocIds = (draftDocs ?? []).map((d) => d.id)
 
-      const { data: created } = await admin
-        .from('rental_files')
-        .insert(insertData as any)
-        .select()
-        .single()
+        const { data: created } = await admin
+          .from('rental_files')
+          .insert(insertData as any)
+          .select()
+          .single()
 
-      rentalFile = created
+        rentalFile = created
 
-      if (existingDraft) {
         if (draftDocIds.length > 0) {
           const { error: reassignError } = await admin
             .from('rental_file_documents')
@@ -254,16 +252,72 @@ export async function POST(req: NextRequest) {
           }
         }
         await admin.from('rental_files').delete().eq('id', existingDraft.id)
-      }
 
-      await admin.from('audit_logs').insert({
-        id: generateId(),
-        action: 'SUBMIT',
-        entity: 'RentalFile',
-        entity_id: rentalFile?.id,
-        details: 'Nouveau dossier locatif créé et soumis',
-        user_id: userId,
-      })
+        await admin.from('audit_logs').insert({
+          id: generateId(),
+          action: 'SUBMIT',
+          entity: 'RentalFile',
+          entity_id: rentalFile.id,
+          details: 'Nouveau dossier locatif créé et soumis',
+          user_id: userId,
+        })
+      } else {
+        // Resoumettre un dossier existant non-validé (REJECTED, EXPIRED, TC_REVIEW, SUBMITTED…)
+        const { data: existingFile } = await admin
+          .from('rental_files')
+          .select('*')
+          .eq('tenant_id', userId)
+          .not('status', 'eq', 'VALIDATED')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (existingFile) {
+          const updateData: any = { status: 'SUBMITTED' }
+          if (existingFile.status === 'REJECTED' || existingFile.status === 'EXPIRED') {
+            updateData.rejection_reason = null
+            updateData.tc_comment = null
+            updateData.reviewed_by_id = null
+            updateData.reviewed_at = null
+          }
+
+          const { data: updated } = await admin
+            .from('rental_files')
+            .update(updateData)
+            .eq('id', existingFile.id)
+            .select()
+            .single()
+
+          rentalFile = updated
+
+          await admin.from('audit_logs').insert({
+            id: generateId(),
+            action: 'SUBMIT',
+            entity: 'RentalFile',
+            entity_id: existingFile.id,
+            details: 'Dossier locatif soumis à nouveau pour validation',
+            user_id: userId,
+          })
+        } else {
+          // Aucun fichier existant — créer un nouveau SUBMITTED
+          const { data: created } = await admin
+            .from('rental_files')
+            .insert(insertData as any)
+            .select()
+            .single()
+
+          rentalFile = created
+
+          await admin.from('audit_logs').insert({
+            id: generateId(),
+            action: 'SUBMIT',
+            entity: 'RentalFile',
+            entity_id: rentalFile.id,
+            details: 'Nouveau dossier locatif créé et soumis',
+            user_id: userId,
+          })
+        }
+      }
 
       if (rentalFile) {
         await notifyTcUsers(admin, 'Nouveau dossier locatif soumis', 'Un nouveau dossier locatif a été soumis et nécessite votre validation.', rentalFile.id)

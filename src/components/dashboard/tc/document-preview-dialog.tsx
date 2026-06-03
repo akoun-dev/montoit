@@ -148,17 +148,21 @@ export function DocumentPreviewDialog({
             <Eye className="size-4" />
             Ouvrir
           </Button>
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            download
+          <Button
+            className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
+            onClick={() => {
+              const a = window.document.createElement('a')
+              a.href = url
+              a.download = name
+              a.target = '_blank'
+              window.document.body.appendChild(a)
+              a.click()
+              window.document.body.removeChild(a)
+            }}
           >
-            <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2">
-              <Download className="size-4" />
-              Télécharger
-            </Button>
-          </a>
+            <Download className="size-4" />
+            Télécharger
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
