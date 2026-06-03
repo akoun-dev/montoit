@@ -111,7 +111,8 @@ export function AppLifecycleManager() {
 
       // Si l'utilisateur est parti plus de 30 s, on force un reload
       // pour nettoyer tout état React potentiellement périmé (PWA).
-      if (hiddenDuration > STALE_STATE_THRESHOLD_MS) {
+      // Uniquement en mode standalone (PWA), pas dans le navigateur normal.
+      if (hiddenDuration > STALE_STATE_THRESHOLD_MS && window.matchMedia('(display-mode: standalone)').matches) {
         window.location.reload()
       }
     }
