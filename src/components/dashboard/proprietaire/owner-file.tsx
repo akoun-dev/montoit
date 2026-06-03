@@ -158,24 +158,17 @@ export function OwnerFileForm() {
       return
     }
 
-    // Ensure owner file exists first
-    if (!existingFile) {
-      try {
-        await authFetch('/api/owner-file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        })
-        await fetchOwnerFile()
-      } catch {
-        toast.error('Erreur lors de la création du dossier')
-        return
-      }
-    }
-
     setUploadingDocType(docType)
 
     try {
+      // Ensure a DRAFT file exists (creates one if none or non-DRAFT)
+      await authFetch('/api/owner-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      await fetchOwnerFile()
+
       const reader = new FileReader()
       const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string)
@@ -185,7 +178,7 @@ export function OwnerFileForm() {
 
       const base64Content = await base64Promise
 
-      // Get the current owner file (may have just been created)
+      // Get the DRAFT file
       const result = await authFetch<OwnerFileResponse>('/api/owner-file')
       const files = result.data ?? []
       const currentFile = files.find((f) => f.status === 'DRAFT') || files[0]
