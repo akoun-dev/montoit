@@ -82,11 +82,16 @@ export function OwnerFileForm() {
   const [deleteDocConfirmId, setDeleteDocConfirmId] = useState<string | null>(null)
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const ownerFileIdRef = useRef<string | null>(null)
+  const isCreatingDraftRef = useRef(false)
+  const fetchCountRef = useRef(0)
 
   const fetchOwnerFile = useCallback(async () => {
+    const thisFetch = ++fetchCountRef.current
     if (!isAuthenticated) { setLoading(false); return }
     try {
       const result = await authFetch<OwnerFileResponse>('/api/owner-file')
+      if (thisFetch !== fetchCountRef.current) return // stale response
       const files = result.data ?? []
       const draft = files.find((f) => f.status === 'DRAFT')
         || files.find((f) => f.status === 'REJECTED')
@@ -94,12 +99,16 @@ export function OwnerFileForm() {
         || files[0]
       if (draft) {
         setExistingFile(draft)
+        ownerFileIdRef.current = draft.id
       }
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) { return }
+      if (thisFetch !== fetchCountRef.current) return
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally {
-      setLoading(false)
+      if (thisFetch === fetchCountRef.current) {
+        setLoading(false)
+      }
     }
   }, [isAuthenticated])
 
@@ -151,6 +160,74 @@ export function OwnerFileForm() {
     }
   }
 
+  // ─── Helper: ensure a draft owner file exists, returns its ID ────────
+  const ensureDraftExists = async (): Promise<string | null> => {
+    if (ownerFileIdRef.current) return ownerFileIdRef.current
+
+    if (existingFile) {
+      ownerFileIdRef.current = existingFile.id
+      return existingFile.id
+    }
+
+    if (isCreatingDraftRef.current) {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          clearInterval(check)
+          reject(new Error('Timeout waiting for draft creation'))
+        }, 10000)
+        const check = setInterval(() => {
+          if (!isCreatingDraftRef.current) {
+            clearInterval(check)
+            clearTimeout(timeout)
+            resolve()
+          }
+        }, 100)
+      }).catch(() => {})
+
+      if (ownerFileIdRef.current) return ownerFileIdRef.current
+
+      const result = await authFetch<OwnerFileResponse>('/api/owner-file')
+      const files = result.data ?? []
+      const draft = files.find((f) => f.status === 'DRAFT') || files[0]
+      if (draft?.id) {
+        ownerFileIdRef.current = draft.id
+        setExistingFile(draft)
+        return draft.id
+      }
+      return null
+    }
+
+    isCreatingDraftRef.current = true
+    try {
+      const raw: any = await authFetch('/api/owner-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const draftId: string | undefined = raw?.data?.id
+      if (draftId) {
+        setExistingFile(raw.data as OwnerFileItem)
+        ownerFileIdRef.current = draftId
+        return draftId
+      }
+
+      const fetchResult = await authFetch<OwnerFileResponse>('/api/owner-file')
+      const files = fetchResult.data ?? []
+      const draft = files.find((f) => f.status === 'DRAFT') || files[0]
+      if (draft?.id) {
+        ownerFileIdRef.current = draft.id
+        setExistingFile(draft)
+        return draft.id
+      }
+      return null
+    } catch {
+      toast.error('Erreur lors de la création du dossier')
+      return null
+    } finally {
+      isCreatingDraftRef.current = false
+    }
+  }
+
   // ─── File upload handler ──────────────────────────────────────────────
   const handleFileUpload = async (docType: string, file: File) => {
     if (file.size > MAX_FILE_SIZE) {
@@ -158,17 +235,15 @@ export function OwnerFileForm() {
       return
     }
 
+    const draftId = await ensureDraftExists()
+    if (!draftId) {
+      toast.error('Impossible de créer le dossier. Réessayez.')
+      return
+    }
+
     setUploadingDocType(docType)
 
     try {
-      // Ensure a DRAFT file exists (creates one if none or non-DRAFT)
-      await authFetch('/api/owner-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      await fetchOwnerFile()
-
       const reader = new FileReader()
       const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string)
@@ -178,21 +253,11 @@ export function OwnerFileForm() {
 
       const base64Content = await base64Promise
 
-      // Get the DRAFT file
-      const result = await authFetch<OwnerFileResponse>('/api/owner-file')
-      const files = result.data ?? []
-      const currentFile = files.find((f) => f.status === 'DRAFT') || files[0]
-
-      if (!currentFile) {
-        toast.error('Dossier non trouvé')
-        return
-      }
-
       await authFetch('/api/owner-file/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ownerFileId: currentFile.id,
+          ownerFileId: draftId,
           type: docType,
           name: file.name,
           content: base64Content,

@@ -112,6 +112,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
   const rentalFileIdRef = useRef<string | null>(null)
   const isCreatingDraftRef = useRef(false)
   const submittingRef = useRef(false)
+  const fetchCountRef = useRef(0)
 
   const [formData, setFormData] = useState({
     guarantorName: '',
@@ -120,9 +121,11 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
   })
 
   const fetchRentalFile = useCallback(async () => {
+    const thisFetch = ++fetchCountRef.current
     if (!isAuthenticated) { setLoading(false); return }
     try {
       const result = await authFetch<RentalFileResponse>('/api/rental-file')
+      if (thisFetch !== fetchCountRef.current) return // stale response
       const files = result.data ?? []
       const file = files.find((f) => f.status === 'DRAFT')
         || files.find((f) => f.status === 'REJECTED')
@@ -141,9 +144,12 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
       }
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) { return }
+      if (thisFetch !== fetchCountRef.current) return
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally {
-      setLoading(false)
+      if (thisFetch === fetchCountRef.current) {
+        setLoading(false)
+      }
     }
   }, [isAuthenticated])
 

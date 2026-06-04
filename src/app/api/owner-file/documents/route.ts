@@ -132,19 +132,27 @@ export async function POST(req: NextRequest) {
 
     let document: any
     if (existingDoc) {
-      const { data: updated } = await ((supabase
+      const { data: updated, error: updateError } = await ((supabase
         .from('owner_file_documents') as any)
         .update({ name, url, status: 'PENDING', tc_comment: null })
         .eq('id', existingDoc.id)
         .select()
         .single())
+      if (updateError || !updated) {
+        console.error('Owner file document update error:', updateError)
+        return NextResponse.json({ error: 'Erreur lors de la mise à jour du document' }, { status: 500 })
+      }
       document = updated
     } else {
-      const { data: created } = await (supabase
+      const { data: created, error: insertError } = await (supabase
         .from('owner_file_documents')
         .insert({ id: generateId(), owner_file_id: ownerFileId, type, name, url, status: 'PENDING' } as any)
         .select()
         .single() as any)
+      if (insertError || !created) {
+        console.error('Owner file document insert error:', insertError)
+        return NextResponse.json({ error: "Erreur lors de la création du document" }, { status: 500 })
+      }
       document = created
     }
 
