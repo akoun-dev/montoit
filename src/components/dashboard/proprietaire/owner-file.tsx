@@ -162,12 +162,20 @@ export function OwnerFileForm() {
 
   // ─── Helper: ensure a draft owner file exists, returns its ID ────────
   const ensureDraftExists = async (): Promise<string | null> => {
-    if (ownerFileIdRef.current) return ownerFileIdRef.current
+    // Fast path: only use the ref if the existing file is actually a DRAFT
+    if (ownerFileIdRef.current && existingFile?.status === 'DRAFT') {
+      return ownerFileIdRef.current
+    }
 
-    if (existingFile) {
+    // Use existing file only if it's a DRAFT
+    if (existingFile?.status === 'DRAFT') {
       ownerFileIdRef.current = existingFile.id
       return existingFile.id
     }
+
+    // Reset ref — the existing file is not a DRAFT (e.g. REJECTED, TC_REVIEW),
+    // so we need to create a new draft before uploading documents
+    ownerFileIdRef.current = null
 
     if (isCreatingDraftRef.current) {
       await new Promise<void>((resolve, reject) => {
@@ -184,12 +192,14 @@ export function OwnerFileForm() {
         }, 100)
       }).catch(() => {})
 
-      if (ownerFileIdRef.current) return ownerFileIdRef.current
+      if (ownerFileIdRef.current && existingFile?.status === 'DRAFT') {
+        return ownerFileIdRef.current
+      }
 
       const result = await authFetch<OwnerFileResponse>('/api/owner-file')
       const files = result.data ?? []
       const draft = files.find((f) => f.status === 'DRAFT') || files[0]
-      if (draft?.id) {
+      if (draft?.id && draft.status === 'DRAFT') {
         ownerFileIdRef.current = draft.id
         setExistingFile(draft)
         return draft.id
@@ -205,7 +215,8 @@ export function OwnerFileForm() {
         body: JSON.stringify({}),
       })
       const draftId: string | undefined = raw?.data?.id
-      if (draftId) {
+      // Verify that the created/returned file is indeed a DRAFT
+      if (draftId && raw?.data?.status === 'DRAFT') {
         setExistingFile(raw.data as OwnerFileItem)
         ownerFileIdRef.current = draftId
         return draftId
@@ -214,7 +225,7 @@ export function OwnerFileForm() {
       const fetchResult = await authFetch<OwnerFileResponse>('/api/owner-file')
       const files = fetchResult.data ?? []
       const draft = files.find((f) => f.status === 'DRAFT') || files[0]
-      if (draft?.id) {
+      if (draft?.id && draft.status === 'DRAFT') {
         ownerFileIdRef.current = draft.id
         setExistingFile(draft)
         return draft.id

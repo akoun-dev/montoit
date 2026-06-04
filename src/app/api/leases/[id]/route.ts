@@ -28,6 +28,10 @@ function mapLease(lease: Record<string, unknown>) {
     tenantSignOtp: lease.tenant_sign_otp,
     ownerSignatureImage: lease.owner_signature_image,
     tenantSignatureImage: lease.tenant_signature_image,
+    renewalStatus: lease.renewal_status,
+    renewalRequestedAt: lease.renewal_requested_at,
+    renewalNotes: lease.renewal_notes,
+    renewedLeaseId: lease.renewed_lease_id,
     createdAt: lease.created_at,
     updatedAt: lease.updated_at,
   }

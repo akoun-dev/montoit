@@ -155,6 +155,12 @@ export async function POST(req: NextRequest) {
 
         ownerFile = updated
 
+        // Reset all documents to PENDING so the TC can review them again
+        await admin
+          .from('owner_file_documents')
+          .update({ status: 'PENDING', tc_comment: null })
+          .eq('owner_file_id', existingFile.id)
+
         await admin.from('audit_logs').insert({
           id: generateId(),
           action: 'SUBMIT',
@@ -186,26 +192,70 @@ export async function POST(req: NextRequest) {
         })
       }
     } else {
-      const { data: created } = await admin
+      // Vérifier d'abord si l'utilisateur a un fichier REJECTED à réutiliser
+      const { data: rejectedFile } = await admin
         .from('owner_files')
-        .insert({
+        .select('*')
+        .eq('owner_id', userId)
+        .eq('status', 'REJECTED')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (rejectedFile) {
+        // Réutiliser le fichier REJECTED : le repasser en DRAFT (conserve le même ID)
+        const { data: updated } = await admin
+          .from('owner_files')
+          .update({
+            status: 'DRAFT',
+            rejection_reason: null,
+            tc_comment: null,
+            reviewed_by_id: null,
+            reviewed_at: null,
+          })
+          .eq('id', rejectedFile.id)
+          .select()
+          .single()
+
+        ownerFile = updated
+
+        // Remettre les documents en PENDING pour re-examen
+        await admin
+          .from('owner_file_documents')
+          .update({ status: 'PENDING', tc_comment: null })
+          .eq('owner_file_id', rejectedFile.id)
+
+        await admin.from('audit_logs').insert({
           id: generateId(),
-          owner_id: userId,
-          status: 'DRAFT',
+          action: 'UPDATE',
+          entity: 'OwnerFile',
+          entity_id: rejectedFile.id,
+          details: 'Dossier propriétaire (rejeté) rouvert en brouillon',
+          user_id: userId,
         })
-        .select()
-        .single()
+      } else {
+        // Aucun fichier REJECTED — créer un nouveau DRAFT
+        const { data: created } = await admin
+          .from('owner_files')
+          .insert({
+            id: generateId(),
+            owner_id: userId,
+            status: 'DRAFT',
+          })
+          .select()
+          .single()
 
-      ownerFile = created
+        ownerFile = created
 
-      await admin.from('audit_logs').insert({
-        id: generateId(),
-        action: 'CREATE',
-        entity: 'OwnerFile',
-        entity_id: created?.id,
-        details: 'Nouveau dossier propriétaire (brouillon) créé',
-        user_id: userId,
-      })
+        await admin.from('audit_logs').insert({
+          id: generateId(),
+          action: 'CREATE',
+          entity: 'OwnerFile',
+          entity_id: created?.id,
+          details: 'Nouveau dossier propriétaire (brouillon) créé',
+          user_id: userId,
+        })
+      }
     }
 
     if (!ownerFile) {

@@ -12,6 +12,11 @@ import { Trust } from '@/components/home/trust'
 import { About } from '@/components/home/about'
 import { FAQ } from '@/components/home/faq'
 import { Contact } from '@/components/home/contact'
+import { CguPage } from '@/components/home/legal/cgu'
+import { PrivacyPage } from '@/components/home/legal/privacy'
+import { LegalNoticePage } from '@/components/home/legal/legal-notice'
+import { CookiesPage } from '@/components/home/legal/cookies'
+import { CookieConsentBanner } from '@/components/home/cookie-consent-banner'
 import { Footer } from '@/components/home/footer'
 import { LoginForm } from '@/components/auth/login-form'
 import { OtpVerifyForm } from '@/components/auth/otp-verify-form'
@@ -29,6 +34,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
       <div className="hidden sm:block">
         <Footer />
       </div>
+      <CookieConsentBanner />
     </div>
   )
 }
@@ -124,6 +130,42 @@ export default function Home() {
     return (
       <PageShell>
         <Contact />
+      </PageShell>
+    )
+  }
+
+  // CGU — full page view
+  if (currentView === 'cgu') {
+    return (
+      <PageShell>
+        <CguPage />
+      </PageShell>
+    )
+  }
+
+  // Confidentialité — full page view
+  if (currentView === 'confidentialite') {
+    return (
+      <PageShell>
+        <PrivacyPage />
+      </PageShell>
+    )
+  }
+
+  // Mentions légales — full page view
+  if (currentView === 'mentions-legales') {
+    return (
+      <PageShell>
+        <LegalNoticePage />
+      </PageShell>
+    )
+  }
+
+  // Cookies — full page view
+  if (currentView === 'cookies') {
+    return (
+      <PageShell>
+        <CookiesPage />
       </PageShell>
     )
   }

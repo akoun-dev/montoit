@@ -525,9 +525,9 @@ export function RegisterForm() {
                         />
                         <Label htmlFor="accept-terms" className="text-sm text-muted-foreground font-normal leading-snug cursor-pointer">
                           J&apos;accepte les{' '}
-                          <span className="text-brand-500 hover:underline cursor-pointer font-medium">conditions d&apos;utilisation</span>{' '}
+                          <span className="text-brand-500 hover:underline cursor-pointer font-medium" onClick={() => setView('cgu')}>conditions d&apos;utilisation</span>{' '}
                           et la{' '}
-                          <span className="text-brand-500 hover:underline cursor-pointer font-medium">politique de confidentialité</span>
+                          <span className="text-brand-500 hover:underline cursor-pointer font-medium" onClick={() => setView('confidentialite')}>politique de confidentialité</span>
                         </Label>
                       </div>
                     </div>

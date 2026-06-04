@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   FolderOpen, User, Home, Building2, ClipboardCheck, Clock,
-  Check, FileText, Loader2, ChevronRight,
+  Check, FileText, Loader2, ChevronRight, RotateCcw,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +27,8 @@ interface UnifiedItem {
   createdAt: string
   tenantId?: string
   type?: string
+  previouslyRejected?: boolean
+  lastRejectedAt?: string | null
 }
 
 interface TcStats {
@@ -124,6 +126,8 @@ export function DossierValidations() {
           detail: `${f.monthlyIncome?.toLocaleString('fr-FR') ?? '—'} FCFA/mois`,
           status: f.status,
           createdAt: f.createdAt,
+          previouslyRejected: f.previouslyRejected,
+          lastRejectedAt: f.lastRejectedAt,
         })),
         ...(ownerRes.docs ?? []).map((d: any) => {
           const isAgency = d.type === 'AGREMENT' || d.type === 'RCCM'
@@ -144,6 +148,8 @@ export function DossierValidations() {
           detail: 'Dossier propriétaire',
           status: f.status,
           createdAt: f.createdAt,
+          previouslyRejected: f.previouslyRejected,
+          lastRejectedAt: f.lastRejectedAt,
         })),
       ]
 
@@ -364,6 +370,14 @@ export function DossierValidations() {
                       <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', statusCfg.class)}>
                         {statusCfg.label}
                       </Badge>
+                      {item.previouslyRejected && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-orange-50 text-orange-700 border-orange-200 gap-0.5">
+                          <RotateCcw className="size-2.5" /> Resoumis
+                          {item.lastRejectedAt && (
+                            <span className="ml-0.5 opacity-75">({new Date(item.lastRejectedAt).toLocaleDateString('fr-FR')})</span>
+                          )}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate mt-0.5">{item.detail}</p>
                   </div>

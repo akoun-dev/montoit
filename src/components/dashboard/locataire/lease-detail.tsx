@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, FileSignature, Building2, User, MapPin, FileText, CreditCard, Wrench, AlertTriangle, Loader2, PenTool, CheckCircle2, ShieldCheck, Download } from 'lucide-react'
+import { ArrowLeft, FileSignature, Building2, User, MapPin, FileText, CreditCard, Wrench, AlertTriangle, Loader2, PenTool, CheckCircle2, ShieldCheck, Download, RefreshCw, Receipt, MessageSquare } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -63,6 +63,9 @@ interface LeaseItem {
     priority: string
     createdAt: string
   }>
+  renewalStatus?: string | null
+  renewalRequestedAt?: string | null
+  renewalNotes?: string | null
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -115,6 +118,61 @@ function getDaysRemaining(endDate: string): number {
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
+function generateDepositReceipt(data: {
+  tenantName: string
+  propertyTitle: string
+  propertyAddress: string
+  propertyCity: string
+  depositAmount: number
+  leaseStartDate: string
+  leaseEndDate: string
+  ownerName: string
+  currentDate: string
+}): string {
+  const fmt = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Reçu de caution</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #222; }
+  .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+  .header h1 { margin: 0; font-size: 22px; }
+  .header p { margin: 4px 0 0; color: #666; font-size: 13px; }
+  .receipt-box { border: 1px solid #ddd; border-radius: 8px; padding: 24px; background: #fafafa; }
+  .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+  .row:last-child { border-bottom: none; }
+  .label { color: #666; font-size: 13px; }
+  .value { font-weight: 600; font-size: 14px; }
+  .amount { font-size: 20px; font-weight: 700; color: #059669; text-align: center; padding: 16px 0; }
+  .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #999; }
+  .stamp { text-align: center; margin-top: 30px; font-family: 'Courier New', monospace; font-size: 14px; color: #333; border: 2px solid #333; border-radius: 8px; padding: 12px 24px; display: inline-block; transform: rotate(-3deg); }
+</style>
+</head><body>
+<div class="header">
+  <h1>REÇU DE DÉPÔT DE GARANTIE</h1>
+  <p>Conformément à l'article 4 du contrat de location</p>
+</div>
+<div class="receipt-box">
+  <div class="amount">${data.depositAmount.toLocaleString('fr-FR')} FCFA</div>
+  <div class="row"><span class="label">Locataire</span><span class="value">${data.tenantName}</span></div>
+  <div class="row"><span class="label">Propriétaire</span><span class="value">${data.ownerName}</span></div>
+  <div class="row"><span class="label">Bien concerné</span><span class="value">${data.propertyTitle} — ${data.propertyCity}</span></div>
+  <div class="row"><span class="label">Adresse</span><span class="value">${data.propertyAddress || data.propertyCity}</span></div>
+  <div class="row"><span class="label">Début du bail</span><span class="value">${fmt(data.leaseStartDate)}</span></div>
+  <div class="row"><span class="label">Fin du bail</span><span class="value">${fmt(data.leaseEndDate)}</span></div>
+  <div class="row"><span class="label">Date du reçu</span><span class="value">${fmt(data.currentDate)}</span></div>
+  <div class="row"><span class="label">Nature</span><span class="value">Dépôt de garantie (caution)</span></div>
+</div>
+<div style="text-align: center;">
+  <div class="stamp">REÇU</div>
+</div>
+<div class="footer">
+  <p>Ce document fait office de reçu de dépôt de garantie. Il est délivré par le bailleur au preneur.<br>
+  Document généré automatiquement — Sans valeur de facture officielle.</p>
+</div>
+</body></html>`
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 interface LeaseDetailProps {
   leaseId: string
@@ -133,6 +191,14 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   const [showSignDialog, setShowSignDialog] = useState(false)
   const [signing, setSigning] = useState(false)
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
+
+  // Renewal flow state
+  const [showRenewalDialog, setShowRenewalDialog] = useState(false)
+  const [renewing, setRenewing] = useState(false)
+  const [renewalNotes, setRenewalNotes] = useState('')
+
+  // Deposit receipt state
+  const [generatingReceipt, setGeneratingReceipt] = useState(false)
 
   const fetchLease = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -547,6 +613,109 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
         </Button>
       </div>
 
+      {/* ─── Deposit Receipt Button (client-side generation) ─────────────── */}
+      {(lease.status === 'ACTIVE' || lease.status === 'TERMINATED') && (lease.deposit || 0) > 0 && (
+        <div className="pt-2">
+          <Button
+            variant="outline"
+            className="w-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 gap-2"
+            onClick={() => {
+              setGeneratingReceipt(true)
+              try {
+                const receiptHtml = generateDepositReceipt({
+                  tenantName: `${user?.firstName || ''} ${user?.lastName || ''}`,
+                  propertyTitle: property?.title || '',
+                  propertyAddress: property?.address || '',
+                  propertyCity: property?.city || '',
+                  depositAmount: lease.deposit || 0,
+                  leaseStartDate: lease.startDate,
+                  leaseEndDate: lease.endDate,
+                  ownerName: `${owner.firstName} ${owner.lastName}`,
+                  currentDate: new Date().toISOString(),
+                })
+                const blob = new Blob([receiptHtml], { type: 'text/html' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `Reçu_caution_${property?.title || 'logement'}.html`
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                URL.revokeObjectURL(url)
+                toast.success('Reçu de caution téléchargé')
+              } catch {
+                toast.error('Erreur lors de la génération du reçu')
+              } finally {
+                setGeneratingReceipt(false)
+              }
+            }}
+            disabled={generatingReceipt}
+          >
+            {generatingReceipt ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Receipt className="size-4" />
+            )}
+            {generatingReceipt ? 'Génération...' : 'Télécharger le reçu de caution'}
+          </Button>
+        </div>
+      )}
+
+      {/* ─── Renewal Button ─────────────────────────────────────────────── */}
+      {lease.status === 'ACTIVE' && !lease.renewalStatus && (
+        <div className="pt-2">
+          <Button
+            variant="outline"
+            className="w-full border-brand-200 text-brand-600 hover:bg-brand-50 hover:text-brand-700 gap-2"
+            onClick={() => setShowRenewalDialog(true)}
+          >
+            <RefreshCw className="size-4" />
+            Demander le renouvellement du bail
+          </Button>
+        </div>
+      )}
+
+      {/* Renewal status display */}
+      {lease.renewalStatus && (
+        <div className="pt-2">
+          <Card className={`border ${
+            lease.renewalStatus === 'ACCEPTED' ? 'border-emerald-200 bg-emerald-50' :
+            lease.renewalStatus === 'REJECTED' ? 'border-red-200 bg-red-50' :
+            lease.renewalStatus === 'RENEWED' ? 'border-blue-200 bg-blue-50' :
+            'border-amber-200 bg-amber-50'
+          }`}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <RefreshCw className={`size-5 shrink-0 ${
+                  lease.renewalStatus === 'ACCEPTED' ? 'text-emerald-600' :
+                  lease.renewalStatus === 'REJECTED' ? 'text-red-600' :
+                  lease.renewalStatus === 'RENEWED' ? 'text-blue-600' :
+                  'text-amber-600'
+                }`} />
+                <div>
+                  <p className="text-sm font-medium">
+                    {lease.renewalStatus === 'REQUESTED' && 'Demande de renouvellement en cours'}
+                    {lease.renewalStatus === 'ACCEPTED' && 'Demande de renouvellement acceptée'}
+                    {lease.renewalStatus === 'REJECTED' && 'Demande de renouvellement refusée'}
+                    {lease.renewalStatus === 'RENEWED' && 'Bail renouvelé avec succès'}
+                  </p>
+                  {lease.renewalRequestedAt && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Demandé le {formatShortDate(lease.renewalRequestedAt)}
+                    </p>
+                  )}
+                  {lease.renewalNotes && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Note : {lease.renewalNotes}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* ─── Terminate Lease Button ──────────────────────────────────────────── */}
       {lease.status === 'ACTIVE' && (
         <div className="pt-2">
@@ -664,6 +833,102 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                 <>
                   <AlertTriangle className="size-4" />
                   Confirmer la résiliation
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Renewal Dialog ─────────────────────────────────────────────────── */}
+      <Dialog open={showRenewalDialog} onOpenChange={setShowRenewalDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="size-5 text-brand-500" />
+              Demander le renouvellement du bail
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Vous souhaitez renouveler le bail pour <span className="font-semibold text-foreground">{property?.title}</span>.
+              {daysRemaining > 0 && daysRemaining <= 90 && (
+                <span className="block mt-1 text-amber-600">
+                  ⚠️ Le bail expire dans {daysRemaining} jours. Nous vous recommandons d&apos;anticiper le renouvellement.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2 rounded bg-muted">
+                <span className="text-muted-foreground">Loyer actuel</span>
+                <p className="font-semibold text-foreground">{formatCurrency(lease.monthlyRent)}</p>
+              </div>
+              <div className="p-2 rounded bg-muted">
+                <span className="text-muted-foreground">Fin du bail</span>
+                <p className="font-semibold text-foreground">{formatShortDate(lease.endDate)}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Message au propriétaire (optionnel)</Label>
+              <textarea
+                className="w-full min-h-[80px] rounded-lg border border-border bg-background px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="Ex: Je souhaite continuer à occuper le logement pour une durée supplémentaire..."
+                value={renewalNotes}
+                onChange={(e) => setRenewalNotes(e.target.value)}
+              />
+            </div>
+
+            <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+              <p className="text-xs text-blue-700">
+                Votre demande sera envoyée au propriétaire pour examen. Une fois approuvée, un nouveau bail vous sera proposé.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowRenewalDialog(false)}
+              disabled={renewing}
+            >
+              Annuler
+            </Button>
+            <Button
+              className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
+              onClick={async () => {
+                setRenewing(true)
+                try {
+                  await authFetch('/api/renewals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      leaseId: lease.id,
+                      notes: renewalNotes || undefined,
+                    }),
+                  })
+                  toast.success('Demande de renouvellement envoyée au propriétaire')
+                  setShowRenewalDialog(false)
+                  setRenewalNotes('')
+                  setTimeout(() => fetchLease(true), 500)
+                } catch (err) {
+                  toast.error(err instanceof AuthError ? err.message : 'Erreur lors de la demande')
+                } finally {
+                  setRenewing(false)
+                }
+              }}
+              disabled={renewing}
+            >
+              {renewing ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Envoi...
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="size-4" />
+                  Envoyer la demande
                 </>
               )}
             </Button>

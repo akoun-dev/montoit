@@ -5,7 +5,7 @@ import {
   ArrowLeft, ArrowRight, User, Mail, Phone, Calendar,
   FileText, Building2, Briefcase, Check, X, MessageSquare,
   Pause, Play, AlertTriangle, Flame, CircleDot, Loader2,
-  ChevronLeft, ChevronRight, Shield,
+  ChevronLeft, ChevronRight, Shield, RotateCcw,
 } from 'lucide-react'
 import { useBackHandler } from '@/hooks/use-back-handler'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -68,6 +68,8 @@ interface RentalFile {
     deadlineAt: string
     isOverdue: boolean
   } | null
+  previouslyRejected?: boolean
+  lastRejectedAt?: string | null
 }
 
 const statusLabels: Record<RentalFile['status'], string> = {
@@ -173,10 +175,10 @@ export function RentalFileDetail() {
 
     try {
       const d = await authFetch<{ files: RentalFile[] }>(
-        `/api/tc/rental-files?limit=100`,
+        `/api/tc/rental-files?id=${selectedItemId}`,
         skipCache ? { skipCache: true } : undefined
       )
-      const found = d.files?.find((f) => f.id === selectedItemId)
+      const found = d.files?.[0]
       if (found) {
         setFile(found)
       } else {
@@ -208,10 +210,28 @@ export function RentalFileDetail() {
     if (!file) return
     setActionLoading(true)
     try {
+      const body: any = { fileIds: [file.id], action, comment: comment || '' }
+
+      // Mettre à jour le statut de tous les documents selon l'action
+      if (file.documents.length > 0) {
+        if (action === 'APPROVE') {
+          body.documentUpdates = file.documents.map((doc) => ({
+            documentId: doc.id,
+            status: 'VALIDATED',
+          }))
+        } else if (action === 'REJECT') {
+          body.documentUpdates = file.documents.map((doc) => ({
+            documentId: doc.id,
+            status: 'REJECTED',
+            comment: comment || null,
+          }))
+        }
+      }
+
       await authFetch('/api/tc/rental-files', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileIds: [file.id], action, comment: comment || '' }),
+        body: JSON.stringify(body),
       })
       toast.success(
         action === 'APPROVE'
@@ -377,6 +397,19 @@ export function RentalFileDetail() {
             <p className="text-sm text-muted-foreground">Détail du dossier locatif</p>
           </div>
         </div>
+
+        {file.previouslyRejected && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
+            <RotateCcw className="size-3.5 shrink-0" />
+            <span>
+              Ce dossier a déjà été rejeté et a été resoumis.
+              {file.lastRejectedAt && (
+                <> Dernier rejet le <strong>{new Date(file.lastRejectedAt).toLocaleDateString('fr-FR')}</strong>.</>
+              )}
+              {' '}Soyez vigilant lors de la validation.
+            </span>
+          </div>
+        )}
       </div>
 
 

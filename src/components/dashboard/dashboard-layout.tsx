@@ -2,6 +2,7 @@
 
 import { Sidebar } from './sidebar'
 import { DashboardHeader } from './dashboard-header'
+import { OnboardingModal } from './onboarding-modal'
 import { useAuthStore } from '@/lib/auth-store'
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Post-registration Onboarding */}
+      <OnboardingModal />
     </div>
   )
 }

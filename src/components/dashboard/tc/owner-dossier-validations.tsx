@@ -13,6 +13,7 @@ import {
   Mail,
   Phone,
   Loader2,
+  RotateCcw,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -66,6 +67,8 @@ interface OwnerFile {
     avatarUrl: string | null
   } | null
   documents: OwnerDoc[]
+  previouslyRejected?: boolean
+  lastRejectedAt?: string | null
 }
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -147,10 +150,28 @@ export function OwnerDossierValidations() {
 
     setActionLoading(selectedFile.id)
     try {
+      const body: any = { fileIds: [selectedFile.id], action: actionDialog, comment: comment.trim() || null }
+
+      // Mettre à jour le statut de tous les documents selon l'action
+      if (selectedFile.documents.length > 0) {
+        if (actionDialog === 'APPROVE') {
+          body.documentUpdates = selectedFile.documents.map((doc) => ({
+            documentId: doc.id,
+            status: 'VALIDATED',
+          }))
+        } else if (actionDialog === 'REJECT') {
+          body.documentUpdates = selectedFile.documents.map((doc) => ({
+            documentId: doc.id,
+            status: 'REJECTED',
+            comment: comment.trim() || null,
+          }))
+        }
+      }
+
       await authFetch('/api/tc/owner-files', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileIds: [selectedFile.id], action: actionDialog, comment: comment.trim() || null }),
+        body: JSON.stringify(body),
       })
       toast.success(
         actionDialog === 'APPROVE' ? 'Dossier validé avec succès' :
@@ -223,6 +244,19 @@ export function OwnerDossierValidations() {
                   </Badge>
                 </div>
               </div>
+
+              {file.previouslyRejected && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
+                  <RotateCcw className="size-3.5 shrink-0" />
+                  <span>
+                    Ce dossier a déjà été rejeté et a été resoumis.
+                    {file.lastRejectedAt && (
+                      <> Dernier rejet le <strong>{new Date(file.lastRejectedAt).toLocaleDateString('fr-FR')}</strong>.</>
+                    )}
+                    {' '}Soyez vigilant lors de la validation.
+                  </span>
+                </div>
+              )}
 
               {/* Documents */}
               <Collapsible

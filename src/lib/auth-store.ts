@@ -10,6 +10,10 @@ export type AppView =
     | "a-propos"
     | "faq"
     | "nous-contacter"
+    | "cgu"
+    | "confidentialite"
+    | "mentions-legales"
+    | "cookies"
     | "login"
     | "register"
     | "otp-verify"
@@ -70,6 +74,7 @@ interface PersistedAuthState {
     selectedItemId: string // ID for detail views (payment, application, visit, lease)
     lastAuthenticatedAt: number | null // timestamp of last successful auth
     searchParams: SearchParams // search parameters passed from hero to nos-biens
+    onboardingCompleted: boolean // whether the post-registration onboarding has been shown
 }
 
 // Transient state that does NOT persist
@@ -134,6 +139,7 @@ interface AuthActions {
     setSearchParams: (params: SearchParams) => void
     setSettingsDefaultTab: (tab: string) => void
     updateUser: (partial: Partial<AuthUser>) => void
+    setOnboardingCompleted: (completed: boolean) => void
     switchRole: (newRole: AuthUser["role"]) => Promise<void>
     checkAuth: () => Promise<void>
     seedData: () => Promise<void>
@@ -151,6 +157,7 @@ const defaultPersisted: PersistedAuthState = {
     selectedItemId: "",
     lastAuthenticatedAt: null,
     searchParams: { query: "", commune: "", propertyType: "" },
+    onboardingCompleted: false,
 }
 
 const defaultTransient: TransientAuthState = {
@@ -557,6 +564,7 @@ export const useAuthStore = create<AuthState>()(
                         selectedPropertyId: "",
                         selectedItemId: "",
                         lastAuthenticatedAt: null,
+                        onboardingCompleted: false,
                         searchParams: {
                             query: "",
                             commune: "",
@@ -584,6 +592,7 @@ export const useAuthStore = create<AuthState>()(
             setSelectedItemId: id => set({ selectedItemId: id }),
             setSearchParams: params => set({ searchParams: params }),
             setSettingsDefaultTab: tab => set({ settingsDefaultTab: tab }),
+            setOnboardingCompleted: completed => set({ onboardingCompleted: completed }),
             updateUser: partial =>
                 set(state => ({
                     user: state.user
@@ -707,6 +716,7 @@ export const useAuthStore = create<AuthState>()(
                 selectedItemId: state.selectedItemId,
                 lastAuthenticatedAt: state.lastAuthenticatedAt,
                 searchParams: state.searchParams,
+                onboardingCompleted: state.onboardingCompleted,
             }),
             // After rehydration, merge with default transient state
             merge: (persistedState, currentState) => {
@@ -727,6 +737,9 @@ export const useAuthStore = create<AuthState>()(
                         ? (persisted.isAuthenticated ?? false)
                         : false,
                     user: isSessionStillValid ? (persisted.user ?? null) : null,
+                    onboardingCompleted: isSessionStillValid
+                        ? (persisted.onboardingCompleted ?? false)
+                        : false,
                     // Always reset transient state on rehydration
                     isLoading: false,
                     isInitialized: false,

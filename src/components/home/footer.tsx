@@ -12,10 +12,10 @@ const platformLinks: { label: string; view: AppView }[] = [
   { label: 'Nous Contacter', view: 'nous-contacter' },
 ]
 
-const resourceLinks = [
-  { label: "Centre d'aide", href: '#' },
-  { label: 'CGU', href: '#' },
-  { label: 'Politique de confidentialité', href: '#' },
+const resourceLinks: { label: string; view: AppView }[] = [
+  { label: "Centre d'aide", view: 'faq' },
+  { label: 'CGU', view: 'cgu' },
+  { label: 'Politique de confidentialité', view: 'confidentialite' },
 ]
 
 const socialLinks = [
@@ -100,12 +100,12 @@ export function Footer() {
             <ul className="space-y-2.5">
               {resourceLinks.map((link) => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
+                  <button
+                    onClick={() => handleNavClick(link.view)}
                     className="text-sm text-neutral-400 hover:text-brand-400 transition-colors"
                   >
                     {link.label}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -151,18 +151,18 @@ export function Footer() {
             © 2025 Mon Toit — ANSUT. Tous droits réservés.
           </p>
           <div className="flex items-center gap-4">
-            <a
-              href="#"
+            <button
+              onClick={() => handleNavClick('mentions-legales')}
               className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
             >
               Mentions légales
-            </a>
-            <a
-              href="#"
+            </button>
+            <button
+              onClick={() => handleNavClick('cookies')}
               className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
             >
               Cookies
-            </a>
+            </button>
           </div>
         </div>
       </div>

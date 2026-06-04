@@ -3,6 +3,23 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
+/** Returns a Map of fileId → last rejection date (ISO string) */
+async function fetchRejectionHistory(supabase: any, fileIds: string[]): Promise<Map<string, string>> {
+  if (fileIds.length === 0) return new Map()
+  const { data: rejectionLogs } = await (supabase.from('audit_logs') as any)
+    .select('entity_id, created_at')
+    .eq('action', 'OWNER_FILE_REJECTED')
+    .in('entity_id', fileIds)
+    .order('created_at', { ascending: false })
+  const map = new Map<string, string>()
+  for (const log of (rejectionLogs ?? []) as any[]) {
+    if (!map.has(log.entity_id)) {
+      map.set(log.entity_id, log.created_at)
+    }
+  }
+  return map
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { userId, applyCookies } = await resolveRequestUser(req)
@@ -53,6 +70,8 @@ export async function GET(req: NextRequest) {
     const ownerIds = [...new Set(filesRaw.map((f: any) => f.owner_id).filter(Boolean))]
     const fileIds = filesRaw.map((f: any) => f.id)
 
+    const rejectionHistory = await fetchRejectionHistory(supabase, fileIds)
+
     const [ownersResult, documentsResult] = await Promise.all([
       ownerIds.length > 0
         ? (supabase.from('users') as any).select('id, first_name, last_name, phone, email, avatar_url').in('id', ownerIds)
@@ -90,6 +109,8 @@ export async function GET(req: NextRequest) {
         rejectionReason: f.rejection_reason,
         reviewedById: f.reviewed_by_id,
         reviewedAt: f.reviewed_at,
+        previouslyRejected: rejectionHistory.has(f.id),
+        lastRejectedAt: rejectionHistory.get(f.id) ?? null,
         createdAt: f.created_at,
         updatedAt: f.updated_at,
         owner: owner ? {

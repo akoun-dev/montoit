@@ -6,7 +6,7 @@ import {
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
   Search, Heart, UserCheck, CreditCard, Bell, Wrench, UserCircle, Home, MapPin, Scale, FolderOpen, Lock,
-  Award, Fingerprint, ShieldAlert, GraduationCap, Megaphone, Flag, Activity, Database
+  Award, Fingerprint, ShieldAlert, GraduationCap, Megaphone, Flag, Activity, Database, RefreshCw
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -41,9 +41,11 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           title: 'LOCATION',
           items: [
             { id: 'search-properties', label: 'Chercher un bien', icon: Search },
+            { id: 'search-alerts', label: 'Alertes recherche', icon: Bell },
             { id: 'favorites', label: 'Mes favoris', icon: Heart },
             { id: 'applications', label: 'Mes candidatures', icon: UserCheck },
             { id: 'my-visits', label: 'Mes visites', icon: Eye },
+            { id: 'rental-files-list', label: 'Mes dossiers locatifs', icon: FileText },
             { id: 'my-leases', label: 'Mes locations', icon: Home },
             { id: 'payments', label: 'Mes paiements', icon: CreditCard },
           ],
@@ -83,6 +85,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
             { id: 'visit-requests', label: 'Demandes de visite', icon: Eye },
             { id: 'candidatures', label: 'Mes candidatures', icon: ClipboardCheck },
             { id: 'my-leases', label: 'Mes baux', icon: FileSignature },
+            { id: 'renewals', label: 'Renouvellements', icon: RefreshCw },
             { id: 'mandats', label: 'Mes mandats', icon: ScrollText },
             { id: 'maintenance', label: 'Maintenance', icon: Wrench },
             { id: 'payments', label: 'Paiements', icon: CreditCard },

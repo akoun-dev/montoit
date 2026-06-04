@@ -45,6 +45,7 @@ const ROUTE_TTL_OVERRIDES: Array<{ pattern: RegExp; ttl: number; staleWhileReval
   { pattern: /\/api\/tc\/certifications/, ttl: 90_000, staleWhileRevalidate: 180_000 },
   { pattern: /\/api\/tc\/fraud-alerts/, ttl: 30_000, staleWhileRevalidate: 60_000 },
   { pattern: /\/api\/tc\/litiges/, ttl: 60_000, staleWhileRevalidate: 120_000 },
+  { pattern: /\/api\/tc\/owner-files/, ttl: 30_000, staleWhileRevalidate: 60_000 },
   { pattern: /\/api\/rental-files?/, ttl: 45_000, staleWhileRevalidate: 90_000 },
   { pattern: /\/api\/tc\/rental-files/, ttl: 30_000, staleWhileRevalidate: 60_000 },
   { pattern: /\/api\/leases/, ttl: 90_000, staleWhileRevalidate: 180_000 },
@@ -185,6 +186,7 @@ export function autoInvalidateOnMutation(url: string): void {
   const invalidationMap: Array<{ pattern: RegExp; clearPrefixes: string[] }> = [
     // ── TC routes (most specific first) ───────────────────────────────────
     { pattern: /\/api\/tc\/rental-files/, clearPrefixes: ['/api/tc/rental-files', '/api/rental-files', '/api/rental-file', '/api/dashboard/'] },
+    { pattern: /\/api\/tc\/owner-files/, clearPrefixes: ['/api/tc/owner-files', '/api/owner-file', '/api/dashboard/'] },
     { pattern: /\/api\/tc\/verifications/, clearPrefixes: ['/api/tc/verifications', '/api/properties', '/api/dashboard/'] },
     { pattern: /\/api\/tc\/inventory-reports/, clearPrefixes: ['/api/tc/inventory-reports', '/api/dashboard/'] },
     { pattern: /\/api\/tc\/ownership-docs/, clearPrefixes: ['/api/tc/ownership-docs', '/api/dashboard/'] },

@@ -3,6 +3,24 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
+/** Returns a Map of fileId → last rejection date (ISO string) */
+async function fetchRejectionHistory(supabase: any, fileIds: string[]): Promise<Map<string, string>> {
+  if (fileIds.length === 0) return new Map()
+  const { data: rejectionLogs } = await (supabase.from('audit_logs') as any)
+    .select('entity_id, created_at')
+    .eq('action', 'RENTAL_FILE_REJECTED')
+    .in('entity_id', fileIds)
+    .order('created_at', { ascending: false })
+  const map = new Map<string, string>()
+  for (const log of (rejectionLogs ?? []) as any[]) {
+    // Keep only the first (most recent) entry per file
+    if (!map.has(log.entity_id)) {
+      map.set(log.entity_id, log.created_at)
+    }
+  }
+  return map
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { userId, applyCookies } = await resolveRequestUser(req)
@@ -25,6 +43,7 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
+    const fileId = searchParams.get('id')
     const status = searchParams.get('status')
     const search = searchParams.get('search')
     const priority = searchParams.get('priority')
@@ -32,6 +51,103 @@ export async function GET(req: NextRequest) {
     const overdue = searchParams.get('overdue') === 'true'
     const limitParam = searchParams.get('limit')
     const offsetParam = searchParams.get('offset')
+
+    // If a specific file ID is requested, fetch only that file
+    if (fileId) {
+      const { data: singleFile } = await ((supabase as any)
+        .from('rental_files')
+        .select('*')
+        .eq('id', fileId)
+        .single() as any)
+
+      if (!singleFile) {
+        const resp = NextResponse.json({ files: [], pagination: { total: 0, limit: 1, offset: 0, hasMore: false } })
+        return applyCookies(resp)
+      }
+
+      const filesRaw = [singleFile]
+      const tenantIds = [singleFile.tenant_id].filter(Boolean)
+      const fileIds = [singleFile.id]
+
+      // Check for previous rejections
+      const rejectionHistory = await fetchRejectionHistory(supabase, fileIds)
+
+      // Fetch related data for just this file
+      const [{ data: tenantsData }, { data: documentsData }, { data: slasData }] = await Promise.all([
+        tenantIds.length > 0
+          ? (supabase.from('users') as any).select('id, first_name, last_name, phone, email, avatar_url').in('id', tenantIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        fileIds.length > 0
+          ? (supabase.from('rental_file_documents') as any).select('*').in('rental_file_id', fileIds).order('created_at', { ascending: true })
+          : Promise.resolve({ data: [] as any[], error: null }),
+        fileIds.length > 0
+          ? (supabase.from('validation_slas') as any).select('*').eq('entity_type', 'RENTAL_FILE').in('entity_id', fileIds).eq('is_overdue', true).is('completed_at', null)
+          : Promise.resolve({ data: [] as any[], error: null }),
+      ])
+
+      const tenantMap = new Map<string, any>((tenantsData ?? []).map((t: any) => [t.id, t]))
+      const docByFile = new Map<string, any[]>()
+      for (const doc of (documentsData ?? []) as any[]) {
+        if (!docByFile.has(doc.rental_file_id)) docByFile.set(doc.rental_file_id, [])
+        docByFile.get(doc.rental_file_id)!.push(doc)
+      }
+      const slaMap = new Map<string, any>((slasData ?? []).map((s: any) => [s.entity_id, s]))
+
+      const f = singleFile
+      const tenant = tenantMap.get(f.tenant_id)
+      const documents = (docByFile.get(f.id) ?? []).map((d: any) => ({
+        id: d.id,
+        rentalFileId: f.id,
+        type: d.type,
+        name: d.name,
+        url: d.url,
+        status: d.status,
+        tcComment: d.tc_comment,
+        createdAt: d.created_at,
+      }))
+      const sla = slaMap.get(f.id)
+
+      const fileWithSla = {
+        id: f.id,
+        tenantId: f.tenant_id,
+        status: f.status,
+        priority: f.priority,
+        tenantCategory: f.tenant_category,
+        rentalStatus: f.rental_status,
+        tcComment: f.tc_comment,
+        rejectionReason: f.rejection_reason,
+        reviewedById: f.reviewed_by_id,
+        reviewedAt: f.reviewed_at,
+        onHold: f.on_hold,
+        onHoldReason: f.on_hold_reason,
+        previouslyRejected: rejectionHistory.has(f.id),
+        lastRejectedAt: rejectionHistory.get(f.id) ?? null,
+        createdAt: f.created_at,
+        updatedAt: f.updated_at,
+        tenant: tenant ? {
+          id: tenant.id,
+          firstName: tenant.first_name,
+          lastName: tenant.last_name,
+          phone: tenant.phone,
+          email: tenant.email,
+          avatarUrl: tenant.avatar_url,
+        } : null,
+        documents,
+        sla: sla ? {
+          id: sla.id,
+          entityId: sla.entity_id,
+          submittedAt: sla.submitted_at,
+          deadlineAt: sla.deadline_at,
+          isOverdue: sla.is_overdue,
+        } : null,
+      }
+
+      const resp = NextResponse.json({
+        files: [fileWithSla],
+        pagination: { total: 1, limit: 1, offset: 0, hasMore: false },
+      })
+      return applyCookies(resp)
+    }
 
     const limit = limitParam ? Math.min(parseInt(limitParam), 100) : 50
     const offset = offsetParam ? parseInt(offsetParam) : 0
@@ -101,6 +217,9 @@ export async function GET(req: NextRequest) {
 
     const allFileIds = [...new Set([...fileIds, ...draftFileIds])]
 
+    // Check for previous rejections
+    const rejectionHistory = await fetchRejectionHistory(supabase, fileIds)
+
     const [{ data: tenantsData }, { data: documentsData }, { data: slasData }] = await Promise.all([
       tenantIds.length > 0
         ? (supabase.from('users') as any).select('id, first_name, last_name, phone, email, avatar_url').in('id', tenantIds) as any
@@ -160,6 +279,8 @@ export async function GET(req: NextRequest) {
         reviewedAt: f.reviewed_at,
         onHold: f.on_hold,
         onHoldReason: f.on_hold_reason,
+        previouslyRejected: rejectionHistory.has(f.id),
+        lastRejectedAt: rejectionHistory.get(f.id) ?? null,
         createdAt: f.created_at,
         updatedAt: f.updated_at,
         tenant: tenant ? {

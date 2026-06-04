@@ -222,14 +222,20 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
 
   // ─── Helper: ensure a draft rental file exists, returns its ID ────────
   const ensureDraftExists = async (): Promise<string | null> => {
-    // Fast path: already have the ID in the ref
-    if (rentalFileIdRef.current) return rentalFileIdRef.current
+    // Fast path: only use the ref if the existing file is actually a DRAFT
+    if (rentalFileIdRef.current && existingFile?.status === 'DRAFT') {
+      return rentalFileIdRef.current
+    }
 
-    // Second path: might exist in DB but not in ref (e.g. fresh page load)
-    if (existingFile) {
+    // Use existing file only if it's a DRAFT
+    if (existingFile?.status === 'DRAFT') {
       rentalFileIdRef.current = existingFile.id
       return existingFile.id
     }
+
+    // Reset ref — the existing file is not a DRAFT (e.g. REJECTED, TC_REVIEW),
+    // so we need to create a new draft before uploading documents
+    rentalFileIdRef.current = null
 
     // Lock to prevent concurrent draft creation
     if (isCreatingDraftRef.current) {
@@ -249,13 +255,13 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
       }).catch(() => {}) // fall through to DB fetch on timeout
       
       // After waiting, try the ref again
-      if (rentalFileIdRef.current) return rentalFileIdRef.current
+      if (rentalFileIdRef.current && existingFile?.status === 'DRAFT') return rentalFileIdRef.current
       // Fetch from DB (the other call may have created the draft)
 
       const result = await authFetch<RentalFileResponse>('/api/rental-file')
       const files = result.data ?? []
       const draft = files.find((f) => f.status === 'DRAFT') || files[0]
-      if (draft?.id) {
+      if (draft?.id && draft.status === 'DRAFT') {
         rentalFileIdRef.current = draft.id
         setExistingFile(draft)
         return draft.id
@@ -273,7 +279,8 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         body: JSON.stringify({}),
       })
       const draftId: string | undefined = raw?.data?.id
-      if (draftId) {
+      // Verify that the created/returned file is indeed a DRAFT
+      if (draftId && raw?.data?.status === 'DRAFT') {
         setExistingFile(raw.data as RentalFileItem)
         rentalFileIdRef.current = draftId
         return draftId
@@ -282,7 +289,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
       const fetchResult = await authFetch<RentalFileResponse>('/api/rental-file')
       const files = fetchResult.data ?? []
       const draft = files.find((f) => f.status === 'DRAFT') || files[0]
-      if (draft?.id) {
+      if (draft?.id && draft.status === 'DRAFT') {
         rentalFileIdRef.current = draft.id
         setExistingFile(draft)
         return draft.id

@@ -16,6 +16,8 @@ import { Payments } from './locataire/payments'
 import { Notifications } from './locataire/notifications'
 import { Reviews } from './locataire/reviews'
 import { Maintenance } from './locataire/maintenance'
+import { SearchAlerts } from './locataire/search-alerts'
+import { RentalFilesList } from './locataire/rental-files-list'
 import { MyDisputes } from './shared/my-disputes'
 import { ActivityHistory } from './locataire/history'
 import { SettingsSection } from './locataire/settings'
@@ -29,6 +31,7 @@ import { MyProperties } from './proprietaire/my-properties'
 import { VisitRequests } from './proprietaire/visit-requests'
 import { EnhancedRentalFiles } from './proprietaire/enhanced-rental-files'
 import { EnhancedLeases } from './proprietaire/enhanced-leases'
+import { ProprietaireRenewals } from './proprietaire/renewals'
 import { ProprietaireMessages } from './proprietaire/messages'
 import { OwnerFileForm } from './proprietaire/owner-file'
 import { TenantsList } from './proprietaire/my-tenants'
@@ -149,6 +152,8 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'payments': return <Payments onDetail={goToPaymentDetail} />
     case 'payment-detail': return <BackableSection sectionKey="payment-detail" onBack={goBackToPayments}><PaymentDetail paymentId={selectedItemId} onBack={goBackToPayments} /></BackableSection>
     case 'messages': return <Messages />
+    case 'search-alerts': return <SearchAlerts />
+    case 'rental-files-list': return <RentalFilesList />
     case 'notifications': return <Notifications />
     case 'reviews': return <Reviews />
     case 'disputes': return <MyDisputes />
@@ -181,6 +186,7 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'visit-requests': return <VisitRequests />
     case 'candidatures': return <EnhancedRentalFiles />
     case 'disputes': return <MyDisputes />
+    case 'renewals': return <ProprietaireRenewals />
     case 'my-leases': return <EnhancedLeases />
     case 'mandats': return <ProprietaireMandats />
     case 'owner-file': return <BackableSection sectionKey="owner-file" onBack={() => { setSelectedItemId(''); setDashboardSection('candidatures') }}><OwnerFileForm /></BackableSection>
