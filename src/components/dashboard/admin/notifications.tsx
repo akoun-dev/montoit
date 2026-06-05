@@ -137,7 +137,7 @@ export function AdminNotifications() {
     setPrefs(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const { setDashboardSection } = useAuthStore()
+  const { setSelectedItemId, setDashboardSection } = useAuthStore()
 
   const handleMarkAsRead = async (notification: NotificationItem) => {
     try {
@@ -151,9 +151,18 @@ export function AdminNotifications() {
       useNotificationStore.setState((state) => ({
         unreadCount: Math.max(0, state.unreadCount - 1),
       }))
-      if (notification.actionUrl) {
-        setDashboardSection(notification.actionUrl)
+    } catch {
+      // Silently fail
+    }
+  }
+
+  const handleOpenDetail = async (notification: NotificationItem) => {
+    try {
+      if (!notification.isRead) {
+        await handleMarkAsRead(notification)
       }
+      setSelectedItemId(notification.id)
+      setDashboardSection('notification-detail')
     } catch {
       // Silently fail
     }
@@ -214,7 +223,7 @@ export function AdminNotifications() {
                 const Icon = typeIcons[notification.type] || Bell
                 const colorClass = typeColors[notification.type] || 'bg-neutral-100 text-neutral-700'
                 return (
-                  <Card key={notification.id} className={`border-border cursor-pointer ${!notification.isRead ? 'border-l-4 border-l-brand-500' : 'opacity-70'}`} onClick={() => { if (!notification.isRead || notification.actionUrl) handleMarkAsRead(notification) }}>
+                  <Card key={notification.id} className={`border-border cursor-pointer ${!notification.isRead ? 'border-l-4 border-l-brand-500' : 'opacity-70'}`} onClick={() => handleOpenDetail(notification)}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <div className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
@@ -234,7 +243,7 @@ export function AdminNotifications() {
                               <Check className="size-3.5" />
                             </Button>
                           ) : (
-                            <Mail className="size-3.5 text-muted-foreground cursor-pointer" onClick={() => { if (notification.actionUrl) handleMarkAsRead(notification) }} />
+                            <Mail className="size-3.5 text-muted-foreground cursor-pointer" onClick={() => handleOpenDetail(notification)} />
                           )}
                         </div>
                       </div>

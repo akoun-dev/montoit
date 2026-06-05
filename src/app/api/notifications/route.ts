@@ -11,12 +11,46 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
+    const id = searchParams.get('id')
+
+    const admin = getSupabaseAdminClient()
+
+    // Single notification by id
+    if (id) {
+      const { data: notif, error } = await admin
+        .from('notifications')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single()
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return NextResponse.json({ error: 'Notification introuvable' }, { status: 404 })
+        }
+        throw error
+      }
+
+      const response = NextResponse.json({
+        data: {
+          id: notif.id,
+          type: notif.type,
+          title: notif.title,
+          message: notif.message,
+          isRead: notif.is_read,
+          actionUrl: notif.action_url,
+          entityId: notif.entity_id,
+          createdAt: notif.created_at,
+          userId: notif.user_id,
+        },
+      })
+      return applyCookies(response)
+    }
+
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
     const type = searchParams.get('type')
     const isReadParam = searchParams.get('isRead')
-
-    const admin = getSupabaseAdminClient()
 
     let query = admin
       .from('notifications')

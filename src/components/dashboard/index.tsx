@@ -19,6 +19,7 @@ import { Maintenance } from './locataire/maintenance'
 import { RentalFilesList } from './locataire/rental-files-list'
 import { MyDisputes } from './shared/my-disputes'
 import { ActivityHistory } from './locataire/history'
+import { NotificationDetail } from './shared/notification-detail'
 import { SettingsSection } from './locataire/settings'
 import { TrustScore } from './locataire/trust-score'
 import { PaymentDetail } from './locataire/payment-detail'
@@ -155,6 +156,7 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'messages': return <Messages />
     case 'rental-files-list': return <RentalFilesList />
     case 'notifications': return <Notifications />
+    case 'notification-detail': return <NotificationDetail />
     case 'reviews': return <Reviews />
     case 'disputes': return <MyDisputes />
     case 'maintenance': return <Maintenance />
@@ -197,6 +199,7 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'inventory-report-form': return <InventoryReportForm />
     case 'messages': return <ProprietaireMessages />
     case 'notifications': return <Notifications />
+    case 'notification-detail': return <NotificationDetail />
     case 'trust-score': return <TrustScore />
     case 'reviews': return <OwnerReviews />
     case 'maintenance': return <OwnerMaintenance />
@@ -234,6 +237,7 @@ function TcDashboard({ section }: { section: string }) {
     case 'fraud-alerts': return <FraudAlertsManagement />
     case 'documentation': return <DocumentationCenter />
     case 'notifications': return <Notifications />
+    case 'notification-detail': return <NotificationDetail />
     case 'history': return <ActivityHistory />
     case 'settings': return <TcSettings />
     default: return <TcOverview />
@@ -256,6 +260,7 @@ function AgenceDashboard({ section }: { section: string }) {
     case 'marketing': return <AgenceMarketing />
     case 'client-files': return <ClientFiles />
     case 'notifications': return <Notifications />
+    case 'notification-detail': return <NotificationDetail />
     case 'settings': return <AgenceSettings />
     case 'security': return <AgenceSecurity />
     default: return <AgenceOverview />
@@ -273,6 +278,7 @@ function AdminDashboard({ section }: { section: string }) {
     case 'signalements': return <AdminSignalements />
     case 'disputes': return <Disputes />
     case 'notifications': return <AdminNotifications />
+    case 'notification-detail': return <NotificationDetail />
     case 'reports': return <Reports />
     case 'system': return <AdminSystem />
     case 'security': return <AdminSecurity />

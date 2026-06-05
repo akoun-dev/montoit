@@ -126,23 +126,24 @@ export function Notifications() {
 
   useEffect(() => { fetchNotifications() }, [fetchNotifications])
 
-  const { setDashboardSection } = useAuthStore()
+  const { setSelectedItemId, setDashboardSection } = useAuthStore()
 
-  const handleMarkAsRead = async (notif: NotificationItem) => {
+  const handleOpenDetail = async (notif: NotificationItem) => {
     try {
-      await authFetch('/api/notifications', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationIds: [notif.id] }),
-      })
-      setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, isRead: true } : n))
-      setUnreadCount((prev) => Math.max(0, prev - 1))
-      useNotificationStore.setState((state) => ({
-        unreadCount: Math.max(0, state.unreadCount - 1),
-      }))
-      if (notif.actionUrl) {
-        setDashboardSection(notif.actionUrl)
+      if (!notif.isRead) {
+        await authFetch('/api/notifications', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notificationIds: [notif.id] }),
+        })
+        setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, isRead: true } : n))
+        setUnreadCount((prev) => Math.max(0, prev - 1))
+        useNotificationStore.setState((state) => ({
+          unreadCount: Math.max(0, state.unreadCount - 1),
+        }))
       }
+      setSelectedItemId(notif.id)
+      setDashboardSection('notification-detail')
     } catch {
       // Silently fail
     }
@@ -310,7 +311,7 @@ export function Notifications() {
                       ? 'border-border bg-card'
                       : 'border-brand-100 bg-brand-50/30 hover:bg-brand-50/60'
                   }`}
-                  onClick={() => { if (!notif.isRead || notif.actionUrl) handleMarkAsRead(notif) }}
+                  onClick={() => handleOpenDetail(notif)}
                 >
                   <div className="flex items-start gap-4 p-4">
                     {/* Icon */}
