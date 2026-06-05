@@ -433,8 +433,8 @@ export function TcOverview() {
         </Card>
       </motion.div>
 
-      {/* ─── 3 Main Status Cards ──────────────────────────────────────────── */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* ─── 4 Main Status Cards ──────────────────────────────────────────── */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {mainCards.map((card) => {
           const Icon = card.icon
           return (
@@ -944,41 +944,6 @@ export function TcOverview() {
         </Card>
       </motion.div>
 
-      {/* ─── Quick Links ─────────────────────────────────────────────────────── */}
-      <motion.div variants={itemVariants}>
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <p className="text-sm font-semibold text-foreground mb-3">Accès rapide</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2">
-              {[
-                { id: 'agents', label: 'Agents', icon: Users, color: 'bg-teal-50 text-teal-600' },
-                { id: 'missions', label: 'Missions', icon: MapPin, color: 'bg-brand-50 text-brand-600' },
-                { id: 'property-verifications', label: 'Vérification biens', icon: Home, color: 'bg-amber-50 text-amber-600' },
-                { id: 'inventory-reports', label: 'État des lieux', icon: FileText, color: 'bg-emerald-50 text-emerald-600' },
-                { id: 'certifications', label: 'Certifications', icon: Award, color: 'bg-orange-50 text-orange-600' },
-                { id: 'oneci-verification', label: 'Vérification ONECI', icon: BadgeCheck, color: 'bg-green-50 text-green-600' },
-                { id: 'fraud-alerts', label: 'Alertes fraude', icon: ShieldAlert, color: 'bg-red-50 text-red-600' },
-                { id: 'litiges', label: 'Litiges', icon: Scale, color: 'bg-rose-50 text-rose-600' },
-                { id: 'settings', label: 'Activité', icon: Activity, color: 'bg-gray-50 text-gray-600' },
-              ].map((link) => {
-                const Icon = link.icon
-                return (
-                  <button
-                    key={link.id}
-                    onClick={() => setDashboardSection(link.id)}
-                    className="flex flex-col items-center gap-2 p-3 rounded-lg border border-border hover:bg-accent hover:shadow-sm transition-all"
-                  >
-                    <div className={cn('flex size-10 items-center justify-center rounded-lg', link.color)}>
-                      <Icon className="size-5" />
-                    </div>
-                    <span className="text-xs font-medium text-foreground text-center">{link.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
     </motion.div>
   )
 }

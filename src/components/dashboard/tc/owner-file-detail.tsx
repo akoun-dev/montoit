@@ -620,6 +620,9 @@ export function OwnerFileDetail() {
       {/* ─── Reject Dialog ──────────────────────────────────────────────── */}
       <Dialog open={rejectDialog} onOpenChange={setRejectDialog}>
         <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmer le rejet</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
               Vous allez rejeter le dossier de{' '}
@@ -652,6 +655,9 @@ export function OwnerFileDetail() {
       {/* ─── Request Info Dialog ────────────────────────────────────────── */}
       <Dialog open={requestInfoDialog} onOpenChange={setRequestInfoDialog}>
         <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Demander des informations</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
               Vous allez demander des informations complémentaires pour le dossier de{' '}

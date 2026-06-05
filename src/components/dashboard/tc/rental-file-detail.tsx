@@ -662,23 +662,6 @@ export function RentalFileDetail() {
             </CardContent>
           </Card>
 
-          {/* Tenant contact card */}
-          <Card className="border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Contact locataire</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="size-4 shrink-0" />
-                <a href={`tel:${file.tenant.phone}`} className="hover:underline">{file.tenant.phone}</a>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="size-4 shrink-0" />
-                <a href={`mailto:${file.tenant.email}`} className="hover:underline truncate">{file.tenant.email}</a>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Document count summary */}
           <Card className="border-border">
             <CardHeader className="pb-3">
@@ -717,6 +700,9 @@ export function RentalFileDetail() {
       {/* ─── Reject Dialog ──────────────────────────────────────────────── */}
       <Dialog open={rejectDialog} onOpenChange={setRejectDialog}>
         <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmer le rejet</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
               Vous allez rejeter le dossier de{' '}
@@ -749,6 +735,9 @@ export function RentalFileDetail() {
       {/* ─── Request Info Dialog ────────────────────────────────────────── */}
       <Dialog open={requestInfoDialog} onOpenChange={setRequestInfoDialog}>
         <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Demander des informations</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
               Vous allez demander des informations complémentaires pour le dossier de{' '}
