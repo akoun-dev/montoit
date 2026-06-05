@@ -89,7 +89,7 @@ function isActionable(status: string) {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaultFilter?: FilterKey; onFilterConsumed?: () => void }) {
-  const { isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
+  const { isAuthenticated, selectedItemId, setSelectedItemId, setDashboardSection } = useAuthStore()
   const [filter, setFilter] = useState<FilterKey>(defaultFilter || 'all')
 
   useEffect(() => { onFilterConsumed?.() }, [])
@@ -165,6 +165,21 @@ export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaul
   }, [isAuthenticated])
 
   useEffect(() => { fetchStats(); fetchItems() }, [fetchStats, fetchItems])
+
+  // Auto-navigate to detail when selectedItemId matches a loaded item
+  useEffect(() => {
+    if (!selectedItemId || items.length === 0) return
+    const match = items.find(i => i.id === selectedItemId)
+    if (!match) return
+    // Clear selectedItemId after navigation to prevent re-triggering
+    if (match.category === 'locataire') {
+      setDashboardSection('rental-file-detail')
+    } else if (match.category === 'agence') {
+      setDashboardSection('agency-detail')
+    } else if (!match.type) {
+      setDashboardSection('owner-file-detail')
+    }
+  }, [selectedItemId, items, setDashboardSection])
 
   const filteredItems = useMemo(
     () => {

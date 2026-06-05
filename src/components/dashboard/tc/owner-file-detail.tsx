@@ -582,38 +582,6 @@ export function OwnerFileDetail() {
             </Card>
           )}
 
-          {/* Document count summary */}
-          <Card className="border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Récapitulatif</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Documents</span>
-                  <span className="font-medium">{file.documents.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Validés</span>
-                  <span className="font-medium text-green-600">
-                    {file.documents.filter((d) => d.status === 'VALIDATED').length}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">En attente</span>
-                  <span className="font-medium text-amber-600">
-                    {file.documents.filter((d) => d.status === 'PENDING').length}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Rejetés</span>
-                  <span className="font-medium text-red-600">
-                    {file.documents.filter((d) => d.status === 'REJECTED').length}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 

@@ -175,7 +175,7 @@ const DAY_NAMES = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function MissionsManagement() {
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, selectedItemId, setSelectedItemId } = useAuthStore()
 
   // Data
   const [missions, setMissions] = useState<Mission[]>([])
@@ -278,6 +278,15 @@ export function MissionsManagement() {
     fetchAgents()
     fetchProperties()
   }, [fetchMissions, fetchAgents, fetchProperties])
+
+  // Auto-navigate to mission detail when selectedItemId matches
+  useEffect(() => {
+    if (!selectedItemId || missions.length === 0) return
+    const match = missions.find(m => m.id === selectedItemId)
+    if (!match) return
+    setSelectedItemId('')
+    setDetailDialog({ open: true, mission: match })
+  }, [selectedItemId, missions, setSelectedItemId])
 
   useRealtimeMissions({
     userId: user?.id,

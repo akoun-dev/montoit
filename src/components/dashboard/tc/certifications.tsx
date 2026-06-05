@@ -111,7 +111,7 @@ const typeFilterOptions = [
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function CertificationsManagement() {
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, selectedItemId, setSelectedItemId } = useAuthStore()
   const [certifications, setCertifications] = useState<Certification[]>([])
   const [stats, setStats] = useState<CertStats>({ PENDING: 0, GRANTED: 0, REVOKED: 0, EXPIRED: 0, TOTAL: 0 })
   const [loading, setLoading] = useState(true)
@@ -186,6 +186,15 @@ export function CertificationsManagement() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Auto-navigate to certification detail when selectedItemId matches
+  useEffect(() => {
+    if (!selectedItemId || certifications.length === 0) return
+    const match = certifications.find(c => c.id === selectedItemId)
+    if (!match) return
+    setSelectedItemId('')
+    setDetailsDialog({ open: true, cert: match })
+  }, [selectedItemId, certifications, setSelectedItemId])
 
   // ─── User search for create dialog ───────────────────────────────────
 

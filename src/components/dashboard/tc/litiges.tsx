@@ -176,7 +176,7 @@ function PriorityBadge({ priority }: { priority: DossierPriority }) {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function LitigesManagement() {
-  const { isAuthenticated, setDashboardSection, user } = useAuthStore()
+  const { isAuthenticated, setDashboardSection, user, selectedItemId, setSelectedItemId } = useAuthStore()
 
   // Data
   const [disputes, setDisputes] = useState<Dispute[]>([])
@@ -253,6 +253,15 @@ export function LitigesManagement() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Auto-navigate to dispute detail when selectedItemId matches
+  useEffect(() => {
+    if (!selectedItemId || disputes.length === 0) return
+    const match = disputes.find(d => d.id === selectedItemId)
+    if (!match) return
+    setSelectedItemId('')
+    setDetailDialog({ open: true, dispute: match })
+  }, [selectedItemId, disputes, setSelectedItemId])
 
   // ─── Stats ─────────────────────────────────────────────────────────────
 
@@ -1256,7 +1265,7 @@ export function LitigesManagement() {
                           className="h-5 px-1 text-[10px] text-brand-500 hover:text-brand-600"
                           onClick={() => {
                             setDetailDialog({ open: false, dispute: null })
-                            setDashboardSection('notifications')
+                            setDashboardSection('messaging')
                           }}
                         >
                           <MessageSquare className="size-3" /> Contacter
@@ -1271,7 +1280,7 @@ export function LitigesManagement() {
                           className="h-5 px-1 text-[10px] text-brand-500 hover:text-brand-600"
                           onClick={() => {
                             setDetailDialog({ open: false, dispute: null })
-                            setDashboardSection('notifications')
+                            setDashboardSection('messaging')
                           }}
                         >
                           <MessageSquare className="size-3" /> Contacter
@@ -1304,7 +1313,7 @@ export function LitigesManagement() {
                     className="text-brand-500 border-brand-200 hover:bg-brand-50 gap-1 text-xs"
                     onClick={() => {
                       setDetailDialog({ open: false, dispute: null })
-                      setDashboardSection('notifications')
+                      setDashboardSection('messaging')
                     }}
                   >
                     <MessageSquare className="size-3.5" /> Contacter
@@ -1332,7 +1341,7 @@ export function LitigesManagement() {
                     className="text-brand-500 border-brand-200 hover:bg-brand-50 gap-1 text-xs"
                     onClick={() => {
                       setDetailDialog({ open: false, dispute: null })
-                      setDashboardSection('notifications')
+                      setDashboardSection('messaging')
                     }}
                   >
                     <MessageSquare className="size-3.5" /> Contacter

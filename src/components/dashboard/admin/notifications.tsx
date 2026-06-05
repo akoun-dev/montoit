@@ -81,6 +81,55 @@ const typeColors: Record<string, string> = {
   PROMOTION: 'bg-purple-100 text-purple-700',
 }
 
+// ─── Role-aware actionUrl mapping ───────────────────────────────────────────
+const ROLE_ACTION_URL_MAP: Record<string, Record<string, string>> = {
+  TIERS_CONFIANCE: {
+    'messages': 'messaging',
+    'my-properties': 'all-properties',
+    'owner-file': 'owner-validations',
+    'rental-file': 'dossier-validations',
+    'rental-files': 'dossier-validations',
+    'rental-files-queue': 'dossier-validations',
+    'candidatures': 'dossier-validations',
+    'applications': 'dossier-validations',
+    'lease': 'dossier-validations',
+    'payments': 'overview',
+    'visit-requests': 'overview',
+    'my-visits': 'overview',
+    'my-leases': 'overview',
+    'maintenance': 'overview',
+    'reviews': 'overview',
+    'mandats': 'overview',
+    'properties-moderation': 'property-verifications',
+    'signalements': 'litiges',
+    'visits': 'overview',
+    'trust-score': 'overview',
+    'history': 'overview',
+    'my-tenants': 'overview',
+  },
+  PROPRIETAIRE: {
+    'rental-file': 'owner-file',
+    'my-visits': 'visit-requests',
+  },
+  AGENCE: {
+    'my-properties': 'portfolio',
+    'my-visits': 'visits',
+    'my-leases': 'contracts',
+    'history': 'overview',
+    'trust-score': 'overview',
+    'owner-file': 'portfolio',
+    'rental-file': 'candidatures',
+  },
+}
+
+function mapActionUrl(actionUrl: string, role: string): string {
+  const roleMap = ROLE_ACTION_URL_MAP[role]
+  if (roleMap && roleMap[actionUrl]) {
+    return roleMap[actionUrl]
+  }
+  return actionUrl
+}
+
 function formatTimeAgo(dateStr: string): string {
   const date = new Date(dateStr)
   const now = new Date()
@@ -137,7 +186,7 @@ export function AdminNotifications() {
     setPrefs(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const { setSelectedItemId, setDashboardSection } = useAuthStore()
+  const { setDashboardSection, setSelectedItemId } = useAuthStore()
 
   const handleMarkAsRead = async (notification: NotificationItem) => {
     try {
@@ -151,18 +200,14 @@ export function AdminNotifications() {
       useNotificationStore.setState((state) => ({
         unreadCount: Math.max(0, state.unreadCount - 1),
       }))
-    } catch {
-      // Silently fail
-    }
-  }
-
-  const handleOpenDetail = async (notification: NotificationItem) => {
-    try {
-      if (!notification.isRead) {
-        await handleMarkAsRead(notification)
+      if (notification.actionUrl) {
+        const role = user?.activeRole || user?.role || ''
+        const section = mapActionUrl(notification.actionUrl, role)
+        if (notification.entityId) {
+          setSelectedItemId(notification.entityId)
+        }
+        setDashboardSection(section)
       }
-      setSelectedItemId(notification.id)
-      setDashboardSection('notification-detail')
     } catch {
       // Silently fail
     }
@@ -223,7 +268,7 @@ export function AdminNotifications() {
                 const Icon = typeIcons[notification.type] || Bell
                 const colorClass = typeColors[notification.type] || 'bg-neutral-100 text-neutral-700'
                 return (
-                  <Card key={notification.id} className={`border-border cursor-pointer ${!notification.isRead ? 'border-l-4 border-l-brand-500' : 'opacity-70'}`} onClick={() => handleOpenDetail(notification)}>
+                  <Card key={notification.id} className={`border-border cursor-pointer ${!notification.isRead ? 'border-l-4 border-l-brand-500' : 'opacity-70'}`} onClick={() => { if (!notification.isRead || notification.actionUrl) handleMarkAsRead(notification) }}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <div className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
@@ -243,7 +288,7 @@ export function AdminNotifications() {
                               <Check className="size-3.5" />
                             </Button>
                           ) : (
-                            <Mail className="size-3.5 text-muted-foreground cursor-pointer" onClick={() => handleOpenDetail(notification)} />
+                            <Mail className="size-3.5 text-muted-foreground cursor-pointer" onClick={() => { if (notification.actionUrl) handleMarkAsRead(notification) }} />
                           )}
                         </div>
                       </div>

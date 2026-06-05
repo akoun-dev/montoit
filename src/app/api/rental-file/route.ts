@@ -401,7 +401,7 @@ async function notifyTcUsers(admin: ReturnType<typeof getSupabaseAdminClient>, t
       type: 'DOSSIER_UPDATE',
       title,
       message,
-      actionUrl: 'rental-files-queue',
+      actionUrl: 'dossier-validations',
       entityId,
     })
   }

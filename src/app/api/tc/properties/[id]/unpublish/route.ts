@@ -98,7 +98,7 @@ export async function PATCH(
           type: 'DOSSIER_UPDATE',
           title: 'Bien sous gestion retiré',
           message: `Le bien "${property.title}" que vous gérez a été retiré de la plateforme par le Tiers de Confiance.${reasonText}`,
-          actionUrl: 'my-properties',
+          actionUrl: 'portfolio',
           entityId: propertyId,
         })
       ))

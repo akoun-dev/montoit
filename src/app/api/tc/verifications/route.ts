@@ -256,7 +256,7 @@ export async function PATCH(req: NextRequest) {
             type: 'DOSSIER_UPDATE',
             title: 'Bien sous gestion approuvé',
             message: `Le bien "${property.title}" que vous gérez a été approuvé par le Tiers de Confiance et est maintenant visible.`,
-            actionUrl: 'my-properties',
+            actionUrl: 'portfolio',
             entityId: propertyId,
           })
         }
@@ -315,7 +315,7 @@ export async function PATCH(req: NextRequest) {
             type: 'DOSSIER_UPDATE',
             title: 'Bien sous gestion rejeté',
             message: `Le bien "${property.title}" que vous gérez a été rejeté par le Tiers de Confiance. Raison : ${comment || 'Non spécifié'}`,
-            actionUrl: 'my-properties',
+            actionUrl: 'portfolio',
             entityId: propertyId,
           })
         }
