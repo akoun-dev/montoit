@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
     const type = searchParams.get('type')
+    const id = searchParams.get('id')
     const limitParam = searchParams.get('limit')
     const offsetParam = searchParams.get('offset')
 
@@ -37,7 +38,9 @@ export async function GET(req: NextRequest) {
       .from('ownership_documents')
       .select('*', { count: 'exact' })
 
-    if (status && status !== 'ALL') {
+    if (id) {
+      query = query.eq('id', id)
+    } else if (status && status !== 'ALL') {
       query = query.eq('status', status)
     } else if (!status) {
       query = query.eq('status', 'PENDING')

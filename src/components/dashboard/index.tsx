@@ -43,11 +43,13 @@ import { OwnerMaintenance } from './proprietaire/owner-maintenance'
 import { OwnerSettings } from './proprietaire/owner-settings'
 import { OwnerSecurity } from './proprietaire/security'
 import { TcOverview } from './tc/overview'
-import { DossierValidations } from './tc/dossier-validations'
+import { DossierValidations, type FilterKey } from './tc/dossier-validations'
 import { RentalFilesQueue } from './tc/rental-files-queue'
 import { RentalFileDetail } from './tc/rental-file-detail'
-import { OwnerValidations } from './tc/owner-validations'
+import { OwnerFileDetail } from './tc/owner-file-detail'
+import { AgencyDetail } from './tc/agency-detail'
 import { OwnerDossierValidations } from './tc/owner-dossier-validations'
+import { OwnerValidations } from './tc/owner-validations'
 import { AgencyValidations } from './tc/agency-validations'
 import { SlaMonitoring } from './tc/sla-monitoring'
 import { PropertyVerifications } from './tc/property-verifications'
@@ -205,6 +207,7 @@ function ProprietaireDashboard({ section }: { section: string }) {
 }
 
 function TcDashboard({ section }: { section: string }) {
+  const { dossierValidationFilter, setDossierValidationFilter } = useAuthStore()
   switch (section) {
     case 'overview': return <TcOverview />
     case 'all-properties': return <AllProperties />
@@ -212,9 +215,11 @@ function TcDashboard({ section }: { section: string }) {
     case 'property-verifications': return <PropertyVerifications />
     case 'property-verify-detail': return <PropertyVerifyDetail />
     case 'inventory-report-form': return <InventoryReportForm />
-    case 'dossier-validations': return <DossierValidations />
+    case 'dossier-validations': return <DossierValidations defaultFilter={dossierValidationFilter as FilterKey} onFilterConsumed={() => setDossierValidationFilter('all')} />
     case 'rental-files-queue': return <RentalFilesQueue />
     case 'rental-file-detail': return <RentalFileDetail />
+    case 'owner-file-detail': return <OwnerFileDetail />
+    case 'agency-detail': return <AgencyDetail />
     case 'owner-validations': return <OwnerValidations />
     case 'owner-dossiers': return <OwnerDossierValidations />
     case 'agency-validations': return <AgencyValidations />

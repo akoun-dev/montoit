@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, FileText, Building2, Clock, CheckCircle2, AlertCircle, ChevronRight, User, MapPin } from 'lucide-react'
+import { ArrowLeft, FileText, Building2, Clock, CheckCircle2, AlertCircle, ChevronRight, User, MapPin, Briefcase, Users, MessageSquare } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -204,38 +204,40 @@ export function ApplicationDetail({  applicationId, onBack
       </div>
 
       {/* Status Timeline */}
-      <Card className="border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Avancement</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {application.statusTimeline.map((step, i) => (
-              <div key={step.status} className="flex items-center gap-1.5">
-                <div className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium ${
-                  step.completed
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : step.active
-                      ? 'bg-brand-50 text-brand-600 ring-1 ring-brand-200'
-                      : 'bg-muted text-muted-foreground'
-                }`}>
-                  {step.completed ? (
-                    <CheckCircle2 className="size-3.5" />
-                  ) : step.active ? (
-                    <ChevronRight className="size-3.5" />
-                  ) : (
-                    <div className="size-2 rounded-full bg-neutral-300" />
+      {application.statusTimeline.length > 0 && (
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avancement</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {application.statusTimeline.map((step, i) => (
+                <div key={step.status} className="flex items-center gap-1.5">
+                  <div className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                    step.completed
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : step.active
+                        ? 'bg-brand-50 text-brand-600 ring-1 ring-brand-200'
+                        : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {step.completed ? (
+                      <CheckCircle2 className="size-3.5" />
+                    ) : step.active ? (
+                      <ChevronRight className="size-3.5" />
+                    ) : (
+                      <div className="size-2 rounded-full bg-neutral-300" />
+                    )}
+                    {step.label}
+                  </div>
+                  {i < application.statusTimeline.length - 1 && (
+                    <div className={`w-4 sm:w-8 h-px ${step.completed ? 'bg-emerald-300' : 'bg-neutral-200'}`} />
                   )}
-                  {step.label}
                 </div>
-                {i < application.statusTimeline.length - 1 && (
-                  <div className={`w-4 sm:w-8 h-px ${step.completed ? 'bg-emerald-300' : 'bg-neutral-200'}`} />
-                )}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Property info */}
       {property && (
@@ -281,84 +283,126 @@ export function ApplicationDetail({  applicationId, onBack
         </Card>
       )}
 
-      {/* Financial info */}
-      <Card className="border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Informations financières</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {application.monthlyIncome && (
-              <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
-                <span className="text-muted-foreground">Revenus mensuels</span>
-                <span className="font-medium text-foreground">{application.monthlyIncome.toLocaleString('fr-FR')} FCFA</span>
-              </div>
-            )}
-            {application.employer && (
-              <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
-                <span className="text-muted-foreground">Employeur</span>
-                <span className="font-medium text-foreground">{application.employer}</span>
-              </div>
-            )}
-            {application.employmentType && (
-              <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
-                <span className="text-muted-foreground">Type d&apos;emploi</span>
-                <span className="font-medium text-foreground">{employmentLabels[application.employmentType] || application.employmentType}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Guarantor */}
-          {application.guarantorName && (
-            <div className="mt-4 pt-3 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-2 font-medium">Garant</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
-                  <span className="text-muted-foreground">Nom</span>
-                  <span className="font-medium text-foreground">{application.guarantorName}</span>
+      {/* Employment info */}
+      {(application.employer || application.employmentType || application.monthlyIncome) && (
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Briefcase className="size-4" /> Situation professionnelle
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid sm:grid-cols-3 gap-4">
+              {application.employer && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Employeur</p>
+                  <p className="text-sm font-medium text-foreground">{application.employer}</p>
                 </div>
-                {application.guarantorPhone && (
-                  <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
-                    <span className="text-muted-foreground">Téléphone</span>
-                    <span className="font-medium text-foreground">{application.guarantorPhone}</span>
-                  </div>
-                )}
-                {application.guarantorRelation && (
-                  <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
-                    <span className="text-muted-foreground">Relation</span>
-                    <span className="font-medium text-foreground">{application.guarantorRelation}</span>
-                  </div>
-                )}
+              )}
+              {application.employmentType && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Type de contrat</p>
+                  <p className="text-sm font-medium text-foreground">{employmentLabels[application.employmentType] || application.employmentType}</p>
+                </div>
+              )}
+              {application.monthlyIncome && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Revenu mensuel</p>
+                  <p className="text-sm font-medium text-foreground">{application.monthlyIncome.toLocaleString('fr-FR')} FCFA</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Guarantor info */}
+      {application.guarantorName && (
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Users className="size-4" /> Garant
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Nom</p>
+                <p className="text-sm font-medium text-foreground">{application.guarantorName}</p>
+              </div>
+              {application.guarantorPhone && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Téléphone</p>
+                  <p className="text-sm font-medium text-foreground">{application.guarantorPhone}</p>
+                </div>
+              )}
+              {application.guarantorRelation && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Lien</p>
+                  <p className="text-sm font-medium text-foreground">{application.guarantorRelation}</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* TC Comment */}
+      {application.tcComment && (
+        <Card className="border-amber-100 bg-amber-50/50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-2">
+              <MessageSquare className="size-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-800">Commentaire du Tiers de Confiance</p>
+                <p className="text-sm text-amber-700 mt-1">{application.tcComment}</p>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Reviewed by */}
+      {application.reviewedBy && (
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-8 items-center justify-center rounded-full bg-muted">
+                <User className="size-4 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">{application.reviewedBy.firstName} {application.reviewedBy.lastName}</p>
+                <p className="text-xs text-muted-foreground">Traité par{application.reviewedAt ? ` le ${formatShortDate(application.reviewedAt)}` : ''}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Documents */}
-      <Card className="border-border">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <FileText className="size-4" /> Documents
-            </CardTitle>
-            {dp.total > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {dp.validated}/{dp.total} validé{dp.validated > 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {dp.total > 0 && (
-            <div className="mb-4 h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 rounded-full transition-all"
-                style={{ width: `${(dp.validated / dp.total) * 100}%` }}
-              />
+      {application.documents.length > 0 && (
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <FileText className="size-4" /> Documents
+              </CardTitle>
+              {dp.total > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {dp.validated}/{dp.total} validé{dp.validated > 1 ? 's' : ''}
+                </span>
+              )}
             </div>
-          )}
-          {application.documents.length > 0 ? (
+          </CardHeader>
+          <CardContent>
+            {dp.total > 0 && (
+              <div className="mb-4 h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full transition-all"
+                  style={{ width: `${(dp.validated / dp.total) * 100}%` }}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               {application.documents.map((doc) => {
                 const docStatus = docStatusConfig[doc.status] || docStatusConfig.PENDING
@@ -378,11 +422,9 @@ export function ApplicationDetail({  applicationId, onBack
                 )
               })}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">Aucun document</p>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Rejection reason */}
       {application.rejectionReason && (

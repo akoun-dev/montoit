@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  ArrowLeft, ArrowRight, User, Mail, Phone, Calendar,
-  FileText, Building2, Briefcase, Check, X, MessageSquare,
-  Pause, Play, AlertTriangle, Flame, CircleDot, Loader2,
-  ChevronLeft, ChevronRight, Shield, RotateCcw,
+  ArrowLeft, User, Mail, Phone, Calendar,
+  FileText, Building2, Check, X, MessageSquare,
+  Loader2, ChevronRight, Shield, RotateCcw,
 } from 'lucide-react'
 import { useBackHandler } from '@/hooks/use-back-handler'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,72 +15,61 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
+import { useRealtimeOwnerFiles } from '@/hooks/use-realtime-owner-files'
 import { DocumentPreviewDialog } from './document-preview-dialog'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
-type DossierPriority = 'NORMAL' | 'HIGH' | 'URGENT'
-
-interface RentalFile {
+interface OwnerDoc {
   id: string
-  status: 'DRAFT' | 'SUBMITTED' | 'TC_REVIEW' | 'VALIDATED' | 'REJECTED' | 'EXPIRED'
-  priority: DossierPriority
+  ownerFileId: string
+  type: string
+  name: string
+  url: string
+  status: string
+  tcComment: string | null
+  createdAt: string
+}
+
+interface OwnerFile {
+  id: string
+  ownerId: string
+  status: string
+  priority: string
   onHold: boolean
   onHoldReason: string | null
-  tenantCategory: string | null
-  monthlyIncome: number | null
-  employer: string | null
-  employmentType: string | null
-  guarantorName: string | null
-  guarantorPhone: string | null
-  rejectionReason: string | null
   tcComment: string | null
+  rejectionReason: string | null
+  reviewedById: string | null
   reviewedAt: string | null
   createdAt: string
-  tenant: {
+  updatedAt: string
+  owner: {
     id: string
     firstName: string
     lastName: string
     phone: string
     email: string
     avatarUrl: string | null
-  }
-  documents: Array<{
-    id: string
-    type: string
-    url: string
-    name: string
-    status: 'PENDING' | 'VALIDATED' | 'REJECTED'
-    tcComment: string | null
-    createdAt: string
-  }>
-  sla: {
-    id: string
-    submittedAt: string
-    deadlineAt: string
-    isOverdue: boolean
   } | null
+  documents: OwnerDoc[]
   previouslyRejected?: boolean
   lastRejectedAt?: string | null
 }
 
-const statusLabels: Record<RentalFile['status'], string> = {
+const statusLabels: Record<string, string> = {
   DRAFT: 'Brouillon',
   SUBMITTED: 'Soumis',
-  TC_REVIEW: 'En revue TC',
+  TC_REVIEW: 'Complément demandé',
   VALIDATED: 'Validé',
   REJECTED: 'Rejeté',
   EXPIRED: 'Expiré',
 }
 
-const statusColors: Record<RentalFile['status'], string> = {
+const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700',
   SUBMITTED: 'bg-amber-100 text-amber-700',
   TC_REVIEW: 'bg-orange-100 text-orange-700',
@@ -102,38 +90,19 @@ const docStatusLabels: Record<string, string> = {
   REJECTED: 'Rejeté',
 }
 
-const priorityLabels: Record<DossierPriority, string> = {
-  NORMAL: 'Normale',
-  HIGH: 'Haute',
-  URGENT: 'Urgente',
+const typeLabels: Record<string, string> = {
+  ID_CARD: "Pièce d'identité",
+  PASSPORT: 'Passeport',
+  PROPERTY_TITLE: 'Titre de propriété',
+  UTILITY_BILL: 'Facture',
+  BANK_ACCOUNT_DETAILS: 'Relevé bancaire',
+  OTHER: 'Autre',
 }
 
-const priorityColors: Record<DossierPriority, string> = {
-  NORMAL: 'bg-gray-100 text-gray-600',
-  HIGH: 'bg-amber-100 text-amber-700',
-  URGENT: 'bg-red-100 text-red-700',
-}
-
-const priorityIcons: Record<DossierPriority, React.ElementType> = {
-  NORMAL: CircleDot,
-  HIGH: AlertTriangle,
-  URGENT: Flame,
-}
-
-function PriorityBadge({ priority }: { priority: DossierPriority }) {
-  const Icon = priorityIcons[priority]
-  return (
-    <Badge className={cn('gap-1 text-xs', priorityColors[priority])}>
-      <Icon className="size-3" />
-      {priorityLabels[priority]}
-    </Badge>
-  )
-}
-
-export function RentalFileDetail() {
+export function OwnerFileDetail() {
   const { user, isAuthenticated, selectedItemId, setDashboardSection, setSelectedItemId } = useAuthStore()
 
-  const [file, setFile] = useState<RentalFile | null>(null)
+  const [file, setFile] = useState<OwnerFile | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
@@ -160,7 +129,7 @@ export function RentalFileDetail() {
     setDashboardSection('dossier-validations')
   }
 
-  useBackHandler('rental-file-detail', goBack)
+  useBackHandler('owner-file-detail', goBack)
 
   const fetchFile = useCallback(async (skipCache?: boolean) => {
     if (!isAuthenticated || !selectedItemId) {
@@ -174,8 +143,8 @@ export function RentalFileDetail() {
     setFile(null)
 
     try {
-      const d = await authFetch<{ files: RentalFile[] }>(
-        `/api/tc/rental-files?id=${selectedItemId}`,
+      const d = await authFetch<{ files: OwnerFile[] }>(
+        `/api/tc/owner-files?id=${selectedItemId}`,
         skipCache ? { skipCache: true } : undefined
       )
       const found = d.files?.[0]
@@ -196,14 +165,13 @@ export function RentalFileDetail() {
   }, [isAuthenticated, selectedItemId])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchFile()
   }, [fetchFile])
 
-  useRealtimeRentalFiles({
+  useRealtimeOwnerFiles({
     userId: user?.id,
     watchAll: true,
-    onRentalFileChange: () => { fetchFile(true) },
+    onOwnerFileChange: () => { fetchFile(true) },
   })
 
   const handleAction = useCallback(async (action: 'APPROVE' | 'REJECT' | 'REQUEST_INFO', comment?: string) => {
@@ -212,7 +180,6 @@ export function RentalFileDetail() {
     try {
       const body: any = { fileIds: [file.id], action, comment: comment || '' }
 
-      // Mettre à jour le statut de tous les documents selon l'action
       if (file.documents.length > 0) {
         if (action === 'APPROVE') {
           body.documentUpdates = file.documents.map((doc) => ({
@@ -228,7 +195,7 @@ export function RentalFileDetail() {
         }
       }
 
-      await authFetch('/api/tc/rental-files', {
+      await authFetch('/api/tc/owner-files', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -238,7 +205,7 @@ export function RentalFileDetail() {
           ? 'Dossier validé avec succès !'
           : action === 'REJECT'
             ? 'Dossier rejeté.'
-            : 'Demande d\'information envoyée.'
+            : "Demande d'information envoyée."
       )
       setRejectDialog(false)
       setRequestInfoDialog(false)
@@ -249,7 +216,7 @@ export function RentalFileDetail() {
       if (err instanceof AuthError) {
         toast.error(err.message)
       } else {
-        toast.error('Erreur lors de l\'action.')
+        toast.error("Erreur lors de l'action.")
       }
     } finally {
       setActionLoading(false)
@@ -274,7 +241,7 @@ export function RentalFileDetail() {
     if (!file) return
     setActionLoading(true)
     try {
-      await authFetch('/api/tc/rental-files', {
+      await authFetch('/api/tc/owner-files', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -298,7 +265,7 @@ export function RentalFileDetail() {
     if (!file) return
     setActionLoading(true)
     try {
-      await authFetch('/api/tc/rental-files', {
+      await authFetch('/api/tc/owner-files', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: file.id, onHold: false }),
@@ -309,21 +276,6 @@ export function RentalFileDetail() {
       toast.error(err instanceof Error ? err.message : 'Erreur')
     } finally {
       setActionLoading(false)
-    }
-  }
-
-  const handlePriorityChange = async (priority: DossierPriority) => {
-    if (!file) return
-    try {
-      await authFetch('/api/tc/rental-files', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: file.id, priority }),
-      })
-      toast.success(`Priorité mise à jour : ${priorityLabels[priority]}`)
-      await fetchFile(true)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur')
     }
   }
 
@@ -370,31 +322,25 @@ export function RentalFileDetail() {
             <ArrowLeft className="size-4" /> Retour
           </Button>
 
-          {/* Status badge */}
           <div className="flex items-center gap-2">
             {file.onHold && (
               <Badge className="bg-amber-100 text-amber-700 gap-1">
-                <Pause className="size-3" /> En attente
+                En attente
               </Badge>
             )}
-            {file.sla?.isOverdue && (
-              <Badge className="bg-red-100 text-red-700 gap-1">
-                <AlertTriangle className="size-3" /> SLA dépassé
-              </Badge>
-            )}
-            <Badge className={statusColors[file.status]}>{statusLabels[file.status]}</Badge>
+            <Badge className={statusColors[file.status]}>{statusLabels[file.status] || file.status}</Badge>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-lg bg-brand-100 shrink-0">
             <FileText className="size-5 text-brand-500" />
           </div>
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-foreground truncate">
-              {file.tenant.firstName} {file.tenant.lastName}
+              {file.owner ? `${file.owner.firstName} ${file.owner.lastName}` : 'Propriétaire'}
             </h2>
-            <p className="text-sm text-muted-foreground">Détail du dossier locatif</p>
+            <p className="text-sm text-muted-foreground">Détail du dossier propriétaire</p>
           </div>
         </div>
 
@@ -412,12 +358,10 @@ export function RentalFileDetail() {
         )}
       </div>
 
-
-
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Tenant info card */}
+          {/* Owner info card */}
           <Card className="border-border">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -427,42 +371,23 @@ export function RentalFileDetail() {
                   </div>
                   <div>
                     <CardTitle className="text-lg font-bold text-foreground">
-                      {file.tenant.firstName} {file.tenant.lastName}
+                      {file.owner ? `${file.owner.firstName} ${file.owner.lastName}` : 'Propriétaire'}
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground">Locataire</p>
+                    <p className="text-sm text-muted-foreground">Propriétaire</p>
                   </div>
                 </div>
-                <PriorityBadge priority={file.priority} />
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="size-4 shrink-0" />
-                  <span className="truncate">{file.tenant.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="size-4 shrink-0" />
-                  <span>{file.tenant.phone}</span>
-                </div>
-              </div>
-              {/* Guarantor */}
-              {(file.guarantorName || file.guarantorPhone) && (
-                <div className="border-t border-border pt-4">
-                  <h4 className="text-sm font-semibold text-foreground mb-3">Garant</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {file.guarantorName && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <User className="size-4 text-muted-foreground shrink-0" />
-                        <span>{file.guarantorName}</span>
-                      </div>
-                    )}
-                    {file.guarantorPhone && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="size-4 text-muted-foreground shrink-0" />
-                        <span>{file.guarantorPhone}</span>
-                      </div>
-                    )}
+              {file.owner && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Mail className="size-4 shrink-0" />
+                    <span className="truncate">{file.owner.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="size-4 shrink-0" />
+                    <span>{file.owner.phone}</span>
                   </div>
                 </div>
               )}
@@ -482,28 +407,6 @@ export function RentalFileDetail() {
                   )}
                 </div>
               </div>
-
-              {/* SLA */}
-              {file.sla && (
-                <div className={cn(
-                  'border-t border-border pt-4',
-                  file.sla.isOverdue && 'bg-red-50 -mx-6 px-6 pb-4 rounded-b-lg'
-                )}>
-                  <h4 className="text-sm font-semibold text-foreground mb-2">SLA</h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Soumis : </span>
-                      <span className="text-foreground">{new Date(file.sla.submittedAt).toLocaleDateString('fr-FR')}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Deadline : </span>
-                      <span className={cn('font-medium', file.sla.isOverdue ? 'text-red-600' : 'text-foreground')}>
-                        {new Date(file.sla.deadlineAt).toLocaleDateString('fr-FR')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -533,7 +436,7 @@ export function RentalFileDetail() {
                         <FileText className="size-5 text-brand-500 shrink-0" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
-                          <p className="text-xs text-muted-foreground">{doc.type}</p>
+                          <p className="text-xs text-muted-foreground">{typeLabels[doc.type] || doc.type}</p>
                         </div>
                       </button>
                       <div className="flex items-center gap-2 shrink-0">
@@ -554,7 +457,6 @@ export function RentalFileDetail() {
                 </div>
               )}
 
-              {/* Document legend */}
               <div className="flex gap-3 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <span className="size-2 rounded-full bg-amber-400" /> En attente
@@ -635,7 +537,6 @@ export function RentalFileDetail() {
                     <X className="size-4" />
                     Rejeter le dossier
                   </Button>
-
                 </>
               ) : file.onHold ? (
                 <div className="space-y-3">
@@ -648,36 +549,38 @@ export function RentalFileDetail() {
                     disabled={actionLoading}
                     onClick={handleResume}
                   >
-                    {actionLoading ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                    {actionLoading ? <Loader2 className="size-4 animate-spin" /> : <Shield className="size-4" />}
                     Reprendre le dossier
                   </Button>
                 </div>
               ) : (
                 <div className="p-3 rounded-lg bg-muted/50 text-center">
                   <p className="text-xs text-muted-foreground">
-                    Ce dossier a déjà été traité ({statusLabels[file.status]})
+                    Ce dossier a déjà été traité ({statusLabels[file.status] || file.status})
                   </p>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Tenant contact card */}
-          <Card className="border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Contact locataire</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="size-4 shrink-0" />
-                <a href={`tel:${file.tenant.phone}`} className="hover:underline">{file.tenant.phone}</a>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="size-4 shrink-0" />
-                <a href={`mailto:${file.tenant.email}`} className="hover:underline truncate">{file.tenant.email}</a>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Owner contact card */}
+          {file.owner && (
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Contact propriétaire</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="size-4 shrink-0" />
+                  <a href={`tel:${file.owner.phone}`} className="hover:underline">{file.owner.phone}</a>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="size-4 shrink-0" />
+                  <a href={`mailto:${file.owner.email}`} className="hover:underline truncate">{file.owner.email}</a>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Document count summary */}
           <Card className="border-border">
@@ -721,7 +624,7 @@ export function RentalFileDetail() {
             <p className="text-sm text-muted-foreground">
               Vous allez rejeter le dossier de{' '}
               <span className="font-semibold text-foreground">
-                {file.tenant.firstName} {file.tenant.lastName}
+                {file.owner ? `${file.owner.firstName} ${file.owner.lastName}` : 'ce propriétaire'}
               </span>
               . Veuillez indiquer le motif du rejet.
             </p>
@@ -753,7 +656,7 @@ export function RentalFileDetail() {
             <p className="text-sm text-muted-foreground">
               Vous allez demander des informations complémentaires pour le dossier de{' '}
               <span className="font-semibold text-foreground">
-                {file.tenant.firstName} {file.tenant.lastName}
+                {file.owner ? `${file.owner.firstName} ${file.owner.lastName}` : 'ce propriétaire'}
               </span>
               . Précisez ce qui est attendu.
             </p>
@@ -791,7 +694,7 @@ export function RentalFileDetail() {
             <p className="text-sm text-muted-foreground">
               Dossier de{' '}
               <span className="font-semibold text-foreground">
-                {file.tenant.firstName} {file.tenant.lastName}
+                {file.owner ? `${file.owner.firstName} ${file.owner.lastName}` : 'ce propriétaire'}
               </span>
             </p>
             <div className="space-y-2">

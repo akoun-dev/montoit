@@ -13,7 +13,7 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { motion } from 'framer-motion'
-import { useRealtimeOwnershipDocs } from '@/hooks/use-realtime-ownership-docs'
+import { useRealtimeOwnerFiles } from '@/hooks/use-realtime-owner-files'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface OwnerFileDoc {
@@ -63,7 +63,7 @@ const ownerDocumentRequirements: DocRequirement[] = [
 const statusConfig: Record<string, { label: string; color: string }> = {
   DRAFT: { label: 'Brouillon', color: 'bg-muted text-muted-foreground' },
   SUBMITTED: { label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  TC_REVIEW: { label: 'En examen TC', color: 'bg-brand-50 text-brand-600 border-brand-200' },
+  TC_REVIEW: { label: 'Complément requis', color: 'bg-orange-50 text-orange-700 border-orange-200' },
   VALIDATED: { label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200' },
   EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border' },
@@ -114,10 +114,10 @@ export function OwnerFileForm() {
 
   useEffect(() => { fetchOwnerFile() }, [fetchOwnerFile])
 
-  // Realtime — refresh when ownership documents change
-  useRealtimeOwnershipDocs({
+  // Realtime — refresh when owner files or documents change
+  useRealtimeOwnerFiles({
     userId: user?.id,
-    onOwnershipDocChange: useCallback(() => { void fetchOwnerFile() }, [fetchOwnerFile]),
+    onOwnerFileChange: useCallback(() => { void fetchOwnerFile() }, [fetchOwnerFile]),
   })
 
   const handleSaveDraft = async () => {
@@ -137,11 +137,13 @@ export function OwnerFileForm() {
     }
   }
 
-  const hasDocuments = (existingFile?.documents?.filter(d => ownerDocumentRequirements.some(rd => rd.type === d.type)).length ?? 0) > 0
+  const requiredDocTypes = ownerDocumentRequirements.filter(d => d.required).map(d => d.type)
+  const uploadedDocTypes = new Set((existingFile?.documents ?? []).map(d => d.type))
+  const hasAllRequiredDocs = requiredDocTypes.every(t => uploadedDocTypes.has(t))
 
   const handleSubmit = async () => {
-    if (!hasDocuments) {
-      toast.error('Ajoutez au moins un document avant de soumettre votre dossier.')
+    if (!hasAllRequiredDocs) {
+      toast.error('Veuillez télécharger tous les documents obligatoires avant de soumettre.')
       return
     }
     setSubmitting(true)
@@ -255,14 +257,24 @@ export function OwnerFileForm() {
     setUploadingDocType(docType)
 
     try {
-      const reader = new FileReader()
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string)
-        reader.onerror = reject
-        reader.readAsDataURL(file)
+      const { uploadUrl, publicUrl } = await authFetch<{
+        uploadUrl: string
+        publicUrl: string
+      }>('/api/owner-file/documents/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ownerFileId: draftId,
+          type: docType,
+          name: file.name,
+        }),
       })
 
-      const base64Content = await base64Promise
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      })
 
       await authFetch('/api/owner-file/documents', {
         method: 'POST',
@@ -271,7 +283,7 @@ export function OwnerFileForm() {
           ownerFileId: draftId,
           type: docType,
           name: file.name,
-          content: base64Content,
+          url: publicUrl,
         }),
       })
 
@@ -371,8 +383,8 @@ export function OwnerFileForm() {
                   </div>
                 )}
 
-                {/* TC Comment - visible for other non-draft statuses */}
-                {existingFile.status !== 'DRAFT' && existingFile.status !== 'REJECTED' && existingFile.tcComment && (
+                {/* TC Comment - visible for all statuses except REJECTED (has its own section) */}
+                {existingFile.status !== 'REJECTED' && existingFile.tcComment && (
                   <div className="mt-2 p-2.5 rounded-lg bg-amber-100/50 border border-amber-200">
                     <p className="text-xs font-semibold text-amber-700">Commentaire du Tiers de Confiance</p>
                     <p className="text-sm text-amber-800 mt-0.5">{existingFile.tcComment}</p>
@@ -389,7 +401,7 @@ export function OwnerFileForm() {
                     size="sm"
                     className="mt-3 bg-brand-500 hover:bg-brand-600 text-white gap-1.5"
                     onClick={handleSubmit}
-                    disabled={submitting || !hasDocuments}
+                    disabled={submitting || !hasAllRequiredDocs}
                   >
                     {submitting ? (
                       <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -594,7 +606,7 @@ export function OwnerFileForm() {
               {existingFile?.status !== 'SUBMITTED' && existingFile?.status !== 'VALIDATED' && (
                 <Button
                   onClick={handleSubmit}
-                  disabled={submitting || !hasDocuments}
+                  disabled={submitting || !hasAllRequiredDocs}
                   className="bg-brand-500 hover:bg-brand-600 text-white gap-1 disabled:opacity-50"
                 >
                   {submitting ? (

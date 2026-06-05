@@ -16,7 +16,7 @@ import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type FilterKey = 'all' | 'locataire' | 'proprietaire' | 'agence'
+export type FilterKey = 'all' | 'locataire' | 'proprietaire' | 'agence'
 
 interface UnifiedItem {
   id: string
@@ -88,9 +88,11 @@ function isActionable(status: string) {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function DossierValidations() {
+export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaultFilter?: FilterKey; onFilterConsumed?: () => void }) {
   const { isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
-  const [filter, setFilter] = useState<FilterKey>('all')
+  const [filter, setFilter] = useState<FilterKey>(defaultFilter || 'all')
+
+  useEffect(() => { onFilterConsumed?.() }, [])
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [stats, setStats] = useState<TcStats>(defaultStats)
   const [items, setItems] = useState<UnifiedItem[]>([])
@@ -216,8 +218,12 @@ export function DossierValidations() {
     if (item.category === 'locataire') {
       setSelectedItemId(item.id)
       setDashboardSection('rental-file-detail')
+    } else if (item.category === 'agence') {
+      setSelectedItemId(item.id)
+      setDashboardSection('agency-detail')
     } else if (!item.type) {
-      setDashboardSection('owner-dossiers')
+      setSelectedItemId(item.id)
+      setDashboardSection('owner-file-detail')
     }
   }
 
@@ -348,14 +354,15 @@ export function DossierValidations() {
               const badge = CATEGORY_BADGE[item.category]
               const statusCfg = STATUS_CONFIG[item.status] ?? { label: item.status, class: 'bg-gray-50 text-gray-600 border-gray-200' }
               const actionable = isActionable(item.status)
+              const hasDetail = item.category === 'locataire' || item.category === 'agence' || (item.category === 'proprietaire' && !item.type)
               return (
                 <div
                   key={item.id}
                   className={cn(
                     'flex items-center gap-3 px-4 sm:px-6 py-3.5 transition-colors',
-                    item.category === 'locataire' || (item.category === 'proprietaire' && !item.type) ? 'cursor-pointer hover:bg-muted/30' : ''
+                    hasDetail && 'cursor-pointer hover:bg-muted/30'
                   )}
-                  onClick={() => handleViewDetail(item)}
+                  onClick={() => hasDetail && handleViewDetail(item)}
                 >
                   <div className={cn('flex size-9 items-center justify-center rounded-lg shrink-0', cat.bg)}>
                     <Icon className={cn('size-4', cat.color)} />
@@ -401,9 +408,7 @@ export function DossierValidations() {
                         }
                       </Button>
                     )}
-                    {(item.category === 'locataire' || (item.category === 'proprietaire' && !item.type)) && (
-                      <ChevronRight className="size-4 text-muted-foreground/50" />
-                    )}
+                    {hasDetail && <ChevronRight className="size-4 text-muted-foreground/50" />}
                   </div>
                 </div>
               )

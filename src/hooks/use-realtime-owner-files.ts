@@ -2,25 +2,13 @@
 
 import { useEffect, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-
-export interface RealtimeOwnerFileDocPayload {
-  id: string
-  owner_file_id: string
-  type: string
-  name: string
-  url: string
-  status: string
-  tc_comment: string | null
-  created_at: string
-}
 
 type OwnerFileEvent = 'INSERT' | 'UPDATE' | 'DELETE'
 
 interface UseRealtimeOwnerFilesOptions {
   userId: string | undefined
   watchAll?: boolean
-  onOwnerFileChange: (event: OwnerFileEvent, payload: RealtimeOwnerFileDocPayload) => void
+  onOwnerFileChange: (event: OwnerFileEvent) => void
 }
 
 export function useRealtimeOwnerFiles({ userId, watchAll, onOwnerFileChange }: UseRealtimeOwnerFilesOptions) {
@@ -44,27 +32,50 @@ export function useRealtimeOwnerFiles({ userId, watchAll, onOwnerFileChange }: U
       if (cancelled) return
 
       channel
-        .on<RealtimeOwnerFileDocPayload>(
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'owner_files',
+            filter: watchAllRef.current ? undefined : `owner_id=eq.${userId}`,
+          },
+          () => {
+            callbackRef.current('UPDATE')
+          }
+        )
+        .on(
           'postgres_changes',
           {
             event: '*',
             schema: 'public',
             table: 'owner_file_documents',
           },
-          (payload: RealtimePostgresChangesPayload<RealtimeOwnerFileDocPayload>) => {
-            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-            if (!raw?.id) return
-            callbackRef.current(payload.eventType as OwnerFileEvent, raw as RealtimeOwnerFileDocPayload)
+          () => {
+            callbackRef.current('UPDATE')
           }
         )
-        .subscribe()
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-owner-files] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-owner-files] Channel error')
+          }
+        })
     }
 
     subscribeAfterAuth()
 
+    const pollInterval = setInterval(() => {
+      if (!cancelled) {
+        callbackRef.current('UPDATE')
+      }
+    }, 15_000)
+
     return () => {
       cancelled = true
       channel.unsubscribe()
+      clearInterval(pollInterval)
     }
   }, [userId])
 }

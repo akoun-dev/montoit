@@ -315,16 +315,10 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
     setPhoneVerifySuccess(null)
     setPhoneOtpSent(false)
     try {
-      await authFetch('/api/user/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: profileForm.phone.trim() }),
-      })
-      await authFetch('/api/auth/send-sms-otp', {
+      await authFetch('/api/profile/change-phone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ phone: profileForm.phone.trim(), purpose: 'phone_verify' }),
+        body: JSON.stringify({ newPhone: profileForm.phone.trim() }),
       })
       setPhoneOtpSent(true)
       setPhoneVerifySuccess('Code de vérification envoyé par SMS au ' + profileForm.phone.trim())
@@ -340,11 +334,10 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
     setPhoneSending(true)
     setPhoneVerifyError(null)
     try {
-      const result = await authFetch<{ verified: boolean; message: string }>('/api/auth/verify-phone-otp', {
+      const result = await authFetch<{ verified: boolean; phone: string }>('/api/profile/change-phone/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ phone: profileForm.phone.trim(), code: phoneOtpCode.trim() }),
+        body: JSON.stringify({ newPhone: profileForm.phone.trim(), code: phoneOtpCode.trim() }),
       })
       if (result.verified) {
         setPhoneVerifySuccess('Numéro de téléphone vérifié avec succès !')

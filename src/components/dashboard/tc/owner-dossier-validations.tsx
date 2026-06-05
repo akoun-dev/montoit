@@ -73,7 +73,7 @@ interface OwnerFile {
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   SUBMITTED: { label: 'Soumis', className: 'bg-amber-500/10 text-amber-700 border-amber-500/20' },
-  TC_REVIEW: { label: 'En revue', className: 'bg-orange-500/10 text-orange-700 border-orange-500/20' },
+  TC_REVIEW: { label: 'Complément demandé', className: 'bg-orange-500/10 text-orange-700 border-orange-500/20' },
   VALIDATED: { label: 'Validé', className: 'bg-green-500/10 text-green-700 border-green-500/20' },
   REJECTED: { label: 'Rejeté', className: 'bg-red-500/10 text-red-700 border-red-500/20' },
 }

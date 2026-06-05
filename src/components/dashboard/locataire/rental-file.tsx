@@ -188,11 +188,13 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
     }
   }
 
-  const hasDocuments = (existingFile?.documents?.filter(d => documentRequirements.some(rd => rd.type === d.type)).length ?? 0) > 0
+  const requiredDocTypes = documentRequirements.filter(d => d.required).map(d => d.type)
+  const uploadedDocTypes = new Set((existingFile?.documents ?? []).map(d => d.type))
+  const hasAllRequiredDocs = requiredDocTypes.every(t => uploadedDocTypes.has(t))
 
   const handleSubmit = async () => {
-    if (!hasDocuments) {
-      toast.error('Ajoutez au moins un document avant de soumettre votre dossier.')
+    if (!hasAllRequiredDocs) {
+      toast.error('Veuillez télécharger tous les documents obligatoires avant de soumettre.')
       return
     }
     if (submittingRef.current) return
@@ -471,7 +473,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                 size="sm"
                 className="mt-3 bg-brand-500 hover:bg-brand-600 text-white gap-1.5"
                 onClick={handleSubmit}
-                disabled={submitting || !hasDocuments}
+                disabled={submitting || !hasAllRequiredDocs}
               >
                 {submitting ? (
                   <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -541,15 +543,8 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
           {/* Step 1: Guarantor */}
           {step === 1 && (
             <div className="space-y-4">
-              <Card className="border-border bg-muted/50">
-                <CardContent className="p-3">
-                  <p className="text-xs text-muted-foreground">
-                    Ajouter un garant renforce votre dossier et rassure les propriétaires.
-                  </p>
-                </CardContent>
-              </Card>
               <div className="space-y-2">
-                <Label>Nom du garant</Label>
+                <Label>Nom complet du garant (Si disponible)</Label>
                 <Input
                   placeholder="Nom complet du garant"
                   value={formData.guarantorName}
@@ -761,7 +756,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                 existingFile?.status !== 'SUBMITTED' && existingFile?.status !== 'VALIDATED' && (
                   <Button
                     onClick={handleSubmit}
-                    disabled={submitting || !hasDocuments}
+                    disabled={submitting || !hasAllRequiredDocs}
                     className="bg-brand-500 hover:bg-brand-600 text-white gap-1 w-full sm:w-auto disabled:opacity-50"
                   >
                     {submitting ? (

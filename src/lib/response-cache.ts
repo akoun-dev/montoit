@@ -46,6 +46,7 @@ const ROUTE_TTL_OVERRIDES: Array<{ pattern: RegExp; ttl: number; staleWhileReval
   { pattern: /\/api\/tc\/fraud-alerts/, ttl: 30_000, staleWhileRevalidate: 60_000 },
   { pattern: /\/api\/tc\/litiges/, ttl: 60_000, staleWhileRevalidate: 120_000 },
   { pattern: /\/api\/tc\/owner-files/, ttl: 30_000, staleWhileRevalidate: 60_000 },
+  { pattern: /\/api\/owner-file/, ttl: 10_000, staleWhileRevalidate: 30_000 },
   { pattern: /\/api\/rental-files?/, ttl: 45_000, staleWhileRevalidate: 90_000 },
   { pattern: /\/api\/tc\/rental-files/, ttl: 30_000, staleWhileRevalidate: 60_000 },
   { pattern: /\/api\/leases/, ttl: 90_000, staleWhileRevalidate: 180_000 },

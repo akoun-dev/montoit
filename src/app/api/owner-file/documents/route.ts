@@ -74,11 +74,12 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseAdminClient()
 
     const body = await req.json()
-    const { ownerFileId, type, name, content } = body as {
+    const { ownerFileId, type, name, content, url: externalUrl } = body as {
       ownerFileId: string
       type: string
       name: string
-      content: string
+      content?: string
+      url?: string
     }
 
     if (!ownerFileId || !type || !name) {
@@ -96,7 +97,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Dossier propriétaire non trouvé' }, { status: 404 })
     }
 
-    if (ownerFile.status !== 'DRAFT') {
+    if (ownerFile.status === 'TC_REVIEW') {
+      await supabase
+        .from('owner_files')
+        .update({ status: 'DRAFT', reviewed_by_id: null, reviewed_at: null })
+        .eq('id', ownerFile.id)
+
+      await supabase
+        .from('owner_file_documents')
+        .update({ status: 'PENDING' })
+        .eq('owner_file_id', ownerFile.id)
+
+      ownerFile.status = 'DRAFT'
+    } else if (ownerFile.status !== 'DRAFT') {
       return NextResponse.json({ error: 'Le dossier n\'est plus modifiable' }, { status: 400 })
     }
 
@@ -121,12 +134,14 @@ export async function POST(req: NextRequest) {
       const ext = guessFileExt(name)
       const filePath = `${userId}/${ownerFileId}/${type}_${Date.now()}.${ext}`
       url = await uploadFromBase64(BUCKETS.OWNER_DOCUMENTS, content, filePath)
+    } else if (externalUrl) {
+      url = externalUrl
+    }
 
-      if (existingDoc?.url && isStorageUrl(existingDoc.url)) {
-        const parsed = extractBucketAndPath(existingDoc.url)
-        if (parsed) {
-          await deleteFromStorage(parsed.bucket, parsed.path).catch(() => {})
-        }
+    if (existingDoc?.url && isStorageUrl(existingDoc.url) && url !== existingDoc.url) {
+      const parsed = extractBucketAndPath(existingDoc.url)
+      if (parsed) {
+        await deleteFromStorage(parsed.bucket, parsed.path).catch(() => {})
       }
     }
 
@@ -226,7 +241,26 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Document non trouvé' }, { status: 404 })
     }
 
-    if (ownerFile?.status !== 'DRAFT') {
+    if (ownerFile?.status === 'TC_REVIEW') {
+      await supabase
+        .from('owner_files')
+        .update({ status: 'DRAFT', reviewed_by_id: null, reviewed_at: null })
+        .eq('id', ownerFile.id)
+
+      await supabase
+        .from('owner_file_documents')
+        .update({ status: 'PENDING' })
+        .eq('owner_file_id', ownerFile.id)
+
+      await supabase.from('audit_logs').insert({
+        id: generateId(),
+        action: 'UPDATE',
+        entity: 'OwnerFile',
+        entity_id: ownerFile.id,
+        details: 'Dossier propriétaire (complément TC) rouvert en brouillon via suppression de document',
+        user_id: userId,
+      })
+    } else if (ownerFile?.status !== 'DRAFT') {
       return NextResponse.json({ error: 'Le dossier n\'est plus modifiable' }, { status: 400 })
     }
 

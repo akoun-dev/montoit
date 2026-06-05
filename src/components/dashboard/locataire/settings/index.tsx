@@ -565,19 +565,10 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
     setEmailOtpSent(false)
 
     try {
-      // First save the email to profile
-      await authFetch('/api/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailValue.trim() }),
-      })
-
-      // Then send OTP to the new email
-      await authFetch('/api/auth/send-email-otp', {
+      await authFetch('/api/profile/change-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email: emailValue.trim(), purpose: 'email_verify' }),
+        body: JSON.stringify({ newEmail: emailValue.trim() }),
       })
 
       setEmailOtpSent(true)
@@ -596,18 +587,16 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
     setEmailVerifyError(null)
 
     try {
-      const result = await authFetch<{ verified: boolean }>('/api/auth/verify-email-otp', {
+      const result = await authFetch<{ verified: boolean; email: string }>('/api/profile/change-email/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email: emailValue.trim(), code: emailOtpCode.trim(), purpose: 'email_verify' }),
+        body: JSON.stringify({ newEmail: emailValue.trim(), code: emailOtpCode.trim() }),
       })
 
       if (result.verified) {
         setEmailVerifySuccess('Adresse email vérifiée avec succès !')
         setEmailOtpSent(false)
         setEmailOtpCode('')
-        // Refresh profile
         const profileResult = await authFetch<{ user: ProfileData }>('/api/profile')
         setProfile(profileResult.user)
         updateUser({ email: profileResult.user.email, isEmailVerified: true })
@@ -629,19 +618,10 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
     setPhoneOtpSent(false)
 
     try {
-      // First save the phone to profile
-      await authFetch('/api/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formState.phone.trim() }),
-      })
-
-      // Then send SMS OTP with phone_verify purpose
-      await authFetch('/api/auth/send-sms-otp', {
+      await authFetch('/api/profile/change-phone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ phone: formState.phone.trim(), purpose: 'phone_verify' }),
+        body: JSON.stringify({ newPhone: formState.phone.trim() }),
       })
 
       setPhoneOtpSent(true)
@@ -660,18 +640,16 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
     setPhoneVerifyError(null)
 
     try {
-      const result = await authFetch<{ verified: boolean; message: string }>('/api/auth/verify-phone-otp', {
+      const result = await authFetch<{ verified: boolean; phone: string }>('/api/profile/change-phone/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ phone: formState.phone.trim(), code: phoneOtpCode.trim() }),
+        body: JSON.stringify({ newPhone: formState.phone.trim(), code: phoneOtpCode.trim() }),
       })
 
       if (result.verified) {
         setPhoneVerifySuccess('Numéro de téléphone vérifié avec succès !')
         setPhoneOtpSent(false)
         setPhoneOtpCode('')
-        // Refresh profile
         const profileResult = await authFetch<{ user: ProfileData }>('/api/profile')
         setProfile(profileResult.user)
         updateUser({ phone: profileResult.user.phone, isPhoneVerified: true })

@@ -220,7 +220,7 @@ const disputeStatusColors: Record<string, string> = {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function TcOverview() {
-  const { user, isAuthenticated, setDashboardSection } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection, setDossierValidationFilter } = useAuthStore()
   const [stats, setStats] = useState<TcStats>(defaultStats)
   const [pendingRentalFiles, setPendingRentalFiles] = useState<RentalFileSummary[]>([])
   const [pendingOwnershipDocs, setPendingOwnershipDocs] = useState<OwnershipDocSummary[]>([])
@@ -382,7 +382,7 @@ export function TcOverview() {
       hoverBg: 'hover:border-sky-300',
       breakdown: [
         { label: 'Soumis', count: stats.ownerFilesByStatus?.SUBMITTED ?? 0, color: 'text-sky-600' },
-        { label: 'En revue TC', count: stats.ownerFilesByStatus?.TC_REVIEW ?? 0, color: 'text-orange-600' },
+        { label: 'Complément demandé', count: stats.ownerFilesByStatus?.TC_REVIEW ?? 0, color: 'text-orange-600' },
       ],
     },
     {
@@ -446,7 +446,16 @@ export function TcOverview() {
                 card.hoverBg,
                 'hover:shadow-lg'
               )}
-              onClick={() => setDashboardSection(card.id)}
+              onClick={() => {
+                const filterMap: Record<string, string> = {
+                  'dossier-validations': 'locataire',
+                  'owner-validations': 'proprietaire',
+                  'owner-dossiers': 'proprietaire',
+                  'agency-validations': 'agence',
+                }
+                setDossierValidationFilter(filterMap[card.id] || 'all')
+                setDashboardSection('dossier-validations')
+              }}
             >
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">

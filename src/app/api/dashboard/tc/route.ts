@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       admin.from('ownership_documents').select('id', { count: 'exact', head: true }).eq('status', 'PENDING').in('type', ['TITRE_FONCIER', 'ACTE_NOTARIE', 'ATTESTATION_PROPRIETE']).then(({ count }) => count ?? 0),
       admin.from('rental_files').select('id', { count: 'exact', head: true }).eq('status', 'SUBMITTED').then(({ count }) => count ?? 0),
       admin.from('rental_files').select('id', { count: 'exact', head: true }).eq('status', 'TC_REVIEW').then(({ count }) => count ?? 0),
-      admin.from('owner_files').select('id', { count: 'exact', head: true }).in('status', ['SUBMITTED', 'TC_REVIEW']).then(({ count }) => count ?? 0),
+      admin.from('owner_files').select('id', { count: 'exact', head: true }).eq('status', 'SUBMITTED').then(({ count }) => count ?? 0),
       admin.from('owner_files').select('id', { count: 'exact', head: true }).eq('status', 'SUBMITTED').then(({ count }) => count ?? 0),
       admin.from('owner_files').select('id', { count: 'exact', head: true }).eq('status', 'TC_REVIEW').then(({ count }) => count ?? 0),
     ])

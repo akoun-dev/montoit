@@ -15,7 +15,7 @@ export const BUCKETS = {
 
 export type BucketName = (typeof BUCKETS)[keyof typeof BUCKETS]
 
-async function ensureBucketExists(bucket: BucketName): Promise<void> {
+export async function ensureBucketExists(bucket: BucketName): Promise<void> {
   const supabase = getSupabaseAdminClient()
   const { data: buckets, error: listError } = await supabase.storage.listBuckets()
   if (listError) {

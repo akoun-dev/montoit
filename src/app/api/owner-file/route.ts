@@ -145,6 +145,12 @@ export async function POST(req: NextRequest) {
           updateData.reviewed_by_id = null
           updateData.reviewed_at = null
         }
+        // Clear TC comment when resubmitting after a complement request
+        if (existingFile.status === 'TC_REVIEW') {
+          updateData.tc_comment = null
+          updateData.reviewed_by_id = null
+          updateData.reviewed_at = null
+        }
 
         const { data: updated } = await admin
           .from('owner_files')
@@ -234,27 +240,70 @@ export async function POST(req: NextRequest) {
           user_id: userId,
         })
       } else {
-        // Aucun fichier REJECTED — créer un nouveau DRAFT
-        const { data: created } = await admin
+        // Vérifier si le dossier est en TC_REVIEW (complément demandé par le TC)
+        const { data: tcReviewFile } = await admin
           .from('owner_files')
-          .insert({
+          .select('*')
+          .eq('owner_id', userId)
+          .eq('status', 'TC_REVIEW')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (tcReviewFile) {
+          // Réutiliser le fichier TC_REVIEW : le repasser en DRAFT (conserve le même ID et les documents)
+          // On garde le tc_comment pour que le propriétaire voie le retour du TC pendant l'édition.
+          // Le commentaire sera effacé lors de la re-soumission (submit: true).
+          const { data: updated } = await admin
+            .from('owner_files')
+            .update({
+              status: 'DRAFT',
+              reviewed_by_id: null,
+              reviewed_at: null,
+            })
+            .eq('id', tcReviewFile.id)
+            .select()
+            .single()
+
+          ownerFile = updated
+
+          // Remettre les documents en PENDING pour ré-examen
+          await admin
+            .from('owner_file_documents')
+            .update({ status: 'PENDING' })
+            .eq('owner_file_id', tcReviewFile.id)
+
+          await admin.from('audit_logs').insert({
             id: generateId(),
-            owner_id: userId,
-            status: 'DRAFT',
+            action: 'UPDATE',
+            entity: 'OwnerFile',
+            entity_id: tcReviewFile.id,
+            details: 'Dossier propriétaire (complément TC) rouvert en brouillon',
+            user_id: userId,
           })
-          .select()
-          .single()
+        } else {
+          // Aucun fichier REJECTED ou TC_REVIEW — créer un nouveau DRAFT
+          const { data: created } = await admin
+            .from('owner_files')
+            .insert({
+              id: generateId(),
+              owner_id: userId,
+              status: 'DRAFT',
+            })
+            .select()
+            .single()
 
-        ownerFile = created
+          ownerFile = created
 
-        await admin.from('audit_logs').insert({
-          id: generateId(),
-          action: 'CREATE',
-          entity: 'OwnerFile',
-          entity_id: created?.id,
-          details: 'Nouveau dossier propriétaire (brouillon) créé',
-          user_id: userId,
-        })
+          await admin.from('audit_logs').insert({
+            id: generateId(),
+            action: 'CREATE',
+            entity: 'OwnerFile',
+            entity_id: created?.id,
+            details: 'Nouveau dossier propriétaire (brouillon) créé',
+            user_id: userId,
+          })
+        }
       }
     }
 

@@ -89,6 +89,7 @@ interface TransientAuthState {
     otpPurpose: OtpPurpose
     pendingMessage: string
     settingsDefaultTab: string
+    dossierValidationFilter: string
 }
 
 interface AuthActions {
@@ -138,6 +139,7 @@ interface AuthActions {
     setSelectedItemId: (id: string) => void
     setSearchParams: (params: SearchParams) => void
     setSettingsDefaultTab: (tab: string) => void
+    setDossierValidationFilter: (filter: string) => void
     updateUser: (partial: Partial<AuthUser>) => void
     setOnboardingCompleted: (completed: boolean) => void
     switchRole: (newRole: AuthUser["role"]) => Promise<void>
@@ -171,6 +173,7 @@ const defaultTransient: TransientAuthState = {
     otpPurpose: "login",
     pendingMessage: "",
     settingsDefaultTab: "",
+    dossierValidationFilter: "all",
 }
 
 // ─── checkAuth deduplication guard ──────────────────────────────────────────
@@ -591,6 +594,7 @@ export const useAuthStore = create<AuthState>()(
             setSelectedItemId: id => set({ selectedItemId: id }),
             setSearchParams: params => set({ searchParams: params }),
             setSettingsDefaultTab: tab => set({ settingsDefaultTab: tab }),
+            setDossierValidationFilter: filter => set({ dossierValidationFilter: filter }),
             setOnboardingCompleted: completed => set({ onboardingCompleted: completed }),
             updateUser: partial =>
                 set(state => ({

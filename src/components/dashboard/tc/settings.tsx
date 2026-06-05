@@ -108,6 +108,21 @@ export function TcSettings() {
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifSaving, setNotifSaving] = useState<Record<string, boolean>>({})
 
+  // ── Phone verification state ─────────────────────────────────────────────
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false)
+  const [phoneOtpCode, setPhoneOtpCode] = useState('')
+  const [phoneSending, setPhoneSending] = useState(false)
+  const [phoneVerifyError, setPhoneVerifyError] = useState<string | null>(null)
+  const [phoneVerifySuccess, setPhoneVerifySuccess] = useState<string | null>(null)
+
+  // ── Email verification state ─────────────────────────────────────────────
+  const [emailOtpSent, setEmailOtpSent] = useState(false)
+  const [emailOtpCode, setEmailOtpCode] = useState('')
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailVerifyError, setEmailVerifyError] = useState<string | null>(null)
+  const [emailVerifySuccess, setEmailVerifySuccess] = useState<string | null>(null)
+  const [emailFormValue, setEmailFormValue] = useState('')
+
   // Avatar upload state
   const [avatarUploading, setAvatarUploading] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -127,6 +142,7 @@ export function TcSettings() {
         gender: p.gender || '',
         city: p.city || '',
       })
+      setEmailFormValue(p.email || '')
     } catch {
       // Silent fail
     } finally {
@@ -322,6 +338,100 @@ export function TcSettings() {
     }
   }, [updateUser])
 
+  // ── Phone verification handlers ──────────────────────────────────────────
+  const handleSendPhoneVerification = useCallback(async () => {
+    if (!formState.phone.trim()) return
+    setPhoneSending(true)
+    setPhoneVerifyError(null)
+    setPhoneVerifySuccess(null)
+    setPhoneOtpSent(false)
+    try {
+      await authFetch('/api/profile/change-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPhone: formState.phone.trim() }),
+      })
+      setPhoneOtpSent(true)
+      setPhoneVerifySuccess('Code de vérification envoyé par SMS au ' + formState.phone.trim())
+    } catch (err) {
+      setPhoneVerifyError(err instanceof Error ? err.message : "Erreur lors de l'envoi du code")
+    } finally {
+      setPhoneSending(false)
+    }
+  }, [formState.phone])
+
+  const handleVerifyPhoneCode = useCallback(async () => {
+    if (!phoneOtpCode.trim() || !formState.phone.trim()) return
+    setPhoneSending(true)
+    setPhoneVerifyError(null)
+    try {
+      const result = await authFetch<{ verified: boolean; phone: string }>('/api/profile/change-phone/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPhone: formState.phone.trim(), code: phoneOtpCode.trim() }),
+      })
+      if (result.verified) {
+        setPhoneVerifySuccess('Numéro de téléphone vérifié avec succès !')
+        setPhoneOtpSent(false)
+        setPhoneOtpCode('')
+        const profileResult = await authFetch<{ user: ProfileData }>('/api/profile')
+        setProfile(profileResult.user)
+        updateUser({ phone: profileResult.user.phone, isPhoneVerified: true })
+      }
+    } catch (err) {
+      setPhoneVerifyError(err instanceof Error ? err.message : 'Code invalide ou expiré')
+    } finally {
+      setPhoneSending(false)
+    }
+  }, [phoneOtpCode, formState.phone, updateUser])
+
+  // ── Email verification handlers ──────────────────────────────────────────
+  const handleSendEmailVerification = useCallback(async () => {
+    if (!emailFormValue.trim()) return
+    setEmailSending(true)
+    setEmailVerifyError(null)
+    setEmailVerifySuccess(null)
+    setEmailOtpSent(false)
+    try {
+      await authFetch('/api/profile/change-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newEmail: emailFormValue.trim() }),
+      })
+      setEmailOtpSent(true)
+      setEmailVerifySuccess('Code de vérification envoyé à ' + emailFormValue.trim())
+    } catch (err) {
+      setEmailVerifyError(err instanceof Error ? err.message : "Erreur lors de l'envoi du code")
+    } finally {
+      setEmailSending(false)
+    }
+  }, [emailFormValue])
+
+  const handleVerifyEmailCode = useCallback(async () => {
+    if (!emailOtpCode.trim() || !emailFormValue.trim()) return
+    setEmailSending(true)
+    setEmailVerifyError(null)
+    try {
+      const result = await authFetch<{ verified: boolean; email: string }>('/api/profile/change-email/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newEmail: emailFormValue.trim(), code: emailOtpCode.trim() }),
+      })
+      if (result.verified) {
+        setEmailVerifySuccess('Adresse email vérifiée avec succès !')
+        setEmailOtpSent(false)
+        setEmailOtpCode('')
+        const profileResult = await authFetch<{ user: ProfileData }>('/api/profile')
+        setProfile(profileResult.user)
+        updateUser({ email: profileResult.user.email, isEmailVerified: true })
+      }
+    } catch (err) {
+      setEmailVerifyError(err instanceof Error ? err.message : 'Code invalide ou expiré')
+    } finally {
+      setEmailSending(false)
+    }
+  }, [emailOtpCode, emailFormValue, updateUser])
+
   // Save profile
   const handleSave = async () => {
     setSaving(true)
@@ -329,10 +439,11 @@ export function TcSettings() {
     setSuccess(null)
 
     try {
+      const { phone: _phone, ...saveData } = formState
       const result = await authFetch<{ user: ProfileData }>('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formState),
+        body: JSON.stringify(saveData),
       })
 
       setProfile(result.user)
@@ -575,6 +686,37 @@ export function TcSettings() {
                       placeholder="07 00 00 00 00"
                       className="h-9 text-sm"
                     />
+                    {!phoneOtpSent ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7 mt-1"
+                        onClick={handleSendPhoneVerification}
+                        disabled={phoneSending || !formState.phone.trim()}
+                      >
+                        {phoneSending ? <Loader2 className="size-3 mr-1 animate-spin" /> : <Phone className="size-3 mr-1" />}
+                        Vérifier le téléphone
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          value={phoneOtpCode}
+                          onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="Code à 6 chiffres"
+                          className="h-8 text-sm max-w-[140px]"
+                        />
+                        <Button
+                          size="sm"
+                          className="text-xs h-8 bg-brand-500 hover:bg-brand-600 text-white"
+                          onClick={handleVerifyPhoneCode}
+                          disabled={phoneSending || phoneOtpCode.length < 6}
+                        >
+                          {phoneSending ? <Loader2 className="size-3 animate-spin" /> : 'Valider'}
+                        </Button>
+                      </div>
+                    )}
+                    {phoneVerifyError && <p className="text-[10px] text-red-500">{phoneVerifyError}</p>}
+                    {phoneVerifySuccess && <p className="text-[10px] text-emerald-600">{phoneVerifySuccess}</p>}
                   </div>
                   {/* Gender */}
                   <div className="space-y-1.5">
@@ -614,7 +756,7 @@ export function TcSettings() {
                   </div>
                 </div>
 
-                {/* Email (read-only) */}
+                {/* Email (editable with verification) */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
                     <Mail className="size-3" /> Email
@@ -625,11 +767,42 @@ export function TcSettings() {
                     )}
                   </Label>
                   <Input
-                    value={profile?.email || user?.email || ''}
-                    disabled
-                    className="h-9 text-sm bg-muted text-muted-foreground"
+                    value={emailFormValue}
+                    onChange={(e) => setEmailFormValue(e.target.value)}
+                    placeholder={profile?.email || user?.email || 'Votre email'}
+                    className="h-9 text-sm"
                   />
-                  <p className="text-[10px] text-muted-foreground">L&apos;email ne peut pas être modifié. Contactez le support si nécessaire.</p>
+                  {!emailOtpSent ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-7 mt-1"
+                      onClick={handleSendEmailVerification}
+                      disabled={emailSending || !emailFormValue.trim()}
+                    >
+                      {emailSending ? <Loader2 className="size-3 mr-1 animate-spin" /> : <Mail className="size-3 mr-1" />}
+                      Vérifier l&apos;email
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        value={emailOtpCode}
+                        onChange={(e) => setEmailOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="Code à 6 chiffres"
+                        className="h-8 text-sm max-w-[140px]"
+                      />
+                      <Button
+                        size="sm"
+                        className="text-xs h-8 bg-brand-500 hover:bg-brand-600 text-white"
+                        onClick={handleVerifyEmailCode}
+                        disabled={emailSending || emailOtpCode.length < 6}
+                      >
+                        {emailSending ? <Loader2 className="size-3 animate-spin" /> : 'Valider'}
+                      </Button>
+                    </div>
+                  )}
+                  {emailVerifyError && <p className="text-[10px] text-red-500">{emailVerifyError}</p>}
+                  {emailVerifySuccess && <p className="text-[10px] text-emerald-600">{emailVerifySuccess}</p>}
                 </div>
 
                 {/* Error / Success messages */}
