@@ -16,7 +16,6 @@ import { Payments } from './locataire/payments'
 import { Notifications } from './locataire/notifications'
 import { Reviews } from './locataire/reviews'
 import { Maintenance } from './locataire/maintenance'
-import { SearchAlerts } from './locataire/search-alerts'
 import { RentalFilesList } from './locataire/rental-files-list'
 import { MyDisputes } from './shared/my-disputes'
 import { ActivityHistory } from './locataire/history'
@@ -152,7 +151,6 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'payments': return <Payments onDetail={goToPaymentDetail} />
     case 'payment-detail': return <BackableSection sectionKey="payment-detail" onBack={goBackToPayments}><PaymentDetail paymentId={selectedItemId} onBack={goBackToPayments} /></BackableSection>
     case 'messages': return <Messages />
-    case 'search-alerts': return <SearchAlerts />
     case 'rental-files-list': return <RentalFilesList />
     case 'notifications': return <Notifications />
     case 'reviews': return <Reviews />

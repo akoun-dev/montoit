@@ -35,13 +35,13 @@ const roleConfigs: RoleOnboarding[] = [
     role: 'LOCATAIRE',
     icon: Home,
     label: 'Locataire',
-    color: 'from-amber-500 to-amber-600',
+    color: 'from-brand-500 to-brand-700',
     steps: [
       {
         icon: Search,
         title: 'Recherchez votre futur logement',
         description: 'Parcourez les annonces, utilisez les filtres (ville, prix, type) et ajoutez vos biens préférés à vos favoris.',
-        color: 'bg-amber-500',
+        color: 'bg-brand-500',
         details: [
           'Filtrez par ville, prix, type de bien',
           'Vue carte interactive pour explorer',
@@ -52,7 +52,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: FileText,
         title: 'Créez votre dossier locatif',
         description: 'Soumettez vos documents (pièce d\'identité, justificatifs de revenus, garant) une seule fois pour postuler à plusieurs biens.',
-        color: 'bg-blue-500',
+        color: 'bg-brand-500',
         details: [
           'Documents d\'identité et justificatifs',
           'Ajoutez un garant si nécessaire',
@@ -63,7 +63,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: Calendar,
         title: 'Planifiez des visites',
         description: 'Demandez des visites pour les biens qui vous intéressent et gérez votre calendrier directement depuis votre tableau de bord.',
-        color: 'bg-emerald-500',
+        color: 'bg-brand-500',
         details: [
           'Demande de visite en un clic',
           'Suivez le statut de vos demandes',
@@ -74,7 +74,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: CreditCard,
         title: 'Payez votre loyer en ligne',
         description: 'Une fois votre bail signé, payez votre loyer mensuellement et suivez l\'historique de vos paiements.',
-        color: 'bg-purple-500',
+        color: 'bg-brand-500',
         details: [
           'Paiement sécurisé en ligne',
           'Historique complet des transactions',
@@ -87,13 +87,13 @@ const roleConfigs: RoleOnboarding[] = [
     role: 'PROPRIETAIRE',
     icon: Building2,
     label: 'Propriétaire',
-    color: 'from-emerald-500 to-emerald-600',
+    color: 'from-brand-500 to-brand-700',
     steps: [
       {
         icon: Upload,
         title: 'Publiez vos biens',
         description: 'Ajoutez vos propriétés avec photos, description et prix. Votre annonce sera vérifiée par un Tiers de Confiance avant publication.',
-        color: 'bg-emerald-500',
+        color: 'bg-brand-500',
         details: [
           'Ajoutez photos et description détaillée',
           'Gérez la publication/dépublication',
@@ -104,7 +104,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: Users,
         title: 'Gérez les candidatures',
         description: 'Recevez et examinez les dossiers locatifs des candidats. Acceptez ou refusez en tout connaissance de cause.',
-        color: 'bg-blue-500',
+        color: 'bg-brand-500',
         details: [
           'Consultez les dossiers complets',
           'Acceptez ou refusez les candidats',
@@ -115,7 +115,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: Calendar,
         title: 'Organisez les visites',
         description: 'Gérez les demandes de visite, planifiez les créneaux et suivez l\'agenda de vos propriétés.',
-        color: 'bg-amber-500',
+        color: 'bg-brand-500',
         details: [
           'Recevez les demandes de visite',
           'Planifiez les créneaux disponibles',
@@ -126,7 +126,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: BarChart3,
         title: 'Suivez vos finances',
         description: 'Visualisez vos revenus locatifs, suivez les impayés et consultez les analytiques de performance de vos biens.',
-        color: 'bg-purple-500',
+        color: 'bg-brand-500',
         details: [
           'Tableau de bord financier complet',
           'Suivi des loyers perçus et impayés',
@@ -139,13 +139,13 @@ const roleConfigs: RoleOnboarding[] = [
     role: 'AGENCE',
     icon: Landmark,
     label: 'Agence',
-    color: 'from-orange-500 to-orange-600',
+    color: 'from-brand-500 to-brand-700',
     steps: [
       {
         icon: Users,
         title: 'Gérez votre équipe',
         description: 'Ajoutez des collaborateurs, définissez leurs rôles et permissions pour une gestion d\'équipe efficace.',
-        color: 'bg-orange-500',
+        color: 'bg-brand-500',
         details: [
           'Ajoutez des agents à votre agence',
           'Définissez les permissions',
@@ -156,7 +156,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: Building2,
         title: 'Gérez votre portefeuille',
         description: 'Administrez les biens sous mandat, publiez des annonces et suivez l\'état de chaque propriété.',
-        color: 'bg-blue-500',
+        color: 'bg-brand-500',
         details: [
           'Portefeuille de biens centralisé',
           'Publication d\'annonces multi-mandats',
@@ -167,7 +167,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: FileSignature,
         title: 'Signez des mandats',
         description: 'Créez et gérez les mandats de gestion avec les propriétaires. Signature électronique incluse.',
-        color: 'bg-emerald-500',
+        color: 'bg-brand-500',
         details: [
           'Création de mandats de gestion',
           'Signature électronique sécurisée',
@@ -178,7 +178,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: BarChart3,
         title: 'Analysez votre performance',
         description: 'Consultez les analytiques détaillées : taux d\'occupation, revenus, performance par bien et rapports d\'activité.',
-        color: 'bg-purple-500',
+        color: 'bg-brand-500',
         details: [
           'Tableau de bord commercial',
           'Rapports d\'activité détaillés',
@@ -191,13 +191,13 @@ const roleConfigs: RoleOnboarding[] = [
     role: 'TIERS_CONFIANCE',
     icon: ShieldCheck,
     label: 'Tiers de Confiance',
-    color: 'from-sky-500 to-sky-600',
+    color: 'from-brand-500 to-brand-700',
     steps: [
       {
         icon: FileText,
         title: 'Validez les dossiers',
         description: 'Examinez et validez les dossiers locatifs et propriétaires. Assurez la conformité des documents soumis.',
-        color: 'bg-sky-500',
+        color: 'bg-brand-500',
         details: [
           'File d\'attente unifiée des dossiers',
           'Validation des documents d\'identité',
@@ -208,7 +208,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: Eye,
         title: 'Vérifiez les biens',
         description: 'Vérifiez les annonces de location, approuvez ou rejetez les mises en ligne et suivez la conformité.',
-        color: 'bg-amber-500',
+        color: 'bg-brand-500',
         details: [
           'Vérification des annonces publiées',
           'Approbation ou rejet motivé',
@@ -219,7 +219,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: Users,
         title: 'Gérez vos agents terrain',
         description: 'Créez et gérez des agents de vérification, assignez des missions et recevez leurs retours terrain.',
-        color: 'bg-emerald-500',
+        color: 'bg-brand-500',
         details: [
           'Création d\'agents de vérification',
           'Assignation de missions',
@@ -230,7 +230,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: Scale,
         title: 'Arbitrez les litiges',
         description: 'Gérez les litiges entre parties, surveillez les alertes de fraude et assurez l\'intégrité de la plateforme.',
-        color: 'bg-purple-500',
+        color: 'bg-brand-500',
         details: [
           'Arbitrage des litiges',
           'Alertes de fraude et signalements',
@@ -243,13 +243,13 @@ const roleConfigs: RoleOnboarding[] = [
     role: 'ADMIN',
     icon: UserCog,
     label: 'Administrateur',
-    color: 'from-red-500 to-red-600',
+    color: 'from-brand-500 to-brand-700',
     steps: [
       {
         icon: Users,
         title: 'Gérez les utilisateurs',
         description: 'Administrez l\'ensemble des utilisateurs, modifiez les rôles, suspendez ou bannissez des comptes.',
-        color: 'bg-red-500',
+        color: 'bg-brand-500',
         details: [
           'Liste complète des utilisateurs',
           'Modification des rôles',
@@ -260,7 +260,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: ShieldCheck,
         title: 'Supervisez les Tiers de Confiance',
         description: 'Supervisez l\'activité des TC, leurs indicateurs de performance et leur charge de travail.',
-        color: 'bg-amber-500',
+        color: 'bg-brand-500',
         details: [
           'Supervision des comptes TC',
           'Indicateurs de performance (SLA)',
@@ -271,7 +271,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: Eye,
         title: 'Modérez les annonces',
         description: 'Modérez les annonces signalées, gérez les signalements et prenez des mesures appropriées.',
-        color: 'bg-blue-500',
+        color: 'bg-brand-500',
         details: [
           'Modération des annonces signalées',
           'Gestion des signalements utilisateurs',
@@ -282,7 +282,7 @@ const roleConfigs: RoleOnboarding[] = [
         icon: Settings,
         title: 'Configurez la plateforme',
         description: 'Paramétrez la sécurité, les règles de validation, les notifications système et suivez la santé de la plateforme.',
-        color: 'bg-purple-500',
+        color: 'bg-brand-500',
         details: [
           'Configuration de la sécurité (IP, 2FA)',
           'Règles de validation et SLA',
@@ -292,17 +292,6 @@ const roleConfigs: RoleOnboarding[] = [
     ],
   },
 ]
-
-const colorMap: Record<string, string> = {
-  'bg-amber-500': '#f59e0b',
-  'bg-blue-500': '#3b82f6',
-  'bg-emerald-500': '#10b981',
-  'bg-purple-500': '#8b5cf6',
-  'bg-sky-500': '#0ea5e9',
-  'bg-orange-500': '#f97316',
-  'bg-red-500': '#ef4444',
-  'bg-neutral-500': '#737373',
-}
 
 const slideVariants = {
   enter: (direction: number) => ({
@@ -335,6 +324,19 @@ export function OnboardingModal() {
     return roleConfigs.find((c) => c.role === role) || roleConfigs[0]
   }, [user])
 
+  const skip = useCallback(() => {
+    setOnboardingCompleted(true)
+  }, [setOnboardingCompleted])
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') skip()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [skip])
+
   if (!user || onboardingCompleted) return null
   if (!config) return null
 
@@ -357,19 +359,6 @@ export function OnboardingModal() {
     setDirection(-1)
     setStep((prev) => prev - 1)
   }
-
-  const skip = useCallback(() => {
-    setOnboardingCompleted(true)
-  }, [setOnboardingCompleted])
-
-  // Close on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') skip()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [skip])
 
   const effectiveRole = user.activeRole || user.role
   const canSwitchRole = effectiveRole === 'LOCATAIRE' || effectiveRole === 'PROPRIETAIRE'
@@ -480,10 +469,8 @@ export function OnboardingModal() {
                         key={i}
                         className="flex items-start gap-3 p-3 rounded-xl bg-muted/60 border border-border/50"
                       >
-                        <div className={`flex items-center justify-center size-9 rounded-lg ${s.color} bg-opacity-10 shrink-0`}
-                          style={{ backgroundColor: `${s.color.replace('bg-', '')}20` }}
-                        >
-                          <Icon className="size-4 text-white" style={{ color: colorMap[s.color] }} />
+                        <div className="flex items-center justify-center size-9 rounded-lg bg-brand-500/10 shrink-0">
+                          <Icon className="size-4 text-brand-500" />
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-foreground">{s.title.split(' ').slice(0, 2).join(' ')}</p>
@@ -495,10 +482,10 @@ export function OnboardingModal() {
                 </div>
 
                 {canSwitchRole && (
-                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                  <div className="p-3 rounded-xl bg-brand-50 border border-brand-200">
                     <div className="flex items-start gap-2.5">
-                      <ArrowRight className="size-4 text-amber-600 shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-800">
+                      <ArrowRight className="size-4 text-brand-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-brand-800">
                         <strong>Bon à savoir :</strong> Vous pouvez basculer entre vos rôles{' '}
                         {effectiveRole === 'LOCATAIRE' ? 'Locataire et Propriétaire' : 'Propriétaire et Locataire'}{' '}
                         depuis le menu utilisateur en haut à droite.
@@ -524,10 +511,8 @@ export function OnboardingModal() {
                   const Icon = s.icon
                   return (
                     <div className="flex items-center justify-center">
-                      <div className={`flex items-center justify-center size-16 rounded-2xl ${s.color} bg-opacity-10`}
-                        style={{ backgroundColor: `${s.color.replace('bg-', '')}20` }}
-                      >
-                        <Icon className="size-8" style={{ color: colorMap[s.color] || '#ffffff' }} />
+                      <div className="flex items-center justify-center size-16 rounded-2xl bg-brand-500/10">
+                        <Icon className="size-8 text-brand-500" />
                       </div>
                     </div>
                   )
@@ -560,12 +545,7 @@ export function OnboardingModal() {
           <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
               <motion.div
-                className="h-full rounded-full"
-                style={{
-                  background: `linear-gradient(90deg, ${
-                    config.color.replace('from-', '').replace(' to-', ',')
-                  })`,
-                }}
+                className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-700"
                 initial={false}
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ duration: 0.4, ease: 'easeInOut' }}
@@ -594,7 +574,7 @@ export function OnboardingModal() {
 
               <Button
                 onClick={goNext}
-                className={`gap-1.5 text-white ${config.color.replace('from-', 'bg-').split(' ')[0]}`}
+                className="gap-1.5"
               >
                 {isLastStep ? (
                   <>

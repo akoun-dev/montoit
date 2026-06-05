@@ -5,7 +5,7 @@ import {
   FileSignature, Building2, User, AlertTriangle, Loader2, Check, X, Send,
   Download, Eye, PenLine, Plus, ChevronRight, ChevronLeft, Search, Clock,
   ShieldCheck, FileText, CalendarDays, Banknote, PenTool, CheckCircle2, Bell, Mail,
-  Smartphone,
+  Smartphone, RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -195,6 +195,13 @@ export function EnhancedLeases() {
   const [leaseToTerminate, setLeaseToTerminate] = useState<LeaseItem | null>(null)
   const [terminating, setTerminating] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+
+  // Renew dialog
+  const [renewDialogOpen, setRenewDialogOpen] = useState(false)
+  const [renewLease, setRenewLease] = useState<LeaseItem | null>(null)
+  const [renewEndDate, setRenewEndDate] = useState('')
+  const [renewMonthlyRent, setRenewMonthlyRent] = useState('')
+  const [renewing, setRenewing] = useState(false)
 
   // ─── Fetch data ──────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -488,6 +495,34 @@ export function EnhancedLeases() {
       }
     } finally {
       setTerminating(false)
+    }
+  }
+
+  const handleRenew = async () => {
+    if (!renewLease || !renewEndDate) return
+    setRenewing(true)
+    try {
+      await authFetch(`/api/leases/${renewLease.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'renew',
+          newEndDate: renewEndDate,
+          newMonthlyRent: renewMonthlyRent ? parseFloat(renewMonthlyRent) : renewLease.monthlyRent,
+        }),
+      })
+      toast.success('Bail renouvelé avec succès')
+      setRenewDialogOpen(false)
+      setRenewLease(null)
+      fetchData()
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || 'Erreur lors du renouvellement')
+      } else {
+        toast.error('Erreur lors du renouvellement du bail')
+      }
+    } finally {
+      setRenewing(false)
     }
   }
 
@@ -902,6 +937,16 @@ export function EnhancedLeases() {
                             <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => handleOpenDetail(lease)}>
                               <Eye className="size-3.5" /> Détails
                             </Button>
+                            {lease.status === 'EXPIRED' && (
+                              <Button size="sm" className="h-8 gap-1 bg-brand-500 hover:bg-brand-600 text-white" onClick={() => {
+                                setRenewLease(lease)
+                                setRenewEndDate('')
+                                setRenewMonthlyRent('')
+                                setRenewDialogOpen(true)
+                              }}>
+                                <RefreshCw className="size-3.5" /> Renouveler
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1914,6 +1959,57 @@ export function EnhancedLeases() {
                   <AlertTriangle className="size-4" />
                   Confirmer la résiliation
                 </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Renew Dialog ──────────────────────────────────────────────────── */}
+      <Dialog open={renewDialogOpen} onOpenChange={(open) => { setRenewDialogOpen(open); if (!open) setRenewLease(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="size-5 text-brand-500" />
+              Renouveler le bail
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Prolongez le bail pour <span className="font-semibold text-foreground">{renewLease?.property?.title}</span> avec{' '}
+              <span className="font-semibold text-foreground">{renewLease?.tenant?.firstName} {renewLease?.tenant?.lastName}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-foreground">Nouvelle date de fin *</Label>
+              <Input
+                type="date"
+                value={renewEndDate}
+                onChange={(e) => setRenewEndDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-foreground">Nouveau loyer mensuel (optionnel)</Label>
+              <Input
+                type="number"
+                value={renewMonthlyRent}
+                onChange={(e) => setRenewMonthlyRent(e.target.value)}
+                placeholder={renewLease ? String(renewLease.monthlyRent) : ''}
+              />
+              {renewLease && (
+                <p className="text-xs text-muted-foreground">Loyer actuel : {formatFCFA(renewLease.monthlyRent)}</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setRenewDialogOpen(false); setRenewLease(null) }} disabled={renewing}>
+              Annuler
+            </Button>
+            <Button onClick={handleRenew} disabled={renewing || !renewEndDate} className="gap-2">
+              {renewing ? (
+                <><Loader2 className="size-4 animate-spin" /> Renouvellement...</>
+              ) : (
+                <><RefreshCw className="size-4" /> Renouveler</>
               )}
             </Button>
           </DialogFooter>

@@ -564,7 +564,6 @@ export const useAuthStore = create<AuthState>()(
                         selectedPropertyId: "",
                         selectedItemId: "",
                         lastAuthenticatedAt: null,
-                        onboardingCompleted: false,
                         searchParams: {
                             query: "",
                             commune: "",

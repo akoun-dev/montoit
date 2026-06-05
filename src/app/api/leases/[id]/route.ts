@@ -497,6 +497,102 @@ export async function PATCH(
       return applyCookies(resp)
     }
 
+    // ─── Renew lease action ──────────────────────────────────────────────────
+    if (body.action === 'renew') {
+      const { data: lease } = await supabase
+        .from('leases')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
+
+      if (!lease) {
+        const resp = NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
+        return applyCookies(resp)
+      }
+
+      if (lease.owner_id !== userId) {
+        const resp = NextResponse.json({ error: 'Seul le propriétaire peut renouveler ce bail' }, { status: 403 })
+        return applyCookies(resp)
+      }
+
+      if (lease.status !== 'EXPIRED') {
+        const resp = NextResponse.json({ error: 'Seul un bail expiré peut être renouvelé' }, { status: 400 })
+        return applyCookies(resp)
+      }
+
+      const newEndDate = body.newEndDate
+      if (!newEndDate) {
+        const resp = NextResponse.json({ error: 'Nouvelle date de fin requise' }, { status: 400 })
+        return applyCookies(resp)
+      }
+
+      const newMonthlyRent = body.newMonthlyRent || lease.monthly_rent
+
+      const { data: updatedLease } = await supabase
+        .from('leases')
+        .update({
+          status: 'ACTIVE',
+          end_date: newEndDate,
+          monthly_rent: newMonthlyRent,
+          renewal_status: 'RENEWED',
+          renewal_requested_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single()
+
+      const { data: renewProperty } = await supabase
+        .from('properties')
+        .select('id, title, address, city')
+        .eq('id', lease.property_id)
+        .maybeSingle()
+
+      const { data: renewTenant } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, avatar_url')
+        .eq('id', lease.tenant_id)
+        .maybeSingle()
+
+      const { data: renewOwner } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, avatar_url')
+        .eq('id', lease.owner_id)
+        .maybeSingle()
+
+      await notify({
+        userId: lease.tenant_id,
+        type: 'LEASE_UPDATE',
+        title: 'Bail renouvelé',
+        message: `Votre bail pour "${renewProperty?.title || ''}" a été renouvelé par le propriétaire jusqu'au ${new Date(newEndDate).toLocaleDateString('fr-FR')}.`,
+        actionUrl: 'my-leases',
+        entityId: id,
+      })
+
+      const result = {
+        ...mapLease(updatedLease ?? ({} as Record<string, unknown>)),
+        property: renewProperty ? {
+          id: renewProperty.id,
+          title: renewProperty.title,
+          address: renewProperty.address,
+          city: renewProperty.city,
+        } : undefined,
+        owner: renewOwner ? {
+          id: renewOwner.id,
+          firstName: renewOwner.first_name,
+          lastName: renewOwner.last_name,
+        } : undefined,
+        tenant: renewTenant ? {
+          id: renewTenant.id,
+          firstName: renewTenant.first_name,
+          lastName: renewTenant.last_name,
+        } : undefined,
+      }
+
+      const resp = NextResponse.json({ data: result })
+      return applyCookies(resp)
+    }
+
     // ─── Terminate lease action ─────────────────────────────────────────────
     if (body.action !== 'terminate') {
       const resp = NextResponse.json({ error: 'Action non reconnue' }, { status: 400 })
