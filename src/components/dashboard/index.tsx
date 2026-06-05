@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useAuthStore } from '@/lib/auth-store'
 import { DashboardLayout } from './dashboard-layout'
 import { useBackHandler } from '@/hooks/use-back-handler'
@@ -284,7 +285,25 @@ function AdminDashboard({ section }: { section: string }) {
 }
 
 export function Dashboard() {
-  const { user, dashboardSection } = useAuthStore()
+  const { user, dashboardSection, setDashboardSection } = useAuthStore()
+
+  // Sync browser history popstate with dashboard navigation
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const state = e.state as { dashboardSection?: string } | null
+      if (state?.dashboardSection) {
+        setDashboardSection(state.dashboardSection, true)
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+
+    // Set initial history state
+    if (!window.history.state?.dashboardSection) {
+      window.history.replaceState({ dashboardSection }, '')
+    }
+
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [setDashboardSection, dashboardSection])
 
   if (!user) return null
 

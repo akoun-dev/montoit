@@ -134,7 +134,7 @@ interface AuthActions {
     setAuthMethod: (method: AuthMethod) => void
     setOtpPurpose: (purpose: OtpPurpose) => void
     setPendingRole: (role: string) => void
-    setDashboardSection: (section: string) => void
+    setDashboardSection: (section: string, fromPopState?: boolean) => void
     setSelectedPropertyId: (id: string) => void
     setSelectedItemId: (id: string) => void
     setSearchParams: (params: SearchParams) => void
@@ -586,8 +586,11 @@ export const useAuthStore = create<AuthState>()(
             setAuthMethod: method => set({ authMethod: method }),
             setOtpPurpose: purpose => set({ otpPurpose: purpose }),
             setPendingRole: role => set({ pendingRole: role }),
-            setDashboardSection: section => {
+            setDashboardSection: (section, fromPopState) => {
                 if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' })
+                if (!fromPopState && typeof window !== 'undefined') {
+                    window.history.pushState({ dashboardSection: section }, '')
+                }
                 set({ dashboardSection: section })
             },
             setSelectedPropertyId: id => set({ selectedPropertyId: id }),
