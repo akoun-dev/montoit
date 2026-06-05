@@ -1603,31 +1603,33 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
 
                   <Separator />
 
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      Pour modifier votre dossier ou ajouter de nouveaux documents,
-                      cliquez sur le bouton ci-dessous.
-                    </p>
-                    <Button
-                      className="w-full h-10 bg-brand-500 hover:bg-brand-600 text-white"
-                      onClick={async () => {
-                        setRentalFileDetailOpen(false)
-                        try {
-                          await authFetch('/api/rental-file', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({}),
-                          })
-                        } catch {
-                          // Silently handle — RentalFileForm will create one if needed
-                        }
-                        setDashboardSection('rental-file')
-                      }}
-                    >
-                      Modifier le dossier
-                      <ArrowRight className="size-4 ml-1.5" />
-                    </Button>
-                  </div>
+                  {rentalFile?.status !== 'SUBMITTED' && rentalFile?.status !== 'VALIDATED' && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Pour modifier votre dossier ou ajouter de nouveaux documents,
+                        cliquez sur le bouton ci-dessous.
+                      </p>
+                      <Button
+                        className="w-full h-10 bg-brand-500 hover:bg-brand-600 text-white"
+                        onClick={async () => {
+                          setRentalFileDetailOpen(false)
+                          try {
+                            await authFetch('/api/rental-file', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({}),
+                            })
+                          } catch {
+                            // Silently handle — RentalFileForm will create one if needed
+                          }
+                          setDashboardSection('rental-file')
+                        }}
+                      >
+                        Modifier le dossier
+                        <ArrowRight className="size-4 ml-1.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </DialogContent>
             </Dialog>

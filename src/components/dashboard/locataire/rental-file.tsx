@@ -402,7 +402,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
   }
 
   // Read-only only when validated
-  const isReadOnly = !!(existingFile && existingFile.status === 'VALIDATED')
+  const isReadOnly = !!(existingFile && (existingFile.status === 'VALIDATED' || existingFile.status === 'SUBMITTED'))
   const existingStatus = existingFile ? statusConfig[existingFile.status] : null
   const requiredDocs = documentRequirements
 

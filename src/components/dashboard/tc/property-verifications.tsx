@@ -98,7 +98,7 @@ function PropertyThumbnail({
 }
 
 export function PropertyVerifications() {
-  const { user, isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
+  const { user, isAuthenticated, selectedItemId, setSelectedItemId, setDashboardSection } = useAuthStore()
   const [properties, setProperties] = useState<PendingProperty[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -108,6 +108,14 @@ export function PropertyVerifications() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCommune, setFilterCommune] = useState('')
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'APARTMENT' | 'HOUSE' | 'OTHER'>('ALL')
+
+  // Auto-navigate to property detail when selectedItemId matches
+  useEffect(() => {
+    if (!selectedItemId || properties.length === 0) return
+    const match = properties.find(p => p.id === selectedItemId)
+    if (!match) return
+    setDashboardSection('property-verify-detail')
+  }, [selectedItemId, properties, setDashboardSection])
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {

@@ -171,7 +171,6 @@ export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaul
     if (!selectedItemId || items.length === 0) return
     const match = items.find(i => i.id === selectedItemId)
     if (!match) return
-    // Clear selectedItemId after navigation to prevent re-triggering
     if (match.category === 'locataire') {
       setDashboardSection('rental-file-detail')
     } else if (match.category === 'agence') {

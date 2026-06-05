@@ -94,11 +94,20 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 export function OwnerDossierValidations() {
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, selectedItemId, setSelectedItemId } = useAuthStore()
   const [files, setFiles] = useState<OwnerFile[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  // Auto-expand the file when navigating from a notification
+  useEffect(() => {
+    if (!selectedItemId || files.length === 0) return
+    const match = files.find(f => f.id === selectedItemId || f.documents?.some(d => d.id === selectedItemId))
+    if (!match) return
+    setExpandedId(match.id)
+    setSelectedItemId('')
+  }, [selectedItemId, files, setSelectedItemId])
 
   const [actionDialog, setActionDialog] = useState<'APPROVE' | 'REJECT' | 'REQUEST_INFO' | null>(null)
   const [selectedFile, setSelectedFile] = useState<OwnerFile | null>(null)

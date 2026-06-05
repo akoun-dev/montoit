@@ -232,40 +232,92 @@ export async function POST(req: NextRequest) {
             user_id: userId,
           })
         } else {
-          // Aucun fichier REJECTED — créer un nouveau DRAFT
-          const { data: created, error: insertError } = await admin
+          // Aucun REJECTED — vérifier si un dossier SUBMITTED/TC_REVIEW existe (évite les doublons)
+          const { data: activeFile } = await admin
             .from('rental_files')
-            .insert(insertData as any)
-            .select()
+            .select('*')
+            .eq('tenant_id', userId)
+            .in('status', ['SUBMITTED', 'TC_REVIEW', 'EXPIRED'])
+            .order('updated_at', { ascending: false })
+            .limit(1)
             .maybeSingle()
 
-          if (insertError && insertError.code === '23505') {
-            // Race condition : un autre appel a créé un DRAFT entre-temps
-            const { data: concurrent } = await admin
-              .from('rental_files')
-              .select('*')
-              .eq('tenant_id', userId)
-              .eq('status', 'DRAFT')
-              .maybeSingle()
-
-            if (concurrent) {
-              rentalFile = concurrent
-            } else {
-              throw insertError
+          if (activeFile) {
+            // Réutiliser le fichier actif : le repasser en DRAFT (conserve le même ID)
+            const updateData: any = {
+              status: 'DRAFT',
+              rejection_reason: null,
+              tc_comment: null,
+              reviewed_by_id: null,
+              reviewed_at: null,
             }
-          } else if (created) {
-            rentalFile = created
+            if (resolvedTenantCategory) updateData.tenant_category = resolvedTenantCategory
+            if (monthlyIncome !== undefined) updateData.monthly_income = monthlyIncome
+            if (employer !== undefined) updateData.employer = employer
+            if (resolvedEmploymentType) updateData.employment_type = resolvedEmploymentType
+            if (guarantorName !== undefined) updateData.guarantor_name = guarantorName
+            if (guarantorPhone !== undefined) updateData.guarantor_phone = guarantorPhone
+            if (guarantorRelation !== undefined) updateData.guarantor_relation = guarantorRelation
+
+            const { data: updated } = await admin
+              .from('rental_files')
+              .update(updateData as any)
+              .eq('id', activeFile.id)
+              .select()
+              .single()
+
+            rentalFile = updated
+
+            // Remettre les documents en PENDING
+            await admin
+              .from('rental_file_documents')
+              .update({ status: 'PENDING', tc_comment: null })
+              .eq('rental_file_id', activeFile.id)
 
             await admin.from('audit_logs').insert({
               id: generateId(),
-              action: 'CREATE',
+              action: 'UPDATE',
               entity: 'RentalFile',
-              entity_id: rentalFile.id,
-              details: 'Nouveau dossier locatif (brouillon) créé',
+              entity_id: activeFile.id,
+              details: 'Dossier locatif rouvert en brouillon (était en soumis/relecture)',
               user_id: userId,
             })
-          } else if (insertError) {
-            throw insertError
+          } else {
+            // Aucun fichier existant — créer un nouveau DRAFT
+            const { data: created, error: insertError } = await admin
+              .from('rental_files')
+              .insert(insertData as any)
+              .select()
+              .maybeSingle()
+
+            if (insertError && insertError.code === '23505') {
+              // Race condition : un autre appel a créé un DRAFT entre-temps
+              const { data: concurrent } = await admin
+                .from('rental_files')
+                .select('*')
+                .eq('tenant_id', userId)
+                .eq('status', 'DRAFT')
+                .maybeSingle()
+
+              if (concurrent) {
+                rentalFile = concurrent
+              } else {
+                throw insertError
+              }
+            } else if (created) {
+              rentalFile = created
+
+              await admin.from('audit_logs').insert({
+                id: generateId(),
+                action: 'CREATE',
+                entity: 'RentalFile',
+                entity_id: rentalFile.id,
+                details: 'Nouveau dossier locatif (brouillon) créé',
+                user_id: userId,
+              })
+            } else if (insertError) {
+              throw insertError
+            }
           }
         }
       }
