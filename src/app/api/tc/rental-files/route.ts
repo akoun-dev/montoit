@@ -160,8 +160,10 @@ export async function GET(req: NextRequest) {
       query = query.eq('status', status)
     } else if (!status && !overdue) {
       query = query.in('status', ['SUBMITTED', 'TC_REVIEW'])
+    } else {
+      // status=ALL or overdue — always exclude brouillons
+      query = query.neq('status', 'DRAFT')
     }
-    // status=ALL => no filter
 
     if (search) {
       const { data: matchingTenants } = await ((supabase as any)
