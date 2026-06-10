@@ -81,6 +81,17 @@ const roleConfigs: RoleOnboarding[] = [
           'Notifications en cas d\'échéance',
         ],
       },
+      {
+        icon: FileSignature,
+        title: 'Signez en ligne',
+        description: 'Signez vos baux électroniquement depuis votre tableau de bord, sans déplacement.',
+        color: 'bg-brand-500',
+        details: [
+          'Signature électronique sécurisée',
+          'Bail signé en quelques clics',
+          'Consultation et téléchargement à tout moment',
+        ],
+      },
     ],
   },
   {
@@ -462,7 +473,7 @@ export function OnboardingModal() {
 
                 {/* Quick highlights */}
                 <div className="grid grid-cols-2 gap-3">
-                  {config.steps.slice(0, 4).map((s, i) => {
+                  {config.steps.slice(0, 5).map((s, i) => {
                     const Icon = s.icon
                     return (
                       <div

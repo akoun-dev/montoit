@@ -201,6 +201,10 @@ interface FilterSidebarProps {
   setPriceMin: (v: string) => void
   priceMax: string
   setPriceMax: (v: string) => void
+  surfaceMin: string
+  setSurfaceMin: (v: string) => void
+  surfaceMax: string
+  setSurfaceMax: (v: string) => void
   roomsMin: string
   setRoomsMin: (v: string) => void
   meubleOnly: boolean
@@ -225,6 +229,10 @@ function FilterSidebar({
   setPriceMin,
   priceMax,
   setPriceMax,
+  surfaceMin,
+  setSurfaceMin,
+  surfaceMax,
+  setSurfaceMax,
   roomsMin,
   setRoomsMin,
   meubleOnly,
@@ -338,6 +346,33 @@ function FilterSidebar({
               className="h-9 bg-card border-border text-xs rounded-md pr-8"
             />
             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">Max</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Surface (m²) */}
+      <div className="space-y-2">
+        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Surface (m²)</Label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Input
+              type="number"
+              placeholder="Min"
+              value={surfaceMin}
+              onChange={(e) => setSurfaceMin(e.target.value)}
+              className="h-9 text-xs pl-2.5 pr-7 rounded-md border-border bg-card [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">Min</span>
+          </div>
+          <div className="relative flex-1">
+            <Input
+              type="number"
+              placeholder="Max"
+              value={surfaceMax}
+              onChange={(e) => setSurfaceMax(e.target.value)}
+              className="h-9 text-xs pl-2.5 pr-7 rounded-md border-border bg-card [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">Max</span>
           </div>
         </div>
       </div>
@@ -782,6 +817,8 @@ export function NosBiensView() {
   const [communeFilter, setCommuneFilter] = useState<string>(searchParams.commune || '')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
+  const [surfaceMin, setSurfaceMin] = useState('')
+  const [surfaceMax, setSurfaceMax] = useState('')
   const [roomsMin, setRoomsMin] = useState('0')
   const [meubleOnly, setMeubleOnly] = useState(false)
 
@@ -906,6 +943,9 @@ export function NosBiensView() {
       // Price range
       if (priceMin && p.price < Number(priceMin)) return false
       if (priceMax && p.price > Number(priceMax)) return false
+      // Surface
+      if (surfaceMin && p.area < Number(surfaceMin)) return false
+      if (surfaceMax && p.area > Number(surfaceMax)) return false
       // Rooms
       if (roomsMin !== '0' && (p.bedrooms === null || p.bedrooms < minRooms)) return false
       // Meuble
@@ -944,7 +984,7 @@ export function NosBiensView() {
     }
 
     return result
-  }, [properties, searchQuery, typeFilter, cityFilter, communeFilter, priceMin, priceMax, roomsMin, meubleOnly, sortBy, userLocation, radiusFilter, propertyDistances])
+  }, [properties, searchQuery, typeFilter, cityFilter, communeFilter, priceMin, priceMax, surfaceMin, surfaceMax, roomsMin, meubleOnly, sortBy, userLocation, radiusFilter, propertyDistances])
 
   // Map-compatible properties (only those with coordinates)
   const mappableProperties = useMemo(() => (
@@ -957,6 +997,8 @@ export function NosBiensView() {
     communeFilter !== '' ||
     priceMin !== '' ||
     priceMax !== '' ||
+    surfaceMin !== '' ||
+    surfaceMax !== '' ||
     roomsMin !== '0' ||
     meubleOnly ||
     radiusFilter !== '0'
@@ -971,7 +1013,7 @@ export function NosBiensView() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1)
-  }, [searchQuery, typeFilter, cityFilter, communeFilter, priceMin, priceMax, roomsMin, meubleOnly, sortBy, radiusFilter])
+  }, [searchQuery, typeFilter, cityFilter, communeFilter, priceMin, priceMax, surfaceMin, surfaceMax, roomsMin, meubleOnly, sortBy, radiusFilter])
 
   const resetFilters = () => {
     setTypeFilter('Tous')
@@ -979,6 +1021,8 @@ export function NosBiensView() {
     setCommuneFilter('')
     setPriceMin('')
     setPriceMax('')
+    setSurfaceMin('')
+    setSurfaceMax('')
     setRoomsMin('0')
     setMeubleOnly(false)
     setSearchQuery('')
@@ -1011,6 +1055,10 @@ export function NosBiensView() {
     setPriceMin,
     priceMax,
     setPriceMax,
+    surfaceMin,
+    setSurfaceMin,
+    surfaceMax,
+    setSurfaceMax,
     roomsMin,
     setRoomsMin,
     meubleOnly,

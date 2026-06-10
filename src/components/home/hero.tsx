@@ -89,14 +89,10 @@ export function Hero() {
     ? [
         { value: formatNumber(stats.totalProperties), label: 'Biens disponibles' },
         { value: formatNumber(stats.monthlyVisitors), label: 'Visiteurs mensuels' },
-        { value: formatNumber(stats.newToday), label: "Nouveaux aujourd'hui" },
-        { value: stats.satisfactionRate !== null ? `${stats.satisfactionRate}%` : '—', label: 'Taux de satisfaction' },
       ]
     : [
         { value: '—', label: 'Biens disponibles' },
         { value: '—', label: 'Visiteurs mensuels' },
-        { value: '—', label: "Nouveaux aujourd'hui" },
-        { value: '—', label: 'Taux de satisfaction' },
       ]
 
   return (
@@ -196,7 +192,7 @@ export function Hero() {
         <motion.div
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-10 max-w-3xl mx-auto"
+          className="grid grid-cols-2 gap-4 mt-10 max-w-xl mx-auto"
         >
           {statItems.map((stat, i) => (
             <motion.div
