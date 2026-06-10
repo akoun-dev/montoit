@@ -68,44 +68,52 @@ function findRequiredRoles(pathname: string): string[] | null {
 }
 
 export async function middleware(request: NextRequest) {
-  const { response, user } = await updateSession(request)
-  const { pathname } = request.nextUrl
+  try {
+    const { response, user } = await updateSession(request)
+    const { pathname } = request.nextUrl
 
-  // Vérification d'authentification pour les routes API protégées
-  if (isProtectedApiRoute(pathname) && !user) {
-    const loginUrl = new URL('/', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
+    // Vérification d'authentification pour les routes API protégées
+    if (isProtectedApiRoute(pathname) && !user) {
+      const loginUrl = new URL('/', request.url)
+      loginUrl.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(loginUrl)
+    }
 
-  // Vérification de rôle pour les routes spécifiques
-  if (user && isProtectedApiRoute(pathname)) {
-    const allowedRoles = findRequiredRoles(pathname)
+    // Vérification de rôle pour les routes spécifiques
+    if (user && isProtectedApiRoute(pathname)) {
+      const allowedRoles = findRequiredRoles(pathname)
 
-    if (allowedRoles) {
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            getAll: () => request.cookies.getAll(),
-            setAll: () => { /* read-only */ },
+      if (allowedRoles) {
+        const supabase = createServerClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            cookies: {
+              getAll: () => request.cookies.getAll(),
+              setAll: () => { /* read-only */ },
+            },
           },
-        },
-      )
-
-      const userRole = await getUserRole(supabase, user.id)
-
-      if (!userRole || !allowedRoles.includes(userRole.activeRole)) {
-        return NextResponse.json(
-          { error: 'Accès non autorisé pour ce rôle', allowedRoles, currentRole: userRole?.activeRole },
-          { status: 403 },
         )
+
+        const userRole = await getUserRole(supabase, user.id)
+
+        if (!userRole || !allowedRoles.includes(userRole.activeRole)) {
+          return NextResponse.json(
+            { error: 'Accès non autorisé pour ce rôle', allowedRoles, currentRole: userRole?.activeRole },
+            { status: 403 },
+          )
+        }
       }
     }
-  }
 
-  return response
+    return response
+  } catch (error) {
+    console.error('[middleware] Error:', error)
+    return NextResponse.json(
+      { error: 'Erreur interne du serveur' },
+      { status: 500 },
+    )
+  }
 }
 
 export const config = {

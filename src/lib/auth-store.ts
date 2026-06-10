@@ -24,6 +24,7 @@ export type AppView =
 
 export interface SearchParams {
     query: string
+    city: string
     commune: string
     propertyType: string
 }
@@ -158,7 +159,7 @@ const defaultPersisted: PersistedAuthState = {
     selectedPropertyId: "",
     selectedItemId: "",
     lastAuthenticatedAt: null,
-    searchParams: { query: "", commune: "", propertyType: "" },
+    searchParams: { query: "", city: "", commune: "", propertyType: "" },
     onboardingCompleted: false,
 }
 
@@ -569,6 +570,7 @@ export const useAuthStore = create<AuthState>()(
                         lastAuthenticatedAt: null,
                         searchParams: {
                             query: "",
+                            city: "",
                             commune: "",
                             propertyType: "",
                         },
@@ -666,6 +668,7 @@ export const useAuthStore = create<AuthState>()(
                                 selectedItemId: "",
                                 searchParams: {
                                     query: "",
+                                    city: "",
                                     commune: "",
                                     propertyType: "",
                                 },

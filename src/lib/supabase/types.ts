@@ -541,6 +541,10 @@ export interface Database {
           tenant_signed_at: string | null
           tenant_sign_otp: string | null
           tenant_signature_image: string | null
+          renewal_status: string | null
+          renewal_requested_at: string | null
+          renewal_notes: string | null
+          renewed_lease_id: string | null
           created_at: string
           updated_at: string
           property_id: string
@@ -563,6 +567,10 @@ export interface Database {
           tenant_signed_at?: string | null
           tenant_sign_otp?: string | null
           tenant_signature_image?: string | null
+          renewal_status?: string | null
+          renewal_requested_at?: string | null
+          renewal_notes?: string | null
+          renewed_lease_id?: string | null
           created_at?: string
           updated_at?: string
           property_id: string

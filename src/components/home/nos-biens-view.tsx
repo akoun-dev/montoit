@@ -778,8 +778,8 @@ export function NosBiensView() {
   // Filter state — initialize from search params passed from Hero
   const [searchQuery, setSearchQuery] = useState(searchParams.query || '')
   const [typeFilter, setTypeFilter] = useState<string>(searchParams.propertyType || 'Tous')
-  const [cityFilter, setCityFilter] = useState<string>(searchParams.commune || '')
-  const [communeFilter, setCommuneFilter] = useState<string>('')
+  const [cityFilter, setCityFilter] = useState<string>(searchParams.city || '')
+  const [communeFilter, setCommuneFilter] = useState<string>(searchParams.commune || '')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
   const [roomsMin, setRoomsMin] = useState('0')
@@ -842,7 +842,7 @@ export function NosBiensView() {
 
   // Clear search params after reading them (so they don't persist on revisit)
   useEffect(() => {
-    setSearchParams({ query: '', commune: '', propertyType: '' })
+    setSearchParams({ query: '', city: '', commune: '', propertyType: '' })
   }, [setSearchParams])
 
   // Fetch properties and filter options from API

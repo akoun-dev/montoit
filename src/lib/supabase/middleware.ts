@@ -22,38 +22,46 @@ export interface UpdateSessionResult {
 }
 
 export async function updateSession(request: NextRequest): Promise<UpdateSessionResult> {
-  const { url, anonKey } = getSupabaseEnv()
+  try {
+    const { url, anonKey } = getSupabaseEnv()
 
-  let response = NextResponse.next({
-    request,
-  })
+    let response = NextResponse.next({
+      request,
+    })
 
-  const supabase = createServerClient<Database>(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
+    const supabase = createServerClient<Database>(url, anonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value)
+          })
+
+          response = NextResponse.next({
+            request,
+          })
+
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options as CookieOptions)
+          })
+        },
       },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => {
-          request.cookies.set(name, value)
-        })
+    })
 
-        response = NextResponse.next({
-          request,
-        })
+    const { data: { user } } = await supabase.auth.getUser()
 
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options as CookieOptions)
-        })
-      },
-    },
-  })
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  return {
-    response,
-    user: user ? { id: user.id, email: user.email ?? undefined } : null,
+    return {
+      response,
+      user: user ? { id: user.id, email: user.email ?? undefined } : null,
+    }
+  } catch (error) {
+    console.error('[updateSession] Error:', error)
+    return {
+      response: NextResponse.next({ request }),
+      user: null,
+    }
   }
 }
 

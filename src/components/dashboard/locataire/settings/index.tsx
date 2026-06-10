@@ -27,6 +27,7 @@ import { CITIES } from '@/lib/cities'
 import type { ProfileData, ScoringData, SessionInfo, NotificationPreferences, SettingsTab } from './types'
 import type { RentalFileItem } from '@/components/dashboard/locataire/rental-file'
 import { ScoreCircle, ScoreComponentCard } from './sub-components'
+import { KycVerificationModal } from '@/components/dashboard/locataire/settings/kyc-modal'
 
 
 // ── Animations ──────────────────────────────────────────────────────────────

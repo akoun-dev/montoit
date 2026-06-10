@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { CITIES } from '@/lib/cities'
+import { CITIES, getCommunesForCity } from '@/lib/cities'
 
 const PROPERTY_TYPES = [
   { value: 'APPARTEMENT', label: 'Appartement' },
@@ -55,6 +55,7 @@ export function Hero() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCity, setSelectedCity] = useState('')
   const [selectedCommune, setSelectedCommune] = useState('')
   const [selectedType, setSelectedType] = useState('')
 
@@ -71,6 +72,7 @@ export function Hero() {
     // Store the search params so NosBiensView can read them
     setSearchParams({
       query: searchQuery,
+      city: selectedCity,
       commune: selectedCommune,
       propertyType: selectedType,
     })
@@ -133,7 +135,7 @@ export function Hero() {
           className="bg-card rounded-xl shadow-lg p-3 sm:p-4 max-w-4xl mx-auto"
         >
           <div className="flex flex-col sm:flex-row gap-3 items-stretch">
-            <div className="relative flex-1">
+            <div className="relative w-full sm:flex-[3] min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Rechercher un bien..."
@@ -143,26 +145,42 @@ export function Hero() {
                 className="pl-9 h-11 bg-muted border-border focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
               />
             </div>
-            <div className="w-full sm:w-[200px]">
+            <div className="w-full sm:flex-[2]">
               <SearchableSelect
                 options={CITIES.map((c) => ({ value: c.name, label: c.name }))}
-                value={selectedCommune}
-                onChange={setSelectedCommune}
+                value={selectedCity}
+                onChange={(v) => {
+                  setSelectedCity(v)
+                  setSelectedCommune('')
+                }}
                 placeholder="Ville"
                 triggerClassName="h-11"
               />
             </div>
-            <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="data-[size=default]:h-11 w-full sm:w-[200px] bg-muted border-border">
-                <Building2 className="size-4 text-muted-foreground mr-1" />
-                <SelectValue placeholder="Type de bien" />
-              </SelectTrigger>
+            {selectedCity && getCommunesForCity(selectedCity).length > 0 && (
+              <div className="w-full sm:flex-[2]">
+                <SearchableSelect
+                  options={getCommunesForCity(selectedCity).map((c) => ({ value: c, label: c }))}
+                  value={selectedCommune}
+                  onChange={setSelectedCommune}
+                  placeholder="Commune"
+                  triggerClassName="h-11"
+                />
+              </div>
+            )}
+            <div className="w-full sm:flex-[2]">
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="data-[size=default]:h-11 w-full bg-muted border-border">
+                  <Building2 className="size-4 text-muted-foreground mr-1" />
+                  <SelectValue placeholder="Type de bien" />
+                </SelectTrigger>
               <SelectContent>
                 {PROPERTY_TYPES.map((type) => (
                   <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            </div>
             <Button
               size="lg"
               className="h-11 bg-brand-500 hover:bg-brand-600 text-white px-6 shrink-0"
