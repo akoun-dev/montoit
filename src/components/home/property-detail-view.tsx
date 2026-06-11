@@ -2316,8 +2316,10 @@ function ApplyDialog({
   submitted: boolean
   setSubmitted: (v: boolean) => void
 }) {
+  const { setView, setDashboardSection } = useAuthStore()
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [dossierIncomplete, setDossierIncomplete] = useState(false)
   const submittingRef = useRef(false)
 
   const handleSubmit = async () => {
@@ -2326,7 +2328,7 @@ function ApplyDialog({
     setSubmitting(true)
     setSubmitError('')
     try {
-      const res = await authFetch<{ error?: string }>('/api/applications', {
+      const res = await authFetch<{ error?: string; data?: { rentalFileId?: string } }>('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2335,6 +2337,16 @@ function ApplyDialog({
       })
       if (res.error) {
         throw new Error(res.error)
+      }
+      // Vérifier si le dossier locataire a des documents
+      try {
+        const rentalRes = await authFetch<{ data?: { documents?: Array<unknown> } }>('/api/rental-file')
+        const docs = rentalRes?.data?.documents ?? []
+        if (docs.length === 0) {
+          setDossierIncomplete(true)
+        }
+      } catch {
+        setDossierIncomplete(true)
       }
       setSubmitted(true)
     } catch (err) {
@@ -2345,10 +2357,18 @@ function ApplyDialog({
     }
   }
 
+  const handleCompleteDossier = () => {
+    onOpenChange(false)
+    setSubmitted(false)
+    setView('dashboard')
+    setDashboardSection('rental-file')
+  }
+
   const handleClose = () => {
     onOpenChange(false)
     if (submitted) {
       setSubmitted(false)
+      setDossierIncomplete(false)
     }
   }
 
@@ -2363,7 +2383,7 @@ function ApplyDialog({
         </DialogHeader>
 
         {submitted ? (
-          <div className="text-center py-8">
+          <div className="text-center py-6">
             <div className="size-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="size-8 text-emerald-500" />
             </div>
@@ -2372,12 +2392,35 @@ function ApplyDialog({
               Votre candidature pour &quot;{property.title}&quot; a été transmise au propriétaire.
               Vous serez notifié de la suite donnée à votre demande.
             </p>
-            <Button
-              className="mt-6 bg-brand-500 hover:bg-brand-600 text-white"
-              onClick={handleClose}
-            >
-              Fermer
-            </Button>
+
+            {dossierIncomplete && (
+              <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-left">
+                <p className="text-xs font-semibold text-amber-800 mb-1">
+                  ⚠️ Dossier locataire incomplet
+                </p>
+                <p className="text-xs text-amber-700">
+                  Votre candidature ne sera pas prise en compte tant que vous n&apos;avez pas soumis votre dossier locataire avec les documents requis.
+                </p>
+                <Button
+                  className="mt-3 w-full h-9 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={handleCompleteDossier}
+                >
+                  <FileText className="size-3.5" />
+                  Compléter mon dossier
+                </Button>
+              </div>
+            )}
+
+            <div className="flex gap-2 mt-4">
+              {!dossierIncomplete && (
+                <Button
+                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white"
+                  onClick={handleClose}
+                >
+                  Fermer
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="text-center py-6">

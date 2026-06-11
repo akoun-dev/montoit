@@ -170,14 +170,33 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   const applyMutation = useMutation({
     mutationFn: async () => {
       if (!visit) throw new Error('Visite introuvable')
-      await authFetch('/api/applications', {
+      const res = await authFetch<{ error?: string; data?: { rentalFileId?: string } }>('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ propertyId: visit.property.id }),
       })
+      if (res.error) throw new Error(res.error)
+      // Vérifier si le dossier locataire a des documents
+      try {
+        const rentalRes = await authFetch<{ data?: { documents?: Array<unknown> } }>('/api/rental-file')
+        const docs = rentalRes?.data?.documents ?? []
+        if (docs.length === 0) {
+          return { dossierIncomplete: true }
+        }
+      } catch { /* ignore */ }
+      return { dossierIncomplete: false }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success('Candidature envoyée avec succès !')
+      if (result?.dossierIncomplete) {
+        toast.warning('Votre dossier locataire est incomplet. Complétez-le pour que votre candidature soit prise en compte.', {
+          duration: 8000,
+          action: {
+            label: 'Compléter',
+            onClick: () => setDashboardSection('rental-file'),
+          },
+        })
+      }
       setDashboardSection('applications')
     },
     onError: (err) => {
