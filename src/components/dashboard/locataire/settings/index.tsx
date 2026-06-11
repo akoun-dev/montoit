@@ -430,6 +430,13 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
 
   // Save profile
   const handleSave = async () => {
+    const phoneOk = profile?.isPhoneVerified
+    const emailOk = profile?.isEmailVerified
+    if (!phoneOk && !emailOk) {
+      setError('Veuillez vérifier votre téléphone ou votre email avant de sauvegarder')
+      return
+    }
+
     setSaving(true)
     setError(null)
     setSuccess(null)

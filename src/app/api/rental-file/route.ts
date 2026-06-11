@@ -128,6 +128,35 @@ export async function POST(req: NextRequest) {
     const id = generateId()
     const status = submit ? 'SUBMITTED' : 'DRAFT'
 
+    // Server-side document validation : vérifier que les documents obligatoires sont présents avant soumission
+    if (submit) {
+      const { data: draftForDocs } = await admin
+        .from('rental_files')
+        .select('id')
+        .eq('tenant_id', userId)
+        .eq('status', 'DRAFT')
+        .maybeSingle()
+
+      const draftId = draftForDocs?.id
+      if (draftId) {
+        const { data: existingDocs } = await admin
+          .from('rental_file_documents')
+          .select('type')
+          .eq('rental_file_id', draftId)
+
+        const uploadedTypes = new Set((existingDocs ?? []).map((d: any) => d.type))
+        const requiredTypes = ['ID_CARD']
+        const hasAllRequired = requiredTypes.every(t => uploadedTypes.has(t))
+
+        if (!hasAllRequired) {
+          return NextResponse.json(
+            { error: 'Veuillez télécharger tous les documents obligatoires avant de soumettre' },
+            { status: 400 }
+          )
+        }
+      }
+    }
+
     const insertData: any = {
       id,
       tenant_id: userId,

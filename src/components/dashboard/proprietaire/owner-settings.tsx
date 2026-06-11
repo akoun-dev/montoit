@@ -284,6 +284,12 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
 
   // ── Save profile ────────────────────────────────────────────────────────
   const handleSaveProfile = useCallback(async () => {
+    const phoneOk = profile?.isPhoneVerified
+    const emailOk = profile?.isEmailVerified
+    if (!phoneOk && !emailOk) {
+      toast.error('Veuillez vérifier votre téléphone ou votre email avant de sauvegarder')
+      return
+    }
     setProfileSaving(true)
     try {
       const result = await authFetch<{ user: OwnerProfileData }>('/api/user/profile', {
@@ -305,7 +311,7 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
     } finally {
       setProfileSaving(false)
     }
-  }, [profileForm, updateUser])
+  }, [profileForm, updateUser, profile])
 
   // ── Phone verification ──────────────────────────────────────────────────
   const handleSendPhoneVerification = useCallback(async () => {

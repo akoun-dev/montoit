@@ -2313,8 +2313,11 @@ function ApplyDialog({
 }) {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const submittingRef = useRef(false)
 
   const handleSubmit = async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setSubmitError('')
     try {
@@ -2332,6 +2335,7 @@ function ApplyDialog({
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Erreur lors de la soumission')
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
