@@ -285,7 +285,7 @@ function AdminDashboard({ section }: { section: string }) {
 }
 
 export function Dashboard() {
-  const { user, dashboardSection, setDashboardSection } = useAuthStore()
+  const { user, dashboardSection, setDashboardSection, setView } = useAuthStore()
 
   // Sync browser history popstate with dashboard navigation
   useEffect(() => {
@@ -293,6 +293,8 @@ export function Dashboard() {
       const state = e.state as { dashboardSection?: string } | null
       if (state?.dashboardSection) {
         setDashboardSection(state.dashboardSection, true)
+      } else {
+        setView('home')
       }
     }
     window.addEventListener('popstate', handlePopState)
@@ -303,7 +305,7 @@ export function Dashboard() {
     }
 
     return () => window.removeEventListener('popstate', handlePopState)
-  }, [setDashboardSection, dashboardSection])
+  }, [setDashboardSection, setView])
 
   if (!user) return null
 
