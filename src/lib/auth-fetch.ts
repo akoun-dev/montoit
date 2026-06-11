@@ -203,6 +203,18 @@ export async function authFetch<T = Record<string, unknown>>(
     throw new AuthError(res.status, message)
   }
 
+  // Vérifie que la réponse est bien du JSON avant de parser
+  const contentType = res.headers.get('content-type')
+  if (!contentType || !contentType.includes('application/json')) {
+    console.error(`[authFetch] Réponse non-JSON pour ${effectiveUrl}: content-type=${contentType}`)
+    const text = await res.text()
+    console.error(`[authFetch] Corps (début): ${text.slice(0, 200)}`)
+    throw new AuthError(
+      res.status,
+      `La réponse du serveur n'est pas au format JSON (content-type: ${contentType || 'aucun'}). Veuillez réessayer ou contacter le support.`,
+    )
+  }
+
   const data = await res.json() as T
 
   // Cache successful GET responses

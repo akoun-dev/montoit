@@ -547,6 +547,11 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
     apiFetch(`/api/properties/${propertyId}`, { credentials: 'include' })
       .then((res) => {
         if (!res.ok) throw new Error('Bien introuvable')
+        const contentType = res.headers.get('content-type')
+        if (!contentType?.includes('application/json')) {
+          console.error(`[PropertyDetailView] Réponse non-JSON pour /api/properties/${propertyId}: content-type=${contentType}`)
+          throw new Error('Format de réponse invalide')
+        }
         return res.json()
       })
       .then((data) => {
