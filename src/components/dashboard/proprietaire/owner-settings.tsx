@@ -285,7 +285,8 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
   // ── Save profile ────────────────────────────────────────────────────────
   const handleSaveProfile = useCallback(async () => {
     if (profileForm.phone.trim() && !profile?.isPhoneVerified) {
-      toast.error('Veuillez vérifier votre numéro de téléphone avant de sauvegarder')
+      handleSendPhoneVerification()
+      toast.info('Code de vérification envoyé par SMS. Confirmez-le pour activer la sauvegarde.')
       return
     }
     setProfileSaving(true)
