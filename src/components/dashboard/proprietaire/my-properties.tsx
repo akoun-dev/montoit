@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Building2, Edit, Power, PlusCircle, FileText, Trash2,
-  Search, CheckCircle2, Hourglass, X, ShieldCheck, ArrowRight,
+  Search, CheckCircle2, Hourglass, X,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -16,15 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Separator } from '@/components/ui/separator'
+
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
@@ -33,7 +25,6 @@ import { toast } from 'sonner'
 import { PaginationControls } from '@/components/ui/pagination-controls'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AddProperty } from './add-property'
-import type { ScoringData } from '@/components/dashboard/locataire/settings/types'
 
 interface PropertyItem {
   id: string; title: string; description: string; type: string; price: number; city: string; address: string; commune: string | null; status: string
@@ -64,15 +55,11 @@ const statCards = [
 ]
 
 export function MyProperties() {
-  const { user, isAuthenticated, setDashboardSection, setSelectedPropertyId, setSettingsDefaultTab } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection, setSelectedPropertyId } = useAuthStore()
   const [properties, setProperties] = useState<PropertyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [scoring, setScoring] = useState<ScoringData | null>(null)
-  const [showVerificationModal, setShowVerificationModal] = useState(false)
-  const [checkingVerification, setCheckingVerification] = useState(false)
-  const pendingAddRef = useRef(false)
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -215,35 +202,9 @@ export function MyProperties() {
     setTypeFilter('all')
   }
 
-  const handleOpenAddProperty = useCallback(async () => {
-    if (checkingVerification) return
-    setCheckingVerification(true)
-    try {
-      const result = await authFetch<ScoringData>('/api/scoring')
-      setScoring(result)
-      const { profile, neoface, roleSpecific } = result.breakdown
-      const profileComplete = profile.score >= profile.max
-      const kycVerified = neoface.verified
-      const dossierOk = roleSpecific.approved
-      if (profileComplete && kycVerified && dossierOk) {
-        setEditingId(null)
-        setShowAddForm(true)
-      } else {
-        setShowVerificationModal(true)
-      }
-    } catch {
-      toast.error('Impossible de vérifier votre profil')
-      setEditingId(null)
-      setShowAddForm(true)
-    } finally {
-      setCheckingVerification(false)
-    }
-  }, [checkingVerification])
-
-  const handleGoToVerification = () => {
-    setShowVerificationModal(false)
-    setSettingsDefaultTab('verification')
-    setDashboardSection('settings')
+  const handleOpenAddProperty = () => {
+    setEditingId(null)
+    setShowAddForm(true)
   }
 
   const hasActiveFilters = search || statusFilter !== 'all' || typeFilter !== 'all'
@@ -409,7 +370,6 @@ export function MyProperties() {
         </div>
         <Button
           onClick={handleOpenAddProperty}
-          disabled={checkingVerification}
           className="gap-2 bg-brand-500 hover:bg-brand-600 text-white shrink-0"
         >
           <PlusCircle className="size-4" />
@@ -489,7 +449,6 @@ export function MyProperties() {
               </div>
               <Button
                 onClick={handleOpenAddProperty}
-                disabled={checkingVerification}
                 className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
               >
                 <PlusCircle className="size-4" />
@@ -525,62 +484,6 @@ export function MyProperties() {
           )}
         </div>
       )}
-
-      {/* ── Verification constraint modal ─────────────────────────────────── */}
-      <Dialog open={showVerificationModal} onOpenChange={setShowVerificationModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <ShieldCheck className="size-5 text-brand-500" />
-              Vérifications requises
-            </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground mt-2">
-              Pour publier un bien, vous devez d&apos;abord compléter les vérifications suivantes&nbsp;:
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 py-2">
-            {[
-              {
-                key: 'profile',
-                label: 'Profil complet',
-                done: scoring?.breakdown.profile.score === scoring?.breakdown.profile.max,
-              },
-              {
-                key: 'neoface',
-                label: 'KYC (vérification biométrique)',
-                done: scoring?.breakdown.neoface.verified,
-              },
-              {
-                key: 'dossier',
-                label: 'Dossier propriétaire',
-                done: scoring?.breakdown.roleSpecific.approved,
-              },
-            ].map((item) => (
-              <div key={item.key} className="flex items-center gap-3 p-3 rounded-lg border border-border">
-                <div className={`flex size-7 shrink-0 items-center justify-center rounded-full ${item.done ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
-                  {item.done ? <CheckCircle2 className="size-4" /> : <Hourglass className="size-4" />}
-                </div>
-                <span className={`text-sm font-medium ${item.done ? 'text-green-700' : 'text-amber-700'}`}>
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <Separator />
-
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowVerificationModal(false)} className="sm:flex-1">
-              Plus tard
-            </Button>
-            <Button onClick={handleGoToVerification} className="sm:flex-1 gap-2 bg-brand-500 hover:bg-brand-600 text-white">
-              Aller aux vérifications
-              <ArrowRight className="size-4" />
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         open={!!deleteConfirmId}

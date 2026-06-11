@@ -6,7 +6,8 @@ import {
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
   Search, Heart, UserCheck, CreditCard, Bell, Wrench, UserCircle, Home, MapPin, Scale, FolderOpen, Lock,
-  Award, Fingerprint, ShieldAlert, GraduationCap, Megaphone, Flag, Activity, Database, RefreshCw
+  Award, Fingerprint, ShieldAlert, GraduationCap, Megaphone, Flag, Activity, Database, RefreshCw,
+  PlusCircle
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -68,6 +69,12 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           items: [
             { id: 'overview', label: 'Tableau de bord', icon: LayoutDashboard },
+          ],
+        },
+        {
+          title: 'MES BIENS',
+          items: [
+            { id: 'my-properties', label: 'Mes biens', icon: Building2 },
           ],
         },
         {
