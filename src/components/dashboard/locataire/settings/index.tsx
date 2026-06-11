@@ -430,10 +430,14 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
 
   // Save profile
   const handleSave = async () => {
-    const phoneOk = profile?.isPhoneVerified
-    const emailOk = profile?.isEmailVerified
-    if (!phoneOk && !emailOk) {
-      setError('Veuillez vérifier votre téléphone ou votre email avant de sauvegarder')
+    const phoneFilled = formState.phone.trim().length > 0
+    const emailFilled = emailValue.trim().length > 0
+    if (phoneFilled && !profile?.isPhoneVerified) {
+      setError('Veuillez vérifier votre numéro de téléphone avant de sauvegarder')
+      return
+    }
+    if (emailFilled && !profile?.isEmailVerified) {
+      setError('Veuillez vérifier votre adresse email avant de sauvegarder')
       return
     }
 
