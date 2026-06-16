@@ -437,8 +437,9 @@ function StorySection() {
                   variants={fadeUp}
                   className="relative pl-0 sm:pl-20"
                 >
-                  {/* Timeline dot */}
-                  <div className="hidden sm:flex absolute left-[26px] top-1 -translate-x-1/2 size-10 rounded-full bg-card border-2 border-brand-500 items-center justify-center z-10 shadow-md">
+                  {/* Timeline dot — centré horizontalement sur la ligne (left-8)
+                      et verticalement aligné avec le badge année du card (top-6 = sm:p-8 - half icon) */}
+                  <div className="hidden sm:flex absolute left-8 top-6 -translate-x-1/2 size-10 rounded-full bg-card border-2 border-brand-500 items-center justify-center z-10 shadow-md">
                     <Icon className="size-4 text-brand-500" />
                   </div>
 

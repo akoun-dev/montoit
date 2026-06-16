@@ -73,8 +73,8 @@ export function HowItWorks() {
           viewport={{ once: true, margin: '-50px' }}
           className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 relative"
         >
-          {/* Connecting lines (desktop only) */}
-          <div className="hidden md:block absolute top-16 left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] h-0.5">
+          {/* Connecting lines (desktop only) — top-8 = 32px = centre vertical des cercles size-16 (64px) */}
+          <div className="hidden md:block absolute top-8 left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] h-0.5">
             <div className="w-full border-t-2 border-dashed border-brand-200" />
           </div>
 

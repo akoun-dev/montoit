@@ -2,6 +2,7 @@ package com.montoit.app;
 
 import android.Manifest;
 import android.animation.ObjectAnimator;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -28,6 +29,12 @@ public class MainActivity extends BridgeActivity {
     private static final long SPLASH_MAX_TIMEOUT_MS = 30000L;
     private static final long POLL_INTERVAL_MS = 250L;
 
+    // URL persistence — restore last visited page when app is killed by Android
+    private static final String PREFS_NAME = "MonToitWebViewState";
+    private static final String KEY_LAST_URL = "lastUrl";
+    private static final String KEY_LAST_TS = "lastUrlTimestamp";
+    private static final long URL_RESTORE_MAX_AGE_MS = 30 * 60 * 1000L; // 30 min
+
     /**
      * Heuristique JS qui retourne true quand la page SPA est "visuellement prête" :
      * document complet, body avec enfants ET hauteur > 100px (= contenu rendu, pas
@@ -50,6 +57,54 @@ public class MainActivity extends BridgeActivity {
         showSplashOverlay();
         watchPageLoad();
         requestRequiredPermissions();
+        restoreLastUrlIfNeeded();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        saveCurrentUrl();
+    }
+
+    /**
+     * Sauvegarde l'URL actuelle de la WebView dans SharedPreferences.
+     * Appelée à chaque fois que l'app passe en arrière-plan, pour pouvoir
+     * restaurer la page si Android tue ensuite l'activité (memory pressure).
+     */
+    private void saveCurrentUrl() {
+        WebView webView = (getBridge() != null) ? getBridge().getWebView() : null;
+        if (webView == null) return;
+        String url = webView.getUrl();
+        if (url == null || url.isEmpty() || "about:blank".equals(url)) return;
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        prefs.edit()
+            .putString(KEY_LAST_URL, url)
+            .putLong(KEY_LAST_TS, System.currentTimeMillis())
+            .apply();
+    }
+
+    /**
+     * Au démarrage, si une URL a été sauvegardée il y a moins de 30 min,
+     * la recharger en surcharge de l'URL par défaut (server.url). Le splash
+     * overlay couvre tout pendant le chargement → l'utilisateur ne voit
+     * pas le flash de la home.
+     */
+    private void restoreLastUrlIfNeeded() {
+        final SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        final String savedUrl = prefs.getString(KEY_LAST_URL, null);
+        if (savedUrl == null) return;
+        long savedAt = prefs.getLong(KEY_LAST_TS, 0);
+        if (System.currentTimeMillis() - savedAt > URL_RESTORE_MAX_AGE_MS) return;
+
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                WebView webView = (getBridge() != null) ? getBridge().getWebView() : null;
+                if (webView != null) {
+                    webView.loadUrl(savedUrl);
+                }
+            }
+        }, 200L);
     }
 
     /**
