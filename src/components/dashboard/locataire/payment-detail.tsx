@@ -14,6 +14,7 @@ import {
   RefreshCw,
   CheckCircle2,
   Circle,
+  XCircle,
   Smartphone,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -183,6 +184,19 @@ export function PaymentDetail({ paymentId, onBack }: PaymentDetailProps) {
       toast.error('Erreur lors de la mise à jour')
     } finally {
       setIsRefreshing(false)
+    }
+  }
+
+  const handleCancelPayment = async () => {
+    try {
+      const result = await authFetch<{ data: PaymentItem; message: string }>(`/api/payments/${paymentId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ action: 'cancel' }),
+      })
+      toast.success(result.message || 'Paiement annulé')
+      fetchPayment()
+    } catch {
+      toast.error("Erreur lors de l'annulation du paiement")
     }
   }
 
@@ -414,19 +428,29 @@ indiquée.
             <p className="text-sm text-muted-foreground mb-4">
               Veuillez valider le paiement sur votre téléphone
             </p>
-            <Button
-              variant="outline"
-              onClick={handleRefreshStatus}
-              disabled={isRefreshing}
-              className="gap-2"
-            >
-              {isRefreshing ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <RefreshCw className="size-4" />
-              )}
-              Vérifier le statut
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleRefreshStatus}
+                disabled={isRefreshing}
+                className="gap-2"
+              >
+                {isRefreshing ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                Vérifier le statut
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleCancelPayment}
+                className="gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+              >
+                <XCircle className="size-4" />
+                Annuler
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

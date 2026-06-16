@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
 import { resolveUserFromRequest } from '../_shared/auth.ts'
+import { notify } from '../_shared/notify.ts'
 import {
   generatePartnerTransactionId,
   getDefaultCallbackUrl,
@@ -188,6 +189,17 @@ serve(async (req) => {
       .single()
 
     const methodLabel = getOperatorLabel(method)
+
+    // Notify tenant that payment is processing
+    const formattedAmount = updatedPayment.amount?.toLocaleString('fr-FR') || '---'
+    await notify(supabase, {
+      userId: userId,
+      type: 'PAYMENT_ALERT',
+      title: 'Paiement en cours',
+      message: `Votre paiement de ${formattedAmount} FCFA via ${methodLabel} est en cours de traitement.`,
+      actionUrl: `/dashboard/payments/${paymentId}`,
+      entityId: paymentId,
+    })
 
     return new Response(JSON.stringify({
       data: {

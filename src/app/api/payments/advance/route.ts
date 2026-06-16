@@ -17,9 +17,11 @@ function snakeToCamel(obj: any): any {
   }, {} as Record<string, any>)
 }
 
-function computeNextDueDate(): string {
+function computeNextDueDate(startDate: string): string {
   const now = new Date()
-  const due = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 5))
+  const start = new Date(startDate)
+  const dueDay = start.getUTCDate()
+  const due = new Date(Date.UTC(now.getFullYear(), now.getMonth(), dueDay))
   if (due <= now) {
     due.setUTCMonth(due.getUTCMonth() + 1)
   }
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     const { data: activeLeases } = await (supabase
       .from('leases')
-      .select('id, monthly_rent, property_id, owner_id, property:property_id(price)')
+      .select('id, monthly_rent, start_date, property_id, owner_id, property:property_id(price)')
       .eq('tenant_id', userId)
       .eq('status', 'ACTIVE')
       .order('created_at', { ascending: false })
@@ -58,19 +60,26 @@ export async function POST(req: NextRequest) {
       return applyCookies(NextResponse.json({ error: 'Aucun bail actif trouvé' }, { status: 400 }))
     }
 
-    const nextDue = computeNextDueDate()
+    const nextDue = computeNextDueDate(activeLease.start_date)
 
     const { data: existing } = await (supabase
       .from('payments')
-      .select('id')
+      .select('*, lease:lease_id(id, start_date, end_date, monthly_rent, property:property_id(id, title, address, city, images:property_images(url, "order")), owner:owner_id(id, first_name, last_name))')
       .eq('lease_id', activeLease.id)
       .eq('due_date', nextDue)
       .eq('status', 'PENDING')
       .maybeSingle() as any)
 
     if (existing) {
+      const mapped = snakeToCamel(existing)
+      if (mapped.lease?.property?.images) {
+        const sorted = [...mapped.lease.property.images].sort(
+          (a: any, b: any) => (a.order || 0) - (b.order || 0)
+        )
+        mapped.lease.property.images = sorted.length > 0 ? [sorted[0]] : []
+      }
       return applyCookies(NextResponse.json({
-        data: { id: existing.id },
+        data: mapped,
         message: 'Un paiement existe déjà pour cette échéance',
       }))
     }

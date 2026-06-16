@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
+import { notify } from '../_shared/notify.ts'
 
 interface IntouchCallbackPayload {
   partner_transaction_id?: string
@@ -94,6 +95,57 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
         .eq('id', payment.id)
 
       console.log('Payment callback: payment marked as PAID:', payment.id)
+
+      // Notify tenant and owner
+      const formattedAmount = payment.amount?.toLocaleString('fr-FR') || '---'
+      await notify(supabase, {
+        userId: payment.tenant_id,
+        type: 'PAYMENT_ALERT',
+        title: 'Paiement confirmé',
+        message: `Votre paiement de ${formattedAmount} FCFA a été confirmé avec succès. Référence : ${reference}`,
+        actionUrl: `/dashboard/payments/${payment.id}`,
+        entityId: payment.id,
+      })
+
+      const ownerId = payment.lease?.owner_id
+      if (ownerId) {
+        await notify(supabase, {
+          userId: ownerId,
+          type: 'PAYMENT_ALERT',
+          title: 'Loyer reçu',
+          message: `Un paiement de ${formattedAmount} FCFA a été reçu. Référence : ${reference}`,
+          actionUrl: `/dashboard/finances`,
+          entityId: payment.id,
+        })
+      }
+
+      // Auto-generate next month's payment (skip deposit/advance)
+      const isInitialPayment = payment.reference?.startsWith('CAUTION-') || payment.reference?.startsWith('AVANCE-')
+      if (!isInitialPayment && payment.lease_id) {
+        const nextDue = new Date(payment.due_date)
+        nextDue.setMonth(nextDue.getMonth() + 1)
+
+        // Check no existing payment for this period
+        const { data: existing } = await supabase
+          .from('payments')
+          .select('id')
+          .eq('lease_id', payment.lease_id)
+          .eq('due_date', nextDue.toISOString())
+          .in('status', ['PENDING', 'PROCESSING'])
+          .maybeSingle()
+
+        if (!existing && payment.amount) {
+          await supabase.from('payments').insert({
+            id: crypto.randomUUID(),
+            lease_id: payment.lease_id,
+            tenant_id: payment.tenant_id,
+            amount: payment.amount,
+            status: 'PENDING',
+            due_date: nextDue.toISOString(),
+          })
+          console.log('Payment callback: auto-generated next month payment for lease:', payment.lease_id)
+        }
+      }
     } else if (isFailure) {
       const failureReason = payload.error_message || payload.message || callbackStatus
 
@@ -103,12 +155,22 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
           status: 'PENDING',
           method: null,
           operator_transaction_id: null,
-          operator_phone_number: null,
           payment_operator_data: payload as Record<string, unknown>,
         })
         .eq('id', payment.id)
 
       console.log('Payment callback: payment reverted to PENDING:', payment.id, 'Reason:', failureReason)
+
+      // Notify tenant
+      const formattedAmount = payment.amount?.toLocaleString('fr-FR') || '---'
+      await notify(supabase, {
+        userId: payment.tenant_id,
+        type: 'PAYMENT_ALERT',
+        title: 'Paiement échoué',
+        message: `Votre paiement de ${formattedAmount} FCFA a échoué. Motif : ${failureReason}. Veuillez réessayer.`,
+        actionUrl: `/dashboard/payments/${payment.id}`,
+        entityId: payment.id,
+      })
     } else {
       await supabase
         .from('payments')

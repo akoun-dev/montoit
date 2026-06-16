@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Loader2, CheckCircle2, Phone, RefreshCw, AlertCircle, Info } from 'lucide-react'
+import { Loader2, CheckCircle2, Phone, RefreshCw, AlertCircle, Info, XCircle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -460,6 +460,18 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
                     Ouvrir la page de paiement
                   </Button>
                 )}
+
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    clearPolling()
+                    handleClose()
+                  }}
+                  className="gap-2 w-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                >
+                  <XCircle className="size-4" />
+                  Annuler le paiement
+                </Button>
               </div>
             </motion.div>
           )}

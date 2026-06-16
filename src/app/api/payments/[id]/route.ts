@@ -237,39 +237,51 @@ export async function PUT(
 
     const effectiveRole = user?.active_role
 
-    if (effectiveRole !== 'PROPRIETAIRE') {
-      return applyCookies(NextResponse.json(
-        { error: 'Seuls les propriétaires peuvent confirmer la réception d\'un paiement' },
-        { status: 403 }
-      ))
-    }
-
     const { id } = await params
     const body = await req.json().catch(() => ({}))
     const { action } = body as { action?: string }
 
-    const { data: leases } = await supabase
-      .from('leases')
-      .select('id')
-      .eq('owner_id', userId)
-    const ownedLeaseIds = (leases || []).map((l: any) => l.id)
+    // ── Find payment: owner looks by owned leases, tenant looks by own id ──
+    let payment: any = null
 
-    if (ownedLeaseIds.length === 0) {
-      return applyCookies(NextResponse.json({ error: 'Paiement introuvable' }, { status: 404 }))
+    if (effectiveRole === 'PROPRIETAIRE') {
+      const { data: leases } = await supabase
+        .from('leases')
+        .select('id')
+        .eq('owner_id', userId)
+      const ownedLeaseIds = (leases || []).map((l: any) => l.id)
+
+      if (ownedLeaseIds.length > 0) {
+        const { data } = await (supabase
+          .from('payments')
+          .select('*')
+          .eq('id', id)
+          .in('lease_id', ownedLeaseIds)
+          .maybeSingle() as any)
+        payment = data
+      }
+    } else if (effectiveRole === 'LOCATAIRE') {
+      const { data } = await (supabase
+        .from('payments')
+        .select('*')
+        .eq('id', id)
+        .eq('tenant_id', userId)
+        .maybeSingle() as any)
+      payment = data
     }
-
-    const { data: payment } = await (supabase
-      .from('payments')
-      .select('*')
-      .eq('id', id)
-      .in('lease_id', ownedLeaseIds)
-      .maybeSingle() as any)
 
     if (!payment) {
       return applyCookies(NextResponse.json({ error: 'Paiement introuvable' }, { status: 404 }))
     }
 
     if (action === 'confirm_receipt') {
+      if (effectiveRole !== 'PROPRIETAIRE') {
+        return applyCookies(NextResponse.json(
+          { error: 'Seuls les propriétaires peuvent confirmer la réception d\'un paiement' },
+          { status: 403 }
+        ))
+      }
+
       if (payment.status !== 'PAID' && payment.status !== 'PROCESSING') {
         return applyCookies(NextResponse.json(
           { error: `Impossible de confirmer un paiement avec le statut: ${payment.status}` },
@@ -306,8 +318,49 @@ export async function PUT(
       }))
     }
 
+    if (action === 'cancel') {
+      if (effectiveRole !== 'LOCATAIRE') {
+        return applyCookies(NextResponse.json(
+          { error: 'Seuls les locataires peuvent annuler un paiement' },
+          { status: 403 }
+        ))
+      }
+
+      if (payment.status !== 'PROCESSING') {
+        return applyCookies(NextResponse.json(
+          { error: `Seuls les paiements en cours (PROCESSING) peuvent être annulés. Statut actuel: ${payment.status}` },
+          { status: 400 }
+        ))
+      }
+
+      const { data: updatedPayment } = await supabase
+        .from('payments')
+        .update({
+          status: 'PENDING',
+          method: null,
+          operator_transaction_id: null,
+        })
+        .eq('id', id)
+        .select()
+        .single()
+
+      await notify({
+        userId: userId,
+        type: 'PAYMENT_ALERT',
+        title: 'Paiement annulé',
+        message: `Votre paiement de ${payment.amount.toLocaleString('fr-FR')} FCFA a été annulé.`,
+        actionUrl: 'payments',
+        entityId: id,
+      })
+
+      return applyCookies(NextResponse.json({
+        data: updatedPayment ? snakeToCamel(updatedPayment) : null,
+        message: 'Paiement annulé avec succès',
+      }))
+    }
+
     return applyCookies(NextResponse.json(
-      { error: 'Action non reconnue. Actions disponibles: confirm_receipt' },
+      { error: 'Action non reconnue. Actions disponibles: confirm_receipt, cancel' },
       { status: 400 }
     ))
   } catch (error) {
