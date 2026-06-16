@@ -15,10 +15,10 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     private static let splashMaxTimeout: TimeInterval = 30.0
     private static let pollInterval: TimeInterval = 0.25
-    // URL persistence — restore last visited page if app was killed in background
+    // URL persistence — restore last visited page if app was killed in background.
+    // PAS d'expiration : on restaure toujours. L'app web gère elle-même les
+    // redirections auth si le token est expiré.
     private static let lastUrlKey = "MonToitLastUrl"
-    private static let lastUrlTimestampKey = "MonToitLastUrlTimestamp"
-    private static let urlRestoreMaxAge: TimeInterval = 30 * 60 // 30 min
     /// Heuristique JS qui retourne true quand la page SPA est "visuellement prête" :
     /// document complet, body avec enfants ET hauteur > 100px.
     private static let contentReadyJS = """
@@ -66,19 +66,13 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         guard let urlString = bridge?.webView?.url?.absoluteString,
               !urlString.isEmpty, urlString != "about:blank" else { return }
         UserDefaults.standard.set(urlString, forKey: MainViewController.lastUrlKey)
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: MainViewController.lastUrlTimestampKey)
     }
 
-    /// Au démarrage, si une URL a été sauvegardée il y a moins de 30 min,
-    /// la recharger en surcharge de l'URL par défaut. Le splash overlay couvre
-    /// tout pendant le chargement → pas de flash de la home.
+    /// Au démarrage, restaure systématiquement la dernière URL visitée.
+    /// Le splash overlay couvre tout pendant le chargement → pas de flash de la home.
     private func restoreLastUrlIfNeeded() {
-        let defaults = UserDefaults.standard
-        guard let savedUrl = defaults.string(forKey: MainViewController.lastUrlKey),
+        guard let savedUrl = UserDefaults.standard.string(forKey: MainViewController.lastUrlKey),
               let url = URL(string: savedUrl) else { return }
-        let savedAt = defaults.double(forKey: MainViewController.lastUrlTimestampKey)
-        guard Date().timeIntervalSince1970 - savedAt <= MainViewController.urlRestoreMaxAge else { return }
-
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.bridge?.webView?.load(URLRequest(url: url))
         }
