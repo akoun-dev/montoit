@@ -192,7 +192,7 @@ export function Contact() {
                 <div className="space-y-1.5">
                   <Label htmlFor="contact-subject">Sujet</Label>
                   <Select value={formData.subject} onValueChange={(val) => handleChange('subject', val)}>
-                    <SelectTrigger className="data-[size=default]:h-11 bg-muted border-border">
+                    <SelectTrigger className="w-full data-[size=default]:h-11 bg-muted border-border">
                       <SelectValue placeholder="Sélectionnez un sujet" />
                     </SelectTrigger>
                     <SelectContent>

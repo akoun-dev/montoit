@@ -12,22 +12,8 @@ const INTOUCH_PASSWORD =
 const INTOUCH_PARTNER_ID = process.env.INTOUCH_PARTNER_ID || 'CI300373'
 const INTOUCH_LOGIN_API = process.env.INTOUCH_LOGIN_API || '07084598370'
 
-// Per-operator passwords for CASHIN
-const CASHIN_PASSWORDS: Record<PaymentOperator, string> = {
-  ORANGE_MONEY: process.env.INTOUCH_CASHIN_OM_PASSWORD || '',
-  MTN_MOMO: process.env.INTOUCH_CASHIN_MTN_PASSWORD || '',
-  MOOV_MONEY: process.env.INTOUCH_CASHIN_MOOV_PASSWORD || '',
-  WAVE: process.env.INTOUCH_CASHIN_WAVE_PASSWORD || '',
-}
-
-// Password for PAIEMENT (separate from CASHIN — single shared password for all operators)
-const PAIEMENT_PASSWORD = process.env.INTOUCH_PAIEMENT_PASSWORD || ''
-
-// Password for GET BALANCE endpoint
-const BALANCE_PASSWORD = process.env.INTOUCH_BALANCE_PASSWORD || ''
-
-// Password for TRANSFER/49 Paiement Immédiat (sender wallet password)
-const PAIEMENT_IMMEDIAT_PASSWORD = process.env.INTOUCH_PAIEMENT_IMMEDIAT_PASSWORD || ''
+// Single password used for all Intouch operations (CASHIN, PAIEMENT, Balance, etc.)
+const API_PASSWORD = process.env.INTOUCH_API_PASSWORD || ''
 
 // Service IDs for CASHIN per operator
 const CASHIN_SERVICE_IDS: Record<PaymentOperator, string> = {
@@ -223,9 +209,8 @@ export async function initiateCashin(params: CashinParams): Promise<IntouchCashi
   } = params
 
   const serviceId = CASHIN_SERVICE_IDS[operator]
-  const passwordApi = CASHIN_PASSWORDS[operator]
 
-  if (!serviceId || !passwordApi) {
+  if (!serviceId || !API_PASSWORD) {
     return {
       success: false,
       error: `Opérateur non supporté pour le CASHIN: ${operator}`,
@@ -241,7 +226,7 @@ export async function initiateCashin(params: CashinParams): Promise<IntouchCashi
     partner_id: INTOUCH_PARTNER_ID,
     partner_transaction_id: partnerTransactionId,
     login_api: INTOUCH_LOGIN_API,
-    password_api: passwordApi,
+    password_api: API_PASSWORD,
     call_back_url: callBackUrl || getDefaultCallbackUrl(),
   }
 
@@ -313,7 +298,7 @@ export async function initiatePaiement(params: PaiementParams): Promise<IntouchP
   }
 
   const loginAgent = INTOUCH_LOGIN_API
-  const passwordAgent = PAIEMENT_PASSWORD || CASHIN_PASSWORDS[operator]
+  const passwordAgent = API_PASSWORD
 
   const url = `${INTOUCH_BASE_URL}touchpayapi/ANSUT13287/transaction?loginAgent=${encodeURIComponent(loginAgent)}&passwordAgent=${encodeURIComponent(passwordAgent)}`
 
@@ -389,15 +374,15 @@ export async function initiatePaiement(params: PaiementParams): Promise<IntouchP
 export async function checkTransactionStatus(
   transactionId: string
 ): Promise<IntouchStatusResponse> {
-  if (!PAIEMENT_PASSWORD) {
+  if (!API_PASSWORD) {
     return {
       success: false,
-      error: 'INTOUCH_PAIEMENT_PASSWORD manquant pour la vérification de statut Intouch',
+      error: 'INTOUCH_API_PASSWORD manquant pour la vérification de statut Intouch',
     }
   }
 
   const loginAgent = INTOUCH_LOGIN_API
-  const passwordAgent = PAIEMENT_PASSWORD
+  const passwordAgent = API_PASSWORD
   const url = `${INTOUCH_BASE_URL}touchpayapi/ANSUT13287/transaction/${encodeURIComponent(transactionId)}?loginAgent=${encodeURIComponent(loginAgent)}&passwordAgent=${encodeURIComponent(passwordAgent)}`
 
   try {
@@ -507,7 +492,7 @@ export async function initiatePaiementImmediat(
  */
 export async function getBalance(): Promise<IntouchBalanceResponse> {
   const loginApi = INTOUCH_LOGIN_API
-  const passwordApi = BALANCE_PASSWORD || CASHIN_PASSWORDS.ORANGE_MONEY || INTOUCH_LOGIN_API
+  const passwordApi = API_PASSWORD
 
   const url = `${INTOUCH_BASE_URL}ANSUT13287/get_balance`
 
