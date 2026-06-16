@@ -15,14 +15,6 @@ const INTOUCH_LOGIN_API = process.env.INTOUCH_LOGIN_API || '07084598370'
 // Single password used for all Intouch operations (CASHIN, PAIEMENT, Balance, etc.)
 const API_PASSWORD = process.env.INTOUCH_API_PASSWORD || ''
 
-// Service IDs for CASHIN per operator
-const CASHIN_SERVICE_IDS: Record<PaymentOperator, string> = {
-  ORANGE_MONEY: 'CASHINOMCIPART2',
-  MTN_MOMO: 'CASHINMTNPART2',
-  MOOV_MONEY: 'CASHINMOOVPART2',
-  WAVE: 'CI_CASHIN_WAVE_PART',
-}
-
 // Service IDs for PAIEMENT per operator
 const PAIEMENT_SERVICE_CODES: Record<PaymentOperator, string> = {
   ORANGE_MONEY: 'PAIEMENTMARCHANDOMPAYCIDIRECT',
@@ -36,19 +28,6 @@ const DEFAULT_PUBLIC_APP_URL = 'https://mon-toit.ci'
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
 export type PaymentOperator = 'ORANGE_MONEY' | 'MTN_MOMO' | 'MOOV_MONEY' | 'WAVE'
-
-export interface CashinParams {
-  /** The payment operator to use */
-  operator: PaymentOperator
-  /** Recipient phone number (the person receiving money) */
-  recipientPhoneNumber: string
-  /** Amount in FCFA */
-  amount: number
-  /** Unique transaction ID from our system */
-  partnerTransactionId: string
-  /** Callback URL for Intouch to notify us of the result */
-  callBackUrl?: string
-}
 
 export interface PaiementParams {
   /** The payment operator to use */
@@ -77,20 +56,6 @@ export interface PaiementParams {
   returnUrl?: string
   /** Cancel URL (required for WAVE) */
   cancelUrl?: string
-}
-
-export interface IntouchCashinResponse {
-  success: boolean
-  data?: {
-    id?: string
-    transactionId?: string
-    partnerTransactionId?: string
-    status?: string
-    message?: string
-    [key: string]: unknown
-  }
-  error?: string
-  raw?: unknown
 }
 
 export interface IntouchPaiementResponse {
@@ -182,7 +147,13 @@ function getDefaultPublicAppUrl(): string {
 }
 
 export function getDefaultCallbackUrl(): string {
-  return process.env.INTOUCH_CALLBACK_URL || `${getDefaultPublicAppUrl()}/api/payments/callback`
+  const baseUrl = process.env.INTOUCH_CALLBACK_URL || `${getDefaultPublicAppUrl()}/api/payments/callback`
+  const callbackSecret = process.env.INTOUCH_CALLBACK_SECRET
+  if (callbackSecret) {
+    const separator = baseUrl.includes('?') ? '&' : '?'
+    return `${baseUrl}${separator}token=${encodeURIComponent(callbackSecret)}`
+  }
+  return baseUrl
 }
 
 export function getDefaultWaveReturnUrl(): string {
@@ -191,78 +162,6 @@ export function getDefaultWaveReturnUrl(): string {
 
 export function getDefaultWaveCancelUrl(): string {
   return process.env.INTOUCH_WAVE_CANCEL_URL || getDefaultPublicAppUrl()
-}
-
-// ─── CASHIN API ─────────────────────────────────────────────────────────────────
-
-/**
- * Initiates a CASHIN transaction — pushes money to a recipient's mobile wallet.
- * Used when the tenant pays rent and the money is pushed to the owner's wallet.
- */
-export async function initiateCashin(params: CashinParams): Promise<IntouchCashinResponse> {
-  const {
-    operator,
-    recipientPhoneNumber,
-    amount,
-    partnerTransactionId,
-    callBackUrl,
-  } = params
-
-  const serviceId = CASHIN_SERVICE_IDS[operator]
-
-  if (!serviceId || !API_PASSWORD) {
-    return {
-      success: false,
-      error: `Opérateur non supporté pour le CASHIN: ${operator}`,
-    }
-  }
-
-  const url = `${INTOUCH_BASE_URL}ANSUT13287/cashin`
-
-  const body = {
-    service_id: serviceId,
-    recipient_phone_number: recipientPhoneNumber,
-    amount,
-    partner_id: INTOUCH_PARTNER_ID,
-    partner_transaction_id: partnerTransactionId,
-    login_api: INTOUCH_LOGIN_API,
-    password_api: API_PASSWORD,
-    call_back_url: callBackUrl || getDefaultCallbackUrl(),
-  }
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: getBasicAuthHeader(),
-      },
-      body: JSON.stringify(body),
-    })
-
-    const raw = await response.json().catch(() => null)
-
-    if (!response.ok) {
-      console.error('Intouch CASHIN error:', { status: response.status, raw })
-      return {
-        success: false,
-        error: `Erreur Intouch CASHIN (HTTP ${response.status}): ${(raw as Record<string, unknown>)?.message || 'Erreur inconnue'}`,
-        raw,
-      }
-    }
-
-    return {
-      success: true,
-      data: raw as IntouchCashinResponse['data'],
-      raw,
-    }
-  } catch (error) {
-    console.error('Intouch CASHIN network error:', error)
-    return {
-      success: false,
-      error: `Erreur réseau Intouch CASHIN: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-    }
-  }
 }
 
 // ─── PAIEMENT API ───────────────────────────────────────────────────────────────
@@ -294,6 +193,13 @@ export async function initiatePaiement(params: PaiementParams): Promise<IntouchP
     return {
       success: false,
       error: `Opérateur non supporté pour le PAIEMENT: ${operator}`,
+    }
+  }
+
+  if (!API_PASSWORD) {
+    return {
+      success: false,
+      error: 'INTOUCH_API_PASSWORD manquant pour le PAIEMENT',
     }
   }
 
@@ -435,6 +341,13 @@ export async function initiatePaiementImmediat(
 ): Promise<IntouchPaiementImmediatResponse> {
   const { txId, payeurAlias, payeAlias, montant, motif, confirmation } = params
 
+  if (!API_PASSWORD) {
+    return {
+      success: false,
+      error: 'INTOUCH_API_PASSWORD manquant pour le Paiement Immédiat',
+    }
+  }
+
   // Paiement Immédiat uses a different base URL from other Intouch APIs
   // Auth is via Basic Auth header only (no password in request body)
   const PAIEMENT_IMMEDIAT_URL =
@@ -491,6 +404,13 @@ export async function initiatePaiementImmediat(
  * POST to .../ANSUT13287/get_balance with partner credentials.
  */
 export async function getBalance(): Promise<IntouchBalanceResponse> {
+  if (!API_PASSWORD) {
+    return {
+      success: false,
+      error: 'INTOUCH_API_PASSWORD manquant pour la consultation du solde',
+    }
+  }
+
   const loginApi = INTOUCH_LOGIN_API
   const passwordApi = API_PASSWORD
 

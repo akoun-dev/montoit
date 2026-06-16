@@ -15,6 +15,8 @@ interface TransferRequestBody {
   motif: string
   /** Optional custom transaction ID (auto-generated if omitted) */
   txId?: string
+  /** Whether to confirm the transfer immediately (default: true). Set to false for two-step OTP flow */
+  confirmation?: boolean
 }
 
 serve(async (req) => {
@@ -56,7 +58,7 @@ serve(async (req) => {
 
     // ── Validate input ──
     const body: TransferRequestBody = await req.json()
-    const { payeurAlias, payeAlias, montant, motif, txId } = body
+    const { payeurAlias, payeAlias, montant, motif, txId, confirmation } = body
 
     if (!payeurAlias || !payeAlias || !montant || !motif) {
       return new Response(JSON.stringify({ error: 'Champs requis manquants: payeurAlias, payeAlias, montant, motif' }), {
@@ -79,7 +81,7 @@ serve(async (req) => {
       payeAlias,
       montant,
       motif,
-      confirmation: true,
+      confirmation: confirmation !== false,
     }
 
     // ── Call Intouch API ──

@@ -139,6 +139,20 @@ serve(async (req) => {
 
   const supabase = getSupabaseAdminClient()
 
+  // ── Callback secret verification ──
+  const callbackSecret = Deno.env.get('INTOUCH_CALLBACK_SECRET')
+  if (callbackSecret) {
+    const url = new URL(req.url)
+    const token = url.searchParams.get('token')
+    if (token !== callbackSecret) {
+      console.error('Payment callback: invalid or missing callback secret')
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+  }
+
   if (req.method === 'POST') {
     const payload: IntouchCallbackPayload | null = await req.json().catch(() => null)
     if (!payload) {

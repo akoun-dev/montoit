@@ -12,13 +12,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/payment-transfer`
 
-    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${bearerToken}`,
-      'Content-Type': 'application/json',
-    }
     if (!accessToken) {
-      headers['x-user-id'] = userId
+      return applyCookies(NextResponse.json({ error: 'Session invalide' }, { status: 401 }))
+    }
+
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
     }
 
     const res = await fetch(functionUrl, {

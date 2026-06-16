@@ -7,13 +7,6 @@ const INTOUCH_LOGIN_API = Deno.env.get('INTOUCH_LOGIN_API') || '07084598370'
 // Single password used for all Intouch operations (CASHIN, PAIEMENT, Balance, etc.)
 const API_PASSWORD = Deno.env.get('INTOUCH_API_PASSWORD') || ''
 
-const CASHIN_SERVICE_IDS: Record<string, string> = {
-  ORANGE_MONEY: 'CASHINOMCIPART2',
-  MTN_MOMO: 'CASHINMTNPART2',
-  MOOV_MONEY: 'CASHINMOOVPART2',
-  WAVE: 'CI_CASHIN_WAVE_PART',
-}
-
 const PAIEMENT_SERVICE_CODES: Record<string, string> = {
   ORANGE_MONEY: 'PAIEMENTMARCHANDOMPAYCIDIRECT',
   MTN_MOMO: 'PAIEMENTMARCHAND_MTN_CI',
@@ -24,25 +17,6 @@ const PAIEMENT_SERVICE_CODES: Record<string, string> = {
 const DEFAULT_PUBLIC_APP_URL = 'https://mon-toit.ci'
 
 export type PaymentOperator = 'ORANGE_MONEY' | 'MTN_MOMO' | 'MOOV_MONEY' | 'WAVE'
-
-// ─── CASHIN Types ──────────────────────────────────────────────────────────────
-
-export interface CashinParams {
-  operator: PaymentOperator
-  recipientPhoneNumber: string
-  amount: number
-  partnerTransactionId: string
-  callBackUrl?: string
-}
-
-export interface IntouchCashinResponse {
-  success: boolean
-  data?: Record<string, unknown>
-  error?: string
-  raw?: unknown
-}
-
-// ─── PAIEMENT Types ────────────────────────────────────────────────────────────
 
 export interface PaiementParams {
   operator: PaymentOperator
@@ -125,7 +99,13 @@ function getDefaultPublicAppUrl(): string {
 }
 
 export function getDefaultCallbackUrl(): string {
-  return Deno.env.get('INTOUCH_CALLBACK_URL') || `${getDefaultPublicAppUrl()}/api/payments/callback`
+  const baseUrl = Deno.env.get('INTOUCH_CALLBACK_URL') || `${getDefaultPublicAppUrl()}/api/payments/callback`
+  const callbackSecret = Deno.env.get('INTOUCH_CALLBACK_SECRET')
+  if (callbackSecret) {
+    const separator = baseUrl.includes('?') ? '&' : '?'
+    return `${baseUrl}${separator}token=${encodeURIComponent(callbackSecret)}`
+  }
+  return baseUrl
 }
 
 export function getDefaultWaveReturnUrl(): string {
@@ -134,47 +114,6 @@ export function getDefaultWaveReturnUrl(): string {
 
 export function getDefaultWaveCancelUrl(): string {
   return Deno.env.get('INTOUCH_WAVE_CANCEL_URL') || getDefaultPublicAppUrl()
-}
-
-// ─── CASHIN ────────────────────────────────────────────────────────────────────
-
-export async function initiateCashin(params: CashinParams): Promise<IntouchCashinResponse> {
-  const { operator, recipientPhoneNumber, amount, partnerTransactionId, callBackUrl } = params
-  const serviceId = CASHIN_SERVICE_IDS[operator]
-
-  if (!serviceId || !API_PASSWORD) {
-    return { success: false, error: `Opérateur non supporté: ${operator}` }
-  }
-
-  try {
-    const response = await fetch(`${INTOUCH_BASE_URL}ANSUT13287/cashin`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: getBasicAuthHeader(),
-      },
-      body: JSON.stringify({
-        service_id: serviceId,
-        recipient_phone_number: recipientPhoneNumber,
-        amount,
-        partner_id: INTOUCH_PARTNER_ID,
-        partner_transaction_id: partnerTransactionId,
-        login_api: INTOUCH_LOGIN_API,
-        password_api: API_PASSWORD,
-        call_back_url: callBackUrl || getDefaultCallbackUrl(),
-      }),
-    })
-
-    const raw = await response.json().catch(() => null)
-
-    if (!response.ok) {
-      return { success: false, error: `Intouch CASHIN error (${response.status}): ${raw?.message || 'Erreur inconnue'}`, raw }
-    }
-
-    return { success: true, data: raw as Record<string, unknown>, raw }
-  } catch (error) {
-    return { success: false, error: `Intouch CASHIN network error: ${error instanceof Error ? error.message : 'Erreur inconnue'}` }
-  }
 }
 
 // ─── PAIEMENT ──────────────────────────────────────────────────────────────────
@@ -203,6 +142,10 @@ export async function initiatePaiement(params: PaiementParams): Promise<IntouchP
   const serviceCode = PAIEMENT_SERVICE_CODES[operator]
   if (!serviceCode) {
     return { success: false, error: `Opérateur non supporté pour le PAIEMENT: ${operator}` }
+  }
+
+  if (!API_PASSWORD) {
+    return { success: false, error: 'INTOUCH_API_PASSWORD manquant pour le PAIEMENT' }
   }
 
   const loginAgent = INTOUCH_LOGIN_API
@@ -304,6 +247,10 @@ export async function initiatePaiementImmediat(
 ): Promise<IntouchPaiementImmediatResponse> {
   const { txId, payeurAlias, payeAlias, montant, motif, confirmation } = params
 
+  if (!API_PASSWORD) {
+    return { success: false, error: 'INTOUCH_API_PASSWORD manquant pour le Paiement Immédiat' }
+  }
+
   // Auth is via Basic Auth header only (no password in request body)
   const PAIEMENT_IMMEDIAT_URL =
     Deno.env.get('INTOUCH_PAIEMENT_IMMEDIAT_URL') || 'https://businessapi.gutouch.com/paiements-immediats'
@@ -344,6 +291,10 @@ export async function initiatePaiementImmediat(
  * POST to .../ANSUT13287/get_balance with partner credentials.
  */
 export async function getBalance(): Promise<IntouchBalanceResponse> {
+  if (!API_PASSWORD) {
+    return { success: false, error: 'INTOUCH_API_PASSWORD manquant pour la consultation du solde' }
+  }
+
   const loginApi = INTOUCH_LOGIN_API
   const passwordApi = API_PASSWORD
 
