@@ -112,6 +112,11 @@ export async function POST(req: NextRequest) {
       .select()
       .single()
 
+    if (appError && appError.code === '23505') {
+      // Race condition : un autre appel a créé une candidature entre-temps
+      return NextResponse.json({ error: 'Vous avez déjà candidaté pour ce bien' }, { status: 409 })
+    }
+
     if (appError) {
       console.error('Create application error:', appError)
       return NextResponse.json({ error: 'Erreur lors de la création de la candidature' }, { status: 500 })

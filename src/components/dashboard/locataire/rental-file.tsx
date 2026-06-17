@@ -82,8 +82,9 @@ const documentRequirements: DocRequirement[] = [
 
 // ─── Step definition ───────────────────────────────────────────────────────
 const steps = [
-  { id: 1, title: 'Garant' },
-  { id: 2, title: 'Documents' },
+  { id: 1, title: 'Catégorie' },
+  { id: 2, title: 'Garant' },
+  { id: 3, title: 'Documents' },
 ]
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -115,6 +116,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
   const fetchCountRef = useRef(0)
 
   const [formData, setFormData] = useState({
+    tenantCategory: '',
     guarantorName: '',
     guarantorPhone: '',
     guarantorRelation: '',
@@ -135,6 +137,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         setExistingFile(file)
         rentalFileIdRef.current = file.id
         setFormData({
+          tenantCategory: file.tenantCategory || '',
           guarantorName: file.guarantorName || '',
           guarantorPhone: file.guarantorPhone || '',
           guarantorRelation: file.guarantorRelation || '',
@@ -174,6 +177,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          tenantCategory: formData.tenantCategory || undefined,
           guarantorName: formData.guarantorName || undefined,
           guarantorPhone: formData.guarantorPhone || undefined,
           guarantorRelation: formData.guarantorRelation || undefined,
@@ -205,6 +209,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          tenantCategory: formData.tenantCategory || undefined,
           guarantorName: formData.guarantorName || undefined,
           guarantorPhone: formData.guarantorPhone || undefined,
           guarantorRelation: formData.guarantorRelation || undefined,
@@ -540,12 +545,64 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
             </div>
           </div>
 
-          {/* Step 1: Guarantor */}
+          {/* Step 1: Category */}
           {step === 1 && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Sélectionnez votre catégorie pour adapter les documents à fournir.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {(['SALARIE', 'ENTREPRENEUR', 'ETUDIANT'] as const).map((cat) => {
+                  const labels: Record<string, string> = {
+                    SALARIE: 'Salarié',
+                    ENTREPRENEUR: 'Entrepreneur / Indépendant',
+                    ETUDIANT: 'Étudiant',
+                  }
+                  const icons: Record<string, string> = {
+                    SALARIE: '💼',
+                    ENTREPRENEUR: '🚀',
+                    ETUDIANT: '🎓',
+                  }
+                  const descs: Record<string, string> = {
+                    SALARIE: 'CDI, CDD, fonctionnaire',
+                    ENTREPRENEUR: 'Freelance, gérant, profession libérale',
+                    ETUDIANT: 'Boursier, non boursier',
+                  }
+                  const selected = formData.tenantCategory === cat
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      disabled={isReadOnly}
+                      onClick={() => updateField('tenantCategory', selected ? '' : cat)}
+                      className={`relative text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] ${
+                        selected
+                          ? 'border-brand-500 bg-brand-50 shadow-sm shadow-brand-200'
+                          : 'border-border bg-card hover:border-brand-200 hover:bg-brand-50/50'
+                      } ${isReadOnly ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
+                    >
+                      <span className="text-2xl block mb-2">{icons[cat]}</span>
+                      <p className="text-sm font-semibold text-foreground">{labels[cat]}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{descs[cat]}</p>
+                      {selected && (
+                        <span className="absolute top-2 right-2 size-5 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs font-bold">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Guarantor */}
+          {step === 2 && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Nom complet du garant (Si disponible)</Label>
                 <Input
+                  className="w-full"
                   placeholder="Nom complet du garant"
                   value={formData.guarantorName}
                   onChange={(e) => updateField('guarantorName', e.target.value)}
@@ -555,6 +612,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
               <div className="space-y-2">
                 <Label>Téléphone du garant</Label>
                 <Input
+                  className="w-full"
                   placeholder="01 23 45 67 89"
                   value={formData.guarantorPhone}
                   onChange={(e) => updateField('guarantorPhone', e.target.value)}
@@ -564,7 +622,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
               <div className="space-y-2">
                 <Label>Relation avec le garant</Label>
                 <Select value={formData.guarantorRelation} onValueChange={(v) => updateField('guarantorRelation', v)} disabled={isReadOnly}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Choisir..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -579,8 +637,8 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
             </div>
           )}
 
-          {/* Step 2: Documents */}
-          {step === 2 && (
+          {/* Step 3: Documents */}
+          {step === 3 && (
             <div className="space-y-4">
               <span className="text-xs text-muted-foreground">
                 Documents à fournir pour compléter votre dossier
