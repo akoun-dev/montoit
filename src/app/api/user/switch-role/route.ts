@@ -28,6 +28,14 @@ export async function POST(req: NextRequest) {
       return applyCookies(response)
     }
 
+    if (user.role !== role) {
+      const response = NextResponse.json(
+        { error: 'Vous ne possédez pas ce rôle. Seuls les rôles que vous possédez réellement peuvent être activés.' },
+        { status: 403 }
+      )
+      return applyCookies(response)
+    }
+
     const { data: updatedUser, error } = await admin
       .from('users')
       .update({ active_role: role })

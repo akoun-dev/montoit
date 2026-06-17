@@ -55,12 +55,16 @@ export async function POST(req: NextRequest) {
 
     const { data: recipient } = await admin
       .from('users')
-      .select('id')
+      .select('id, is_active')
       .eq('id', actualRecipientId)
       .maybeSingle()
 
     if (!recipient) {
       return NextResponse.json({ error: 'Destinataire introuvable' }, { status: 404 })
+    }
+
+    if (!recipient.is_active) {
+      return NextResponse.json({ error: 'Ce compte n\'est plus actif' }, { status: 400 })
     }
 
     const { data: existingConvs } = await admin

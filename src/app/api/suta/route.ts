@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { checkRateLimit } from '@/lib/rate-limiter'
 
 const SUTA_SYSTEM_PROMPT = `Tu es SUTA, l'assistant IA de la plateforme Mon Toit (ANSUT), la plateforme de location immobilière en Côte d'Ivoire. Tu es chaleureux, professionnel et toujours prêt à aider.
 
@@ -137,6 +139,20 @@ const MAX_MESSAGES = 20
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await resolveRequestUser(req)
+    if (!auth?.userId) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
+
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    const { allowed } = checkRateLimit('suta', `${auth.userId}:${ip}`, { maxRequests: 20, windowMs: 60_000 })
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Trop de requêtes. Veuillez réessayer dans une minute.' },
+        { status: 429 }
+      )
+    }
+
     const body = await req.json()
     const { message, sessionId } = body
 

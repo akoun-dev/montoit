@@ -12,6 +12,15 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabaseAdminClient()
 
+    const { data: caller } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+    if (!caller || caller.role !== 'ADMIN') {
+      return applyCookies(NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 }))
+    }
+
     // Find all PENDING payments past their due date
     const now = new Date().toISOString()
     const { data: overduePayments, error: fetchError } = await supabase

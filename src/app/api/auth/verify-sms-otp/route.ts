@@ -42,10 +42,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Code invalide ou expiré' }, { status: 400 })
     }
 
-    await supabase
+    const { data: updatedOtp } = await supabase
       .from('otp_codes')
       .update({ is_used: true })
       .eq('id', otp.id)
+      .eq('is_used', false)
+      .select('id')
+      .maybeSingle()
+
+    if (!updatedOtp) {
+      return NextResponse.json({ error: 'Code déjà utilisé ou expiré' }, { status: 400 })
+    }
 
     if (otpType === 'PASSWORD_RESET') {
       return NextResponse.json({

@@ -4,7 +4,6 @@ export const profileSelect = `
   id,
   phone,
   email,
-  password_hash,
   first_name,
   last_name,
   role,
@@ -35,7 +34,9 @@ export const profileSelect = `
 
 export type UserProfileRow = Database['public']['Tables']['users']['Row']
 
-export function toAuthUser(row: UserProfileRow) {
+export type ProfileRow = Omit<UserProfileRow, 'password_hash'>
+
+export function toAuthUser(row: ProfileRow) {
   return {
     id: row.id,
     phone: row.phone,
@@ -55,7 +56,7 @@ export function toAuthUser(row: UserProfileRow) {
   }
 }
 
-export function toProfilePayload(row: UserProfileRow) {
+export function toProfilePayload(row: ProfileRow) {
   return {
     id: row.id,
     firstName: row.first_name,

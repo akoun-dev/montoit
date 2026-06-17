@@ -26,6 +26,22 @@ export async function GET(req: NextRequest) {
 
     const supabase = getSupabaseAdminClient()
 
+    const { data: caller } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (caller?.role === 'PROPRIETAIRE' && userId !== ownerId) {
+      const resp = NextResponse.json({ error: 'Vous ne pouvez consulter que vos propres documents' }, { status: 403 })
+      return applyCookies(resp)
+    }
+
+    if (caller && !['ADMIN', 'TIERS_CONFIANCE', 'PROPRIETAIRE', 'AGENCE'].includes(caller.role)) {
+      const resp = NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
+      return applyCookies(resp)
+    }
+
     // Récupérer les documents du propriétaire via owner_file
     const { data: ownerFiles } = await (supabase as any)
       .from('owner_files')

@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { SUPABASE_PASSWORD_PLACEHOLDER } from '@/lib/supabase/email-auth'
 
 const DEMO_PASSWORD = 'demo1234'
@@ -17,9 +18,26 @@ const SEED_USER_EMAILS = [
   'agence@montoit.ci',
 ]
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Non disponible en production' }, { status: 403 })
+    }
+
+    const auth = await resolveRequestUser(req)
+    if (!auth.userId) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
+
     const supabase = getSupabaseAdminClient()
+    const { data: user } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', auth.userId)
+      .single()
+    if (!user || user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
+    }
 
     const allUuid = '00000000-0000-0000-0000-000000000000'
 

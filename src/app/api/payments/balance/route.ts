@@ -14,13 +14,31 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseAdminClient()
     const { data: user } = await supabase
       .from('users')
-      .select('active_role')
+      .select('active_role, role')
       .eq('id', userId)
       .single()
 
-    const effectiveRole = user?.active_role
+    const effectiveRole = user?.active_role || user?.role
     if (effectiveRole !== 'ADMIN' && effectiveRole !== 'AGENCE' && effectiveRole !== 'PROPRIETAIRE') {
       return applyCookies(NextResponse.json({ error: 'Accès refusé' }, { status: 403 }))
+    }
+
+    const { searchParams } = new URL(req.url)
+    const leaseId = searchParams.get('leaseId')
+    if (leaseId) {
+      const { data: lease } = await supabase
+        .from('leases')
+        .select('id, owner_id, tenant_id')
+        .eq('id', leaseId)
+        .maybeSingle()
+
+      if (!lease) {
+        return applyCookies(NextResponse.json({ error: 'Bail non trouvé' }, { status: 404 }))
+      }
+
+      if (lease.owner_id !== userId && lease.tenant_id !== userId && effectiveRole !== 'ADMIN') {
+        return applyCookies(NextResponse.json({ error: 'Accès refusé à ce bail' }, { status: 403 }))
+      }
     }
 
     const result = await getBalance()

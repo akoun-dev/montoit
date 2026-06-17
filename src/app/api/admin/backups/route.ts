@@ -2,12 +2,27 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 
+async function requireAdmin(req: NextRequest): Promise<{ userId: string } | NextResponse> {
+  const auth = await resolveRequestUser(req)
+  if (!auth.userId) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+  const supabase = getSupabaseAdminClient()
+  const { data: user } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', auth.userId)
+    .single()
+  if (!user || user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
+  }
+  return { userId: auth.userId }
+}
+
 export async function GET(req: NextRequest) {
   try {
-    const auth = await resolveRequestUser(req)
-    if (!auth.userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const auth = await requireAdmin(req)
+    if (auth instanceof NextResponse) return auth
 
     const supabase = getSupabaseAdminClient()
 
@@ -53,10 +68,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await resolveRequestUser(req)
-    if (!auth.userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const auth = await requireAdmin(req)
+    if (auth instanceof NextResponse) return auth
 
     const supabase = getSupabaseAdminClient()
 

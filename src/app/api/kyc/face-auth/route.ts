@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { checkRateLimit } from '@/lib/rate-limiter'
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,10 +10,17 @@ export async function POST(req: NextRequest) {
 
     const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
 
-    console.log('[KYC Face Auth] Resolved:', { userId, authSource, hasAccessToken: !!accessToken })
-
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
+
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    const { allowed } = checkRateLimit('kyc-face-auth', `${userId}:${ip}`, { maxRequests: 5, windowMs: 60_000 })
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
+        { status: 429 }
+      )
     }
 
     const body = await req.json()

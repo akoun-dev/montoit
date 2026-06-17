@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, OtpType } from '@/lib/supabase/types'
-import { profileSelect, type UserProfileRow } from '@/lib/supabase/profile'
+import { profileSelect, type ProfileRow } from '@/lib/supabase/profile'
 import crypto from 'crypto'
 
 export const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
@@ -13,7 +13,7 @@ export function normalizeEmail(email: string): string {
 export async function getUserProfileByEmail(
   admin: SupabaseClient<Database>,
   email: string
-): Promise<UserProfileRow | null> {
+): Promise<ProfileRow | null> {
   const { data, error } = await admin
     .from('users')
     .select(profileSelect)
@@ -30,7 +30,7 @@ export async function getUserProfileByEmail(
 export async function getUserProfileById(
   admin: SupabaseClient<Database>,
   userId: string
-): Promise<UserProfileRow | null> {
+): Promise<ProfileRow | null> {
   const { data, error } = await admin
     .from('users')
     .select(profileSelect)
