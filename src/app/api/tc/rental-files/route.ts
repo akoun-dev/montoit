@@ -455,15 +455,22 @@ export async function PATCH(req: NextRequest) {
         }
       }
 
+      const updatePayload: Record<string, unknown> = {
+        status: newStatus,
+        reviewed_by_id: userId,
+        reviewed_at: new Date().toISOString(),
+        tc_comment: comment || null,
+        rejection_reason: action === 'REJECT' ? (comment || 'Non spécifié') : null,
+      }
+      if (action === 'APPROVE') {
+        const sixMonths = new Date()
+        sixMonths.setMonth(sixMonths.getMonth() + 6)
+        updatePayload.valid_until = sixMonths.toISOString()
+      }
+
       const { data: updatedFile } = await ((supabase as any)
         .from('rental_files')
-        .update({
-          status: newStatus,
-          reviewed_by_id: userId,
-          reviewed_at: new Date().toISOString(),
-          tc_comment: comment || null,
-          rejection_reason: action === 'REJECT' ? (comment || 'Non spécifié') : null,
-        })
+        .update(updatePayload as any)
         .eq('id', fileId)
         .select()
         .single() as any)

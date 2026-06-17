@@ -7,6 +7,25 @@ function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+/** Expire les fichiers VALIDATED dont la validité est dépassée */
+async function expireOverdueFiles(admin: ReturnType<typeof getSupabaseAdminClient>) {
+  const now = new Date().toISOString()
+  const { data: overdue } = await admin
+    .from('rental_files')
+    .select('id')
+    .eq('status', 'VALIDATED')
+    .lt('valid_until', now)
+  if (!overdue || overdue.length === 0) return
+  const ids = overdue.map(r => r.id)
+  await admin.from('rental_files').update({ status: 'EXPIRED' } as any).in('id', ids)
+  await admin.from('applications' as any).update({ status: 'EXPIRED' } as any).in('rental_file_id', ids)
+}
+
+/** Synchronise le statut des candidatures liées à un dossier locatif */
+async function syncApplicationsStatus(admin: ReturnType<typeof getSupabaseAdminClient>, rentalFileId: string, status: string) {
+  await admin.from('applications' as any).update({ status } as any).eq('rental_file_id', rentalFileId)
+}
+
 // GET /api/rental-file — List rental files for current tenant with documents
 export async function GET(req: NextRequest) {
   try {
@@ -28,6 +47,9 @@ export async function GET(req: NextRequest) {
     if (role !== 'LOCATAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
+
+    // Expire les fichiers VALIDATED dépassés avant de retourner
+    await expireOverdueFiles(admin)
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') || undefined
@@ -87,6 +109,9 @@ export async function POST(req: NextRequest) {
     if (role !== 'LOCATAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
+
+    // Expire les fichiers VALIDATED dépassés avant toute opération
+    await expireOverdueFiles(admin)
 
     const body = await req.json()
     const {
@@ -191,6 +216,7 @@ export async function POST(req: NextRequest) {
         if (guarantorName !== undefined) updateData.guarantor_name = guarantorName
         if (guarantorPhone !== undefined) updateData.guarantor_phone = guarantorPhone
         if (guarantorRelation !== undefined) updateData.guarantor_relation = guarantorRelation
+        if (existingDraft.rejection_reason) updateData.rejection_reason = null
 
         const { data: updated } = await admin
           .from('rental_files')
@@ -246,6 +272,9 @@ export async function POST(req: NextRequest) {
 
           rentalFile = updated
 
+          // Sync les candidatures liées
+          await syncApplicationsStatus(admin, rejectedFile.id, 'DRAFT')
+
           // Remettre les documents en PENDING pour re-examen
           await admin
             .from('rental_file_documents')
@@ -296,6 +325,9 @@ export async function POST(req: NextRequest) {
               .single()
 
             rentalFile = updated
+
+            // Sync les candidatures liées
+            await syncApplicationsStatus(admin, activeFile.id, 'DRAFT')
 
             // Remettre les documents en PENDING
             await admin
@@ -379,6 +411,9 @@ export async function POST(req: NextRequest) {
 
         rentalFile = updated
 
+        // Sync les candidatures liées
+        await syncApplicationsStatus(admin, existingDraft.id, 'SUBMITTED')
+
         await admin.from('audit_logs').insert({
           id: generateId(),
           action: 'SUBMIT',
@@ -415,6 +450,9 @@ export async function POST(req: NextRequest) {
             .single()
 
           rentalFile = updated
+
+          // Sync les candidatures liées
+          await syncApplicationsStatus(admin, existingFile.id, 'SUBMITTED')
 
           // Reset all documents to PENDING so the TC can review them again
           await admin

@@ -260,11 +260,8 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
           }
         }, 100)
       }).catch(() => {}) // fall through to DB fetch on timeout
-      
-      // After waiting, try the ref again
-      if (rentalFileIdRef.current && existingFile?.status === 'DRAFT') return rentalFileIdRef.current
-      // Fetch from DB (the other call may have created the draft)
 
+      // Fetch from DB (the other call may have created the draft)
       const result = await authFetch<RentalFileResponse>('/api/rental-file')
       const files = result.data ?? []
       const draft = files.find((f) => f.status === 'DRAFT') || files[0]

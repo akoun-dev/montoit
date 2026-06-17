@@ -47,11 +47,27 @@ export async function GET(req: NextRequest) {
           .in('property_id', propertyIds)
       : { data: [] as any[] }
 
-    const { data: rawRentalFiles } = propertyIds.length > 0
+    // Fetch applications on the owner's properties to find relevant rental files
+    const { data: ownerPropertyApplications } = propertyIds.length > 0
+      ? await admin
+          .from('applications')
+          .select('rental_file_id, property_id')
+          .in('property_id', propertyIds)
+      : { data: [] as any[] }
+
+    const appRentalFileIds = [...new Set((ownerPropertyApplications ?? []).map(a => a.rental_file_id).filter(Boolean))]
+    const propertyAppMap = new Map<string, string[]>()
+    for (const a of (ownerPropertyApplications ?? []) as any[]) {
+      if (!propertyAppMap.has(a.rental_file_id)) propertyAppMap.set(a.rental_file_id, [])
+      propertyAppMap.get(a.rental_file_id)!.push(a.property_id)
+    }
+
+    const { data: rawRentalFiles } = appRentalFileIds.length > 0
       ? await admin
           .from('rental_files')
           .select('*')
-          .in('status', ['SUBMITTED', 'TC_REVIEW', 'VALIDATED'])
+          .in('id', appRentalFileIds)
+          .in('status', ['VALIDATED'])
           .order('updated_at', { ascending: false })
           .limit(20)
       : { data: [] as any[] }
@@ -165,11 +181,10 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    const rentalFiles = (rawRentalFiles ?? []).filter(rf => {
-      const leases = rfLeaseMap.get(rf.id) ?? []
-      return leases.length > 0
-    }).map(rf => {
+    const rentalFiles = (rawRentalFiles ?? []).map(rf => {
       const tenant = tenantMap.get(rf.tenant_id)
+      const linkedPropIds = propertyAppMap.get(rf.id) ?? []
+      const linkedProperty = linkedPropIds.length > 0 ? propMap.get(linkedPropIds[0]) : null
       return {
         id: rf.id,
         tenantId: rf.tenant_id,
@@ -181,6 +196,10 @@ export async function GET(req: NextRequest) {
           firstName: tenant.first_name,
           lastName: tenant.last_name,
           phone: tenant.phone,
+        } : null,
+        property: linkedProperty ? {
+          id: linkedProperty.id,
+          title: linkedProperty.title,
         } : null,
         documents: (rfDocMap.get(rf.id) ?? []).map(d => ({
           id: d.id,

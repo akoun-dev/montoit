@@ -106,9 +106,9 @@ export async function POST(
       )
     }
 
-    if (rFile.status !== 'VALIDATED' && rFile.status !== 'SUBMITTED') {
+    if (rFile.status !== 'VALIDATED') {
       return NextResponse.json(
-        { error: 'Ce dossier ne peut plus être traité' },
+        { error: 'Ce dossier n\'a pas encore été validé par le Tiers de Confiance' },
         { status: 400 }
       )
     }
@@ -160,6 +160,13 @@ export async function POST(
         .update({ status: 'ACCEPTED' })
         .eq('id', id)
       if (rferr) console.error('Failed to update rental_file status:', rferr)
+
+      // Mark property as rented
+      const { error: propreerr } = await supabase
+        .from('properties' as any)
+        .update({ rental_status: 'loue' })
+        .eq('id', property.id)
+      if (propreerr) console.error('Failed to update property rental_status:', propreerr)
 
       // Sync status to applications table
       const { error: apperr } = await supabase

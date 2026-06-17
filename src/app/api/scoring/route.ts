@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
         .from('rental_files')
         .select('id, status')
         .eq('tenant_id', userId)
-        .eq('status', 'VALIDATED')
+        .in('status', ['VALIDATED', 'ACCEPTED'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
