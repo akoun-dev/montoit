@@ -91,11 +91,9 @@ export async function POST(req: NextRequest) {
       rentalFile = created
     }
 
-    // Submit the rental_file
-    await supabase
-      .from('rental_files')
-      .update({ status: 'SUBMITTED' } as any)
-      .eq('id', rentalFile.id)
+    // Keep rental_file as DRAFT — the tenant must explicitly submit it
+    // from their dashboard after uploading documents. The application itself
+    // is still created as SUBMITTED so the owner is notified.
 
     // Create application record
     const appId = generateId()

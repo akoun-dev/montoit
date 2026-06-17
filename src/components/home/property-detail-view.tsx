@@ -2390,11 +2390,12 @@ function ApplyDialog({
       if (res.error) {
         throw new Error(res.error)
       }
-      // Vérifier si le dossier locataire a des documents
+      // Vérifier le statut du dossier locataire
       try {
-        const rentalRes = await authFetch<{ data?: { documents?: Array<unknown> } }>('/api/rental-file')
-        const docs = rentalRes?.data?.documents ?? []
-        if (docs.length === 0) {
+        const rentalRes = await authFetch<{ data?: Array<{ status: string }> }>('/api/rental-file')
+        const rentalFile = Array.isArray(rentalRes?.data) ? rentalRes.data[0] : null
+        const status = rentalFile?.status
+        if (!status || status === 'DRAFT' || status !== 'VALIDATED') {
           setDossierIncomplete(true)
         }
       } catch {
