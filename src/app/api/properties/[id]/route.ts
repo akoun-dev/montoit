@@ -36,7 +36,7 @@ export async function PATCH(
 
     const { data: existing } = await admin
       .from('properties')
-      .select('id, owner_id, status, title, description, price, area, address, city')
+      .select('id, owner_id, status, title, description, price, area, address, city, rental_terms')
       .eq('id', id)
       .single()
 
@@ -70,6 +70,9 @@ export async function PATCH(
       virtualTourUrl,
       images,
       status,
+      depositMonths,
+      advanceMonths,
+      agencyFeesMonths,
     } = body
 
     const isPublishing = status === 'ACTIVE'
@@ -149,6 +152,16 @@ export async function PATCH(
     if (hasClimate !== undefined) updateData.has_climate = Boolean(hasClimate)
     if (hideOwnerName !== undefined) updateData.hide_owner_name = Boolean(hideOwnerName)
     if (body.featured !== undefined) updateData.featured = Boolean(body.featured)
+    if (depositMonths !== undefined || advanceMonths !== undefined || agencyFeesMonths !== undefined) {
+      const finalPrice = price !== undefined ? Number(price) : (existing.price || 0)
+      updateData.rental_terms = buildRentalTerms(
+        existing.rental_terms,
+        finalPrice,
+        depositMonths,
+        advanceMonths,
+        agencyFeesMonths,
+      )
+    }
     if (virtualTourUrl !== undefined) {
       if (virtualTourUrl && isBase64DataUrl(virtualTourUrl)) {
         try {
@@ -399,6 +412,13 @@ async function enrichSingleProperty(admin: ReturnType<typeof getSupabaseAdminCli
     .eq('id', property.owner_id)
     .single()
 
+  let rentalTermsParsed: Record<string, unknown> = {}
+  try {
+    rentalTermsParsed = JSON.parse(property.rental_terms || '{}')
+  } catch {
+    rentalTermsParsed = {}
+  }
+
   const result = {
     id: property.id,
     title: property.title,
@@ -425,6 +445,9 @@ async function enrichSingleProperty(admin: ReturnType<typeof getSupabaseAdminCli
     hasClimate: property.has_climate,
     amenities: property.amenities,
     rentalTerms: property.rental_terms,
+    depositMonths: (rentalTermsParsed.depositMonths as number) ?? null,
+    advanceMonths: (rentalTermsParsed.advanceMonths as number) ?? null,
+    agencyFeesMonths: (rentalTermsParsed.agencyFeesMonths as number) ?? null,
     hideOwnerName: property.hide_owner_name,
     featured: property.featured ?? false,
     virtualTourUrl: property.virtual_tour_url,
@@ -458,4 +481,48 @@ async function enrichSingleProperty(admin: ReturnType<typeof getSupabaseAdminCli
   }
 
   return result
+}
+
+function buildRentalTerms(
+  existingTerms: string | undefined,
+  price: number | undefined,
+  depositMonths?: number,
+  advanceMonths?: number,
+  agencyFeesMonths?: number,
+): string {
+  let terms: Record<string, unknown> = {}
+  try {
+    if (existingTerms && typeof existingTerms === 'string') {
+      terms = JSON.parse(existingTerms)
+    }
+  } catch {
+    terms = {}
+  }
+
+  const numericPrice = typeof price === 'number' && price > 0 ? price : 0
+
+  const dMonths = depositMonths ?? (terms.depositMonths as number | undefined) ?? undefined
+  const aMonths = advanceMonths ?? (terms.advanceMonths as number | undefined) ?? undefined
+  const afMonths = agencyFeesMonths ?? (terms.agencyFeesMonths as number | undefined) ?? undefined
+
+  if (dMonths !== undefined) {
+    terms.depositMonths = dMonths
+    if (numericPrice > 0) {
+      terms.caution = Math.round(dMonths * numericPrice)
+    }
+  }
+  if (aMonths !== undefined) {
+    terms.advanceMonths = aMonths
+    if (numericPrice > 0) {
+      terms.advanceAmount = Math.round(aMonths * numericPrice)
+    }
+  }
+  if (afMonths !== undefined) {
+    terms.agencyFeesMonths = afMonths
+    if (numericPrice > 0) {
+      terms.agencyFeesAmount = Math.round(afMonths * numericPrice)
+    }
+  }
+
+  return JSON.stringify(terms)
 }

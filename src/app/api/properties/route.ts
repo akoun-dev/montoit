@@ -244,6 +244,9 @@ export async function POST(req: NextRequest) {
       virtualTourUrl,
       images,
       draft,
+      depositMonths,
+      advanceMonths,
+      agencyFeesMonths,
     } = body
 
     const isDraft = draft === true
@@ -368,7 +371,7 @@ export async function POST(req: NextRequest) {
         has_guardian: Boolean(hasGuardian),
         has_climate: Boolean(hasClimate),
         amenities: typeof amenities === 'string' ? amenities : '[]',
-        rental_terms: typeof rentalTerms === 'string' ? rentalTerms : '{}',
+        rental_terms: buildRentalTerms(rentalTerms, price, depositMonths, advanceMonths, agencyFeesMonths),
         hide_owner_name: Boolean(hideOwnerName),
         virtual_tour_url: videoUrl,
         owner_id: userId,
@@ -494,6 +497,13 @@ async function enrichProperties(admin: ReturnType<typeof getSupabaseAdminClient>
 }
 
 function mapProperty(p: any, images: any[], owner: any) {
+  let rentalTermsParsed: Record<string, unknown> = {}
+  try {
+    rentalTermsParsed = JSON.parse(p.rental_terms || '{}')
+  } catch {
+    rentalTermsParsed = {}
+  }
+
   return {
     id: p.id,
     title: p.title,
@@ -520,6 +530,9 @@ function mapProperty(p: any, images: any[], owner: any) {
     hasClimate: p.has_climate,
     amenities: p.amenities,
     rentalTerms: p.rental_terms,
+    depositMonths: (rentalTermsParsed.depositMonths as number) ?? null,
+    advanceMonths: (rentalTermsParsed.advanceMonths as number) ?? null,
+    agencyFeesMonths: (rentalTermsParsed.agencyFeesMonths as number) ?? null,
     hideOwnerName: p.hide_owner_name,
     featured: p.featured ?? false,
     virtualTourUrl: p.virtual_tour_url,
@@ -553,4 +566,48 @@ function groupBy(arr: any[], key: string) {
     map.get(k)!.push(item)
   }
   return map
+}
+
+function buildRentalTerms(
+  existingTerms: string | undefined,
+  price: number | undefined,
+  depositMonths?: number,
+  advanceMonths?: number,
+  agencyFeesMonths?: number,
+): string {
+  let terms: Record<string, unknown> = {}
+  try {
+    if (existingTerms && typeof existingTerms === 'string') {
+      terms = JSON.parse(existingTerms)
+    }
+  } catch {
+    terms = {}
+  }
+
+  const numericPrice = typeof price === 'number' && price > 0 ? price : 0
+
+  const dMonths = depositMonths ?? (terms.depositMonths as number | undefined) ?? undefined
+  const aMonths = advanceMonths ?? (terms.advanceMonths as number | undefined) ?? undefined
+  const afMonths = agencyFeesMonths ?? (terms.agencyFeesMonths as number | undefined) ?? undefined
+
+  if (dMonths !== undefined) {
+    terms.depositMonths = dMonths
+    if (numericPrice > 0) {
+      terms.caution = Math.round(dMonths * numericPrice)
+    }
+  }
+  if (aMonths !== undefined) {
+    terms.advanceMonths = aMonths
+    if (numericPrice > 0) {
+      terms.advanceAmount = Math.round(aMonths * numericPrice)
+    }
+  }
+  if (afMonths !== undefined) {
+    terms.agencyFeesMonths = afMonths
+    if (numericPrice > 0) {
+      terms.agencyFeesAmount = Math.round(afMonths * numericPrice)
+    }
+  }
+
+  return JSON.stringify(terms)
 }

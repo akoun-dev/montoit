@@ -92,6 +92,8 @@ interface PropertyInfo {
   title: string
   city: string
   address: string
+  price: number
+  rentalTerms: string
 }
 
 interface LeaseInfo {
@@ -250,6 +252,33 @@ export function EnhancedRentalFiles() {
     specialConditions: '',
   })
   const [termsErrors, setTermsErrors] = useState<Record<string, string>>({})
+
+  // Pre-fill lease terms from property data when accept dialog opens
+  useEffect(() => {
+    if (!acceptDialogOpen) return
+    const rf = data.find(r => r.id === selectedFileId)
+    const prop = rf?.leases[0]?.property
+    const propPrice = prop?.price || 0
+    let deposit = ''
+    if (prop?.rentalTerms) {
+      try {
+        const terms = JSON.parse(prop.rentalTerms)
+        const depositMonths = terms.depositMonths ?? 2
+        deposit = String(Math.round(propPrice * depositMonths))
+      } catch { /* ignore parse errors */ }
+    }
+    const newToday = new Date().toISOString().split('T')[0]
+    const newEnd = new Date()
+    newEnd.setFullYear(newEnd.getFullYear() + 3)
+    setLeaseTerms({
+      monthlyRent: propPrice ? String(propPrice) : '',
+      charges: '',
+      deposit,
+      startDate: newToday,
+      endDate: newEnd.toISOString().split('T')[0],
+      specialConditions: '',
+    })
+  }, [acceptDialogOpen, selectedFileId, data])
 
   // Tenant profile dialog state
   const [profileDialogOpen, setProfileDialogOpen] = useState(false)
@@ -716,19 +745,7 @@ export function EnhancedRentalFiles() {
           setAcceptDialogOpen(false)
           return
         }
-        // Reset form when opening for a new candidate
-        const newToday = new Date().toISOString().split('T')[0]
-        const newEnd = new Date()
-        newEnd.setFullYear(newEnd.getFullYear() + 3)
-        setLeaseTerms({
-          monthlyRent: '',
-          charges: '',
-          deposit: '',
-          startDate: newToday,
-          endDate: newEnd.toISOString().split('T')[0],
-          specialConditions: '',
-        })
-        setAcceptDialogOpen(true)
+        return
       }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>

@@ -46,6 +46,7 @@ import {
   EyeOff,
   Check,
   Flag,
+  Zap,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -135,6 +136,11 @@ interface ParsedExtras {
     conditions: string[]
     etatLieux: string
     preavis: string
+    depositMonths: number | null
+    advanceMonths: number | null
+    agencyFeesMonths: number | null
+    advanceAmount: number | null
+    agencyFeesAmount: number | null
   }
   owner: {
     name: string
@@ -199,6 +205,11 @@ function parseExtras(property: PropertyDetail): ParsedExtras {
     conditions: [],
     etatLieux: '',
     preavis: '',
+    depositMonths: null,
+    advanceMonths: null,
+    agencyFeesMonths: null,
+    advanceAmount: null,
+    agencyFeesAmount: null,
   }
   try {
     const parsed = JSON.parse(property.rentalTerms || '{}')
@@ -211,9 +222,33 @@ function parseExtras(property: PropertyDetail): ParsedExtras {
       conditions: parsed.conditions ?? [],
       etatLieux: parsed.etatLieux ?? '',
       preavis: parsed.preavis ?? '',
+      depositMonths: parsed.depositMonths ?? null,
+      advanceMonths: parsed.advanceMonths ?? null,
+      agencyFeesMonths: parsed.agencyFeesMonths ?? null,
+      advanceAmount: parsed.advanceAmount ?? null,
+      agencyFeesAmount: parsed.agencyFeesAmount ?? null,
     }
   } catch {
     // keep defaults
+  }
+
+  // Rétro-compatibilité : utiliser les valeurs par défaut du formulaire (Step 2 — Loyer & Charges)
+  // si les données ne sont pas encore stockées en base
+  if (property.price > 0) {
+    if (modalites.depositMonths === null && modalites.caution <= 0) {
+      modalites.depositMonths = 2
+      modalites.caution = 2 * property.price
+    } else if (modalites.depositMonths === null && modalites.caution > 0) {
+      modalites.depositMonths = Math.round(modalites.caution / property.price)
+    }
+    if (modalites.advanceMonths === null) {
+      modalites.advanceMonths = 2
+      modalites.advanceAmount = 2 * property.price
+    }
+    if (modalites.agencyFeesMonths === null) {
+      modalites.agencyFeesMonths = 1
+      modalites.agencyFeesAmount = 1 * property.price
+    }
   }
 
   const ownerName = property.hideOwnerName
@@ -672,7 +707,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   // Check if modalites has any data
   const hasModalites = (() => {
     const m = extras.modalites
-    return !!(m.dureeBail || m.caution > 0 || m.chargesIncluses.length > 0 || m.chargesNonIncluses.length > 0 || m.modePaiement.length > 0 || m.conditions.length > 0 || m.etatLieux || m.preavis)
+    return !!(m.dureeBail || m.caution > 0 || m.chargesIncluses.length > 0 || m.chargesNonIncluses.length > 0 || m.modePaiement.length > 0 || m.conditions.length > 0 || m.etatLieux || m.preavis || m.depositMonths || m.advanceMonths || m.agencyFeesMonths)
   })()
 
   // Auth-gated action helper
@@ -1164,6 +1199,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                   <MapPin className="size-3" />
                   <span>{commune}, {property.city}</span>
                 </div>
+
                 <Separator className="mb-4" />
                 {/* Owner mini card */}
                 <div className="flex items-center gap-3 mb-4">
@@ -1415,8 +1451,11 @@ function ModalitesTab({
 }) {
   const m = extras.modalites
 
-  // If no rental terms data, show a message
-  if (!m.dureeBail && m.caution === 0 && m.chargesIncluses.length === 0 && m.chargesNonIncluses.length === 0) {
+  const hasChargesLocatives = m.depositMonths || m.advanceMonths || m.agencyFeesMonths
+  const totalDeposit = m.caution > 0 ? m.caution : (m.depositMonths ? m.depositMonths * price : 0)
+  const totalAdvance = m.advanceAmount ?? (m.advanceMonths ? m.advanceMonths * price : 0)
+  const totalAgencyFees = m.agencyFeesAmount ?? (m.agencyFeesMonths ? m.agencyFeesMonths * price : 0)
+  if (!m.dureeBail && m.caution === 0 && m.chargesIncluses.length === 0 && m.chargesNonIncluses.length === 0 && !hasChargesLocatives) {
     return (
       <div className="pb-24 lg:pb-6">
         <div className="bg-card rounded-xl border border-border p-8 text-center shadow-sm">
@@ -1427,77 +1466,93 @@ function ModalitesTab({
     )
   }
 
+  const cf = (amount: number) => `${amount.toLocaleString('fr-FR')} F CFA`
+  const paymentModes = m.modePaiement
+
   return (
-    <div className="space-y-6 pb-24 lg:pb-6">
-      {/* Financial summary */}
-      <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Wallet className="size-4 text-brand-500" />
-          Conditions financières
-        </h3>
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-border gap-1">
-            <span className="text-sm text-muted-foreground">Loyer mensuel</span>
-            <span className="text-sm font-bold text-brand-500">{price.toLocaleString('fr-FR')} F CFA</span>
-          </div>
-          {m.caution > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-border gap-1">
-              <span className="text-sm text-muted-foreground">Caution / Dépôt de garantie</span>
-              <span className="text-sm font-bold text-foreground">{m.caution.toLocaleString('fr-FR')} F CFA</span>
-            </div>
-          )}
-          {m.modePaiement.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-border gap-2">
-              <div className="flex items-center gap-2">
-                <CreditCard className="size-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Mode de paiement</span>
-              </div>
-              <div className="flex flex-wrap gap-1 sm:justify-end max-w-full">
-                {m.modePaiement.map((mode) => (
-                  <Badge key={mode} variant="outline" className="text-[10px] px-1.5 py-0 border-border text-muted-foreground">
-                    {mode}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
+    <div className="space-y-5 pb-24 lg:pb-6">
+
+      {/* ── Carte récapitulative : Loyer + Charges locatives + Total entrée ── */}
+      <div className="bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl p-5 sm:p-6 text-white shadow-md">
+        <div className="flex items-baseline gap-1.5 mb-5">
+          <span className="text-3xl sm:text-4xl font-black">{price.toLocaleString('fr-FR')}</span>
+          <span className="text-sm font-medium opacity-80">F CFA / mois</span>
         </div>
+
+        {hasChargesLocatives && (
+          <>
+            <div className="border-t border-white/20 pt-4 space-y-2.5">
+              {m.depositMonths && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="opacity-80">Caution / Dépôt de garantie <span className="text-[11px] opacity-60">({m.depositMonths} mois)</span></span>
+                  <span className="font-bold">{cf(totalDeposit)}</span>
+                </div>
+              )}
+              {m.advanceMonths && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="opacity-80">Avance sur loyer <span className="text-[11px] opacity-60">({m.advanceMonths} mois)</span></span>
+                  <span className="font-bold">{cf(totalAdvance)}</span>
+                </div>
+              )}
+              {m.agencyFeesMonths && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="opacity-80">Frais d&apos;agence <span className="text-[11px] opacity-60">({m.agencyFeesMonths} mois)</span></span>
+                  <span className="font-bold">{cf(totalAgencyFees)}</span>
+                </div>
+              )}
+            </div>
+
+
+          </>
+        )}
       </div>
 
-      {/* Lease duration */}
-      {m.dureeBail && (
-        <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Clock3 className="size-4 text-brand-500" />
-            Durée du bail
-          </h3>
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-brand-50/50 border border-brand-100">
-            <Calendar className="size-5 text-brand-500 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-foreground">{m.dureeBail}</p>
-              {m.preavis && <p className="text-xs text-muted-foreground">Préavis de départ : {m.preavis}</p>}
+      {/* ── Grille secondaire : Paiement + Durée du bail ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {paymentModes.length > 0 && (
+          <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Moyens de paiement</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {paymentModes.map((mode) => (
+                <span key={mode} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                  <CreditCard className="size-3" />
+                  {mode}
+                </span>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Charges */}
+        {m.dureeBail && (
+          <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Durée du bail</h4>
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
+                <Calendar className="size-4 text-brand-500" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{m.dureeBail}</p>
+                {m.preavis && <p className="text-[11px] text-muted-foreground">Préavis : {m.preavis}</p>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Charges (utilités) ── */}
       {(m.chargesIncluses.length > 0 || m.chargesNonIncluses.length > 0) && (
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Scale className="size-4 text-brand-500" />
-            Charges
-          </h3>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Charges incluses dans le loyer</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {m.chargesIncluses.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-emerald-600 mb-2 flex items-center gap-1">
-                  <CheckCircle2 className="size-3" />
-                  Charges incluses
+                <p className="text-xs font-semibold text-emerald-600 mb-2.5 flex items-center gap-1.5">
+                  <CheckCircle2 className="size-3.5" />
+                  Incluses
                 </p>
-                <ul className="space-y-1.5">
+                <ul className="space-y-2">
                   {m.chargesIncluses.map((charge) => (
-                    <li key={charge} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <li key={charge} className="flex items-center gap-2.5 text-sm text-foreground">
                       <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />
                       {charge}
                     </li>
@@ -1507,13 +1562,13 @@ function ModalitesTab({
             )}
             {m.chargesNonIncluses.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-red-500 mb-2 flex items-center gap-1">
-                  <X className="size-3" />
-                  Charges non incluses
+                <p className="text-xs font-semibold text-red-500 mb-2.5 flex items-center gap-1.5">
+                  <X className="size-3.5" />
+                  Non incluses
                 </p>
-                <ul className="space-y-1.5">
+                <ul className="space-y-2">
                   {m.chargesNonIncluses.map((charge) => (
-                    <li key={charge} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <li key={charge} className="flex items-center gap-2.5 text-sm text-foreground">
                       <span className="size-1.5 rounded-full bg-red-400 shrink-0" />
                       {charge}
                     </li>
@@ -1525,17 +1580,14 @@ function ModalitesTab({
         </div>
       )}
 
-      {/* Conditions */}
+      {/* ── Conditions ── */}
       {m.conditions.length > 0 && (
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <FileText className="size-4 text-brand-500" />
-            Conditions d&apos;entrée
-          </h3>
-          <ul className="space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Conditions d&apos;entrée</h4>
+          <ul className="space-y-3">
             {m.conditions.map((condition, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                <span className="size-5 rounded-full bg-brand-50 text-brand-500 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+              <li key={i} className="flex items-start gap-3 text-sm text-foreground">
+                <span className="size-6 rounded-full bg-brand-50 text-brand-500 flex items-center justify-center text-[11px] font-bold shrink-0">
                   {i + 1}
                 </span>
                 {condition}
@@ -1545,14 +1597,14 @@ function ModalitesTab({
         </div>
       )}
 
-      {/* État des lieux */}
+      {/* ── État des lieux ── */}
       {m.etatLieux && (
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-            <Shield className="size-4 text-brand-500" />
-            État des lieux
-          </h3>
-          <p className="text-sm text-muted-foreground">{m.etatLieux}</p>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">État des lieux</h4>
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+            <Shield className="size-4 text-brand-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-foreground leading-relaxed">{m.etatLieux}</p>
+          </div>
         </div>
       )}
     </div>

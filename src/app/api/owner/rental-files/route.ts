@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     const { data: rawOwnerProperties } = await supabase
       .from('properties')
-      .select('id, title, city, address')
+      .select('id, title, city, address, price, rental_terms')
       .eq('owner_id', userId)
 
     const ownerProperties = (rawOwnerProperties || []).map((p: any) => ({
@@ -38,6 +38,8 @@ export async function GET(req: NextRequest) {
       title: p.title,
       city: p.city,
       address: p.address,
+      price: p.price,
+      rentalTerms: p.rental_terms,
     }))
     const ownerPropertyIds = ownerProperties.map(p => p.id)
 
@@ -173,13 +175,13 @@ export async function GET(req: NextRequest) {
     const { data: rfLeaseProperties } = rfLeasePropertyIds.length > 0
       ? await supabase
           .from('properties')
-          .select('id, title, city, address')
+          .select('id, title, city, address, price, rental_terms')
           .in('id', rfLeasePropertyIds)
       : { data: [] as any[] }
 
     const rfPropMap: Record<string, any> = {}
     for (const p of (rfLeaseProperties || [])) {
-      rfPropMap[p.id] = { id: p.id, title: p.title, city: p.city, address: p.address }
+      rfPropMap[p.id] = { id: p.id, title: p.title, city: p.city, address: p.address, price: p.price, rentalTerms: p.rental_terms }
     }
 
     const { data: propertyImages } = rfLeasePropertyIds.length > 0
@@ -202,10 +204,10 @@ export async function GET(req: NextRequest) {
     if (missingAppPropIds.length > 0) {
       const { data: appProps } = await supabase
         .from('properties')
-        .select('id, title, city, address')
+        .select('id, title, city, address, price, rental_terms')
         .in('id', missingAppPropIds)
       for (const p of ((appProps || []) as any[])) {
-        rfPropMap[p.id] = { id: p.id, title: p.title, city: p.city, address: p.address }
+        rfPropMap[p.id] = { id: p.id, title: p.title, city: p.city, address: p.address, price: p.price, rentalTerms: p.rental_terms }
       }
       const { data: appPropImages } = await supabase
         .from('property_images')
@@ -240,7 +242,7 @@ export async function GET(req: NextRequest) {
       if (leasesByRentalFile[rfId]?.length) continue
       const appPropId = appPropertyByRentalFile[rfId]
       if (!appPropId) continue
-      const prop = rfPropMap[appPropId] || { id: appPropId, title: '', city: '', address: '' }
+      const prop = rfPropMap[appPropId] || { id: appPropId, title: '', city: '', address: '', price: 0, rentalTerms: '{}' }
       leasesByRentalFile[rfId] = [{
         id: '',
         status: '',
@@ -384,6 +386,8 @@ export async function GET(req: NextRequest) {
             title: l.property.title,
             city: l.property.city,
             address: l.property.address,
+            price: l.property.price,
+            rentalTerms: l.property.rentalTerms,
             images: l.property.images,
           },
         })),
