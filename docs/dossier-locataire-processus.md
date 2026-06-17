@@ -124,19 +124,58 @@ EXPIRED ──(réouverture)─────────► DRAFT
 
 ## 3. Documents
 
-### Types de documents acceptés
+### Prérequis par catégorie de locataire
+
+Les documents exigés dépendent de la catégorie du locataire (`tenant_category`) définie dans le dossier. Trois catégories sont supportées : `SALARIE`, `ENTREPRENEUR`, `ETUDIANT`.
+
+#### 1. Locataire Salarié (`SALARIE`)
 
 | Type | Obligatoire | Libellé |
 |------|-------------|---------|
 | `ID_CARD` | ✅ Oui | Carte d'identité ou Passeport |
-| `PROOF_OF_ADDRESS` | ❌ Non | Justificatif de domicile (facture CIE/SODECI) |
-| `PAY_SLIP` | ❌ Non | Bulletins de salaire (3 derniers mois) |
-| `BANK_STATEMENT` | ❌ Non | Relevés bancaires (3 derniers mois) |
-| `EMPLOYMENT_CONTRACT` | ❌ Non | Contrat de travail |
-| `GUARANTOR_ID` | ❌ Non | Pièce d'identité du garant |
-| `GUARANTOR_INCOME_PROOF` | ❌ Non | Justificatif de revenus du garant |
+| `EMPLOYMENT_CONTRACT` | ✅ Oui | Contrat de travail |
+| `WORK_CERTIFICATE` | ✅ Oui | Attestation de travail récente |
+| `PAY_SLIP` | ✅ Oui | Bulletins de salaire (3 derniers mois) |
+| `BANK_STATEMENT` | ✅ Oui | Relevés bancaires (3 derniers mois) |
+| `PROOF_OF_ADDRESS` | ✅ Oui | Justificatif de domicile actuel (facture CIE, SODECI ou quittance de loyer) |
 
-Autres types techniques : `PASSPORT`, `WORK_CERTIFICATE`, `RCCM_REGISTRATION`, `TAX_DECLARATION`, `SCHOOL_CERTIFICATE`, `SCHOLARSHIP_CERTIFICATE`, `PROPERTY_TITLE`, `UTILITY_BILL`, `BANK_ACCOUNT_DETAILS`, `OTHER`.
+#### 2. Locataire Entrepreneur / Indépendant (`ENTREPRENEUR`)
+
+| Type | Obligatoire | Libellé |
+|------|-------------|---------|
+| `ID_CARD` | ✅ Oui | Carte d'identité ou Passeport |
+| `RCCM_REGISTRATION` | ✅ Oui | Attestation d'immatriculation (RCCM) |
+| `TAX_DECLARATION` | ✅ Oui | Dernière déclaration fiscale |
+| `BANK_STATEMENT` | ✅ Oui | Relevés bancaires (3 derniers mois) |
+| `PROOF_OF_ADDRESS` | ✅ Oui | Justificatif de domicile actuel (facture CIE, SODECI) |
+
+#### 3. Locataire Étudiant (`ETUDIANT`)
+
+| Type | Obligatoire | Libellé |
+|------|-------------|---------|
+| `ID_CARD` | ✅ Oui | Carte d'identité ou Passeport |
+| `SCHOOL_CERTIFICATE` | ✅ Oui | Certificat de scolarité |
+| `SCHOLARSHIP_CERTIFICATE` | ❌ Non | Attestation de bourse (si applicable) |
+| `PARENT_ADDRESS_PROOF` | ✅ Oui | Justificatif de domicile des parents |
+| `GUARANTOR_ID` | ✅ Oui | Pièce d'identité du garant |
+| `GUARANTOR_INCOME_PROOF` | ✅ Oui | Justificatif de revenus du garant |
+
+#### 4. Propriétaire (dossier propriétaire)
+
+| Type | Obligatoire | Libellé |
+|------|-------------|---------|
+| `ID_CARD` | ✅ Oui | Carte d'identité ou Passeport |
+| `PROPERTY_TITLE` | ✅ Oui | Titre de propriété |
+| `UTILITY_BILL` | ✅ Oui | Dernière facture CIE ou SODECI |
+| `BANK_ACCOUNT_DETAILS` | ✅ Oui | Relevé d'identité bancaire (RIB) |
+
+### Tous les types techniques
+
+`ID_CARD`, `PASSPORT`, `PROOF_OF_ADDRESS`, `PAY_SLIP`, `BANK_STATEMENT`, `EMPLOYMENT_CONTRACT`, `WORK_CERTIFICATE`, `RCCM_REGISTRATION`, `TAX_DECLARATION`, `SCHOOL_CERTIFICATE`, `SCHOLARSHIP_CERTIFICATE`, `PARENT_ADDRESS_PROOF`, `GUARANTOR_ID`, `GUARANTOR_INCOME_PROOF`, `PROPERTY_TITLE`, `UTILITY_BILL`, `BANK_ACCOUNT_DETAILS`, `OTHER`.
+
+### Implémentation actuelle
+
+⚠️ Le code actuel (`rental-file.tsx`) utilise une liste plate de documents où seul `ID_CARD` est marqué obligatoire, **indépendamment de la catégorie**. La validation catégorie-spécifique n'est pas encore implémentée côté serveur (la route `POST /api/rental-file` ne vérifie que la présence d'`ID_CARD`).
 
 ### Statuts des documents
 
