@@ -65,6 +65,9 @@ CRYPTONEO - API Signature Electronique ANSUT TEST.postman_collection.json
 # supabase functions env (contains real API keys!)
 supabase/functions/.env
 
+# LiteRT / On-device ML models (too large for git)
+liteRT/
+
 # Capacitor / Android APK
 android/app/build/
 android/app/release/

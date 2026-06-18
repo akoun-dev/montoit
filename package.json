@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 5000",
+    "dev:full": "echo 'Lancez d'abord: npm run litert:serve' && next dev -p 5000",
+    "litert:serve": "litert-lm serve --port 9379",
+    "litert:import": "litert-lm import ./liteRT/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm suta-gemma3",
     "build": "next build && node scripts/copy-standalone-assets.mjs",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
