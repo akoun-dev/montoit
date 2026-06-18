@@ -287,15 +287,16 @@ function AdminDashboard({ section }: { section: string }) {
 export function Dashboard() {
   const { user, dashboardSection, setDashboardSection, setView } = useAuthStore()
 
-  // Sync browser history popstate with dashboard navigation
+  // Restaure la section du dashboard lors du retour navigateur.
+  // La navigation entre vues (home, nos-biens, dashboard, etc.)
+  // est gérée par le popstate global dans page.tsx.
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
       const state = e.state as { dashboardSection?: string } | null
       if (state?.dashboardSection) {
         setDashboardSection(state.dashboardSection, true)
-      } else {
-        setView('home')
       }
+      // Ne pas faire setView('home') ici — le popstate global gère les changements de vue
     }
     window.addEventListener('popstate', handlePopState)
 

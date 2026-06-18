@@ -131,7 +131,7 @@ interface AuthActions {
         newPassword: string
     }) => Promise<void>
     logout: () => Promise<void>
-    setView: (view: AppView) => void
+    setView: (view: AppView, fromPopState?: boolean) => void
     setAuthMethod: (method: AuthMethod) => void
     setOtpPurpose: (purpose: OtpPurpose) => void
     setPendingRole: (role: string) => void
@@ -578,8 +578,19 @@ export const useAuthStore = create<AuthState>()(
                 }
             },
 
-            setView: view => {
-                if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' })
+            setView: (view: AppView, fromPopState?: boolean) => {
+                if (typeof window !== 'undefined') {
+                    window.scrollTo({ top: 0, behavior: 'auto' })
+                    // Ne pas repousser un état quand on revient via popstate
+                    if (!fromPopState) {
+                        const state = useAuthStore.getState()
+                        window.history.pushState({
+                            view,
+                            selectedPropertyId: view === 'property-detail' ? state.selectedPropertyId : undefined,
+                            dashboardSection: view === 'dashboard' ? state.dashboardSection : undefined,
+                        }, '')
+                    }
+                }
                 set(state => ({
                     previousView: state.currentView,
                     currentView: view,

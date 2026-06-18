@@ -1,12 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { updateSession, getUserRole } from '@/lib/supabase/middleware'
 import { createServerClient } from '@supabase/ssr'
+import { getUserRole } from '@/lib/supabase/middleware'
+import type { Database } from '@/lib/supabase/types'
 
-// Routes dont toutes les sous-routes sont publiques
 const PUBLIC_ROUTE_PREFIXES = ['/api/auth/']
 
-// Routes qui nécessitent un rôle spécifique
-// Note: les routes multi-rôles ne sont pas listées ici pour éviter les faux positifs
 const ROLE_ROUTES: Array<{ roles: string[]; prefixes: string[] }> = [
   { roles: ['LOCATAIRE'], prefixes: ['/api/dashboard/locataire', '/api/locataire/'] },
   { roles: ['PROPRIETAIRE'], prefixes: ['/api/dashboard/proprietaire', '/api/owner/', '/api/owner-file/'] },
@@ -15,7 +13,6 @@ const ROLE_ROUTES: Array<{ roles: string[]; prefixes: string[] }> = [
   { roles: ['TIERS_CONFIANCE'], prefixes: ['/api/dashboard/tc', '/api/tc/'] },
 ]
 
-// Routes protégées qui nécessitent une authentification
 const PROTECTED_API_PREFIXES = [
   '/api/dashboard/',
   '/api/admin/',
@@ -37,10 +34,9 @@ const PROTECTED_API_PREFIXES = [
   '/api/reviews',
   '/api/users',
   '/api/profile',
-  '/api/properties/', // sous-routes (/properties/[id]/documents etc.)
+  '/api/properties/',
 ]
 
-/** Vérifie si le chemin est le listing public des propriétés (GET /api/properties) */
 function isPropertiesListing(pathname: string): boolean {
   return pathname === '/api/properties' || pathname === '/api/properties/'
 }
@@ -68,33 +64,39 @@ function findRequiredRoles(pathname: string): string[] | null {
 }
 
 export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({ request })
+
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    },
+  )
+
   try {
-    const { response, user } = await updateSession(request)
+    const { data: { user } } = await supabase.auth.getUser()
     const { pathname } = request.nextUrl
 
-    // Vérification d'authentification pour les routes API protégées
     if (isProtectedApiRoute(pathname) && !user) {
       const loginUrl = new URL('/', request.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
     }
 
-    // Vérification de rôle pour les routes spécifiques
     if (user && isProtectedApiRoute(pathname)) {
       const allowedRoles = findRequiredRoles(pathname)
 
       if (allowedRoles) {
-        const supabase = createServerClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          {
-            cookies: {
-              getAll: () => request.cookies.getAll(),
-              setAll: () => { /* read-only */ },
-            },
-          },
-        )
-
         const userRole = await getUserRole(supabase, user.id)
 
         if (!userRole || !allowedRoles.includes(userRole.activeRole)) {

@@ -51,11 +51,37 @@ function LoadingScreen() {
 }
 
 export default function Home() {
-  const { currentView, checkAuth, isInitialized, selectedPropertyId } = useAuthStore()
+  const { currentView, checkAuth, isInitialized, selectedPropertyId, setView, setSelectedPropertyId } = useAuthStore()
 
   useEffect(() => {
     checkAuth()
   }, [checkAuth])
+
+  // Gère le bouton Retour du navigateur (popstate)
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const state = e.state as {
+        view?: string
+        selectedPropertyId?: string
+        dashboardSection?: string
+      } | null
+      if (!state?.view) return
+
+      if (state.view === 'property-detail' && state.selectedPropertyId) {
+        setSelectedPropertyId(state.selectedPropertyId)
+      }
+      // La restauration de dashboardSection est gérée par le popstate du dashboard
+      setView(state.view as any, true) // fromPopState = true — ne pas repousser un état
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    // État initial pour que le premier retour fonctionne
+    if (!window.history.state) {
+      window.history.replaceState({ view: currentView }, '')
+    }
+    return () => window.removeEventListener('popstate', handlePopState)
+  // currentView n'est pas utilisé dans le callback — pas besoin dans les dépendances
+  }, [setView, setSelectedPropertyId])
 
   // Wait for first auth check to complete before rendering anything
   // This prevents flash of wrong view (home page → dashboard) on refresh

@@ -7,14 +7,14 @@ import { useNotifications } from '@/hooks/use-notifications'
 import { useAuthStore } from '@/lib/auth-store'
 
 const DEBOUNCE_MS = 300
-const STALE_STATE_THRESHOLD_MS = 30_000 // 30 s — seuil pour reload complet
 
 /**
- * Runs the full resume logic: refresh notifications, re-validate session,
- * and redirect (dashboard if authenticated, home if not).
+ * Refreshes notifications and re-validates the session on app resume.
  *
- * Accepte `refreshNotifications` en paramètre car cette fonction vient
- * du hook `useNotifications()`, pas du store zustand.
+ * Contrairement à l'ancienne version, on ne force PLUS le changement de vue
+ * vers 'dashboard' ou 'home'. L'utilisateur reste sur la page où il se trouvait.
+ * checkAuth() gère déjà le cas 401 (session expirée) en resetant vers 'home'
+ * via le store.
  */
 async function runResumeLogic(refreshNotifications?: () => void) {
   refreshNotifications?.()
@@ -24,15 +24,9 @@ async function runResumeLogic(refreshNotifications?: () => void) {
   if (state.isAuthenticated) {
     try {
       await state.checkAuth()
-      if (useAuthStore.getState().isAuthenticated) {
-        useAuthStore.getState().setView('dashboard')
-      }
     } catch {
       // Network error — keep current state
     }
-  } else {
-    useAuthStore.getState().setView('home')
-    useAuthStore.getState().setDashboardSection('overview')
   }
 }
 
@@ -45,13 +39,9 @@ async function runResumeLogic(refreshNotifications?: () => void) {
  * Au retour au premier plan :
  * 1. Re-fetches notifications.
  * 2. Re-valide la session via `checkAuth()`.
- * 3. Redirige :
- *    - Utilisateur connecté → tableau de bord
- *    - Utilisateur non connecté → accueil (cache vidé)
- *
- * Si l'application web/PWA est restée en arrière-plan plus de 30 s,
- * un `window.location.reload()` est déclenché en dernier recours
- * pour nettoyer un éventuel état React périmé (cas PWA).
+ * 3. ~~Ne redirige plus vers le tableau de bord ou l'accueil.~~
+ *    L'utilisateur reste sur la page en cours. checkAuth() reset vers
+ *    'home' uniquement si la session a expiré (401).
  *
  * Renders nothing — composant pur effet monté dans le layout racine.
  */
@@ -59,7 +49,6 @@ export function AppLifecycleManager() {
   const { isActive } = useApp()
   const { refreshNotifications } = useNotifications()
   const lastRefreshRef = useRef(0)
-  const hiddenSinceRef = useRef<number | null>(null)
   const isInitialMount = useRef(true)
 
   // ――― Capacitor : écoute `resume` (isActive true → false → true) ――――――――
@@ -90,7 +79,6 @@ export function AppLifecycleManager() {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'hidden') {
         hasBeenHidden = true
-        hiddenSinceRef.current = Date.now()
         return
       }
 
@@ -101,20 +89,8 @@ export function AppLifecycleManager() {
       if (now - lastRefreshRef.current < DEBOUNCE_MS) return
       lastRefreshRef.current = now
 
-      const hiddenDuration = hiddenSinceRef.current
-        ? now - hiddenSinceRef.current
-        : 0
-
-      // Tentative normale : checkAuth + redirect
-      // On attend la fin de l'async avant de décider un éventuel reload
+      // Re-valide la session et rafraîchit les notifications
       await runResumeLogic(refreshNotifications)
-
-      // Si l'utilisateur est parti plus de 30 s, on force un reload
-      // pour nettoyer tout état React potentiellement périmé (PWA).
-      // Uniquement en mode standalone (PWA), pas dans le navigateur normal.
-      if (hiddenDuration > STALE_STATE_THRESHOLD_MS && window.matchMedia('(display-mode: standalone)').matches) {
-        window.location.reload()
-      }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
