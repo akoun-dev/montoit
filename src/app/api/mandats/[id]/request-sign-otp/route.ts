@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
+    const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -61,7 +62,11 @@ export async function POST(
     }
 
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign-send-otp`
-    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    const bearerToken = getEdgeFunctionBearerToken(accessToken, authSource)
+    if (!bearerToken) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
+    }
 
     const body: Record<string, string> = { canal }
     if (recipientEmail) body.email = recipientEmail

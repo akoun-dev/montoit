@@ -475,14 +475,17 @@ export async function PATCH(req: NextRequest) {
         .select()
         .single() as any)
 
-      // Sync status to applications table
-      try {
-        await (supabase as any)
-          .from('applications')
-          .update({ status: newStatus } as any)
-          .eq('rental_file_id', fileId)
-      } catch (syncErr) {
-        console.error(`Failed to sync application status for file ${fileId}:`, syncErr)
+      // Sync status to applications table (sauf APPROVE : le TC valide le dossier,
+      // c'est le propriétaire qui accepte ou rejette la candidature)
+      if (action !== 'APPROVE') {
+        try {
+          await (supabase as any)
+            .from('applications')
+            .update({ status: newStatus } as any)
+            .eq('rental_file_id', fileId)
+        } catch (syncErr) {
+          console.error(`Failed to sync application status for file ${fileId}:`, syncErr)
+        }
       }
 
       await (supabase as any)
@@ -516,6 +519,93 @@ export async function PATCH(req: NextRequest) {
         })
       } catch (notifyErr) {
         console.error(`Failed to notify tenant for file ${fileId}:`, notifyErr)
+      }
+
+      // ── Deferred notifications : envoyer les notifs en attente pour candidatures & visites ──
+      if (action === 'APPROVE') {
+        // Notifier les propriétaires des candidatures en attente de ce locataire
+        try {
+          const { data: pendingApps } = await (supabase as any)
+            .from('applications')
+            .select('id, property_id, property:property_id(owner_id, title)')
+            .eq('tenant_id', file.tenant_id)
+            .in('status', ['SUBMITTED', 'TC_REVIEW'])
+
+          for (const app of (pendingApps ?? []) as any[]) {
+            const ownerId = app.property?.owner_id
+            if (ownerId && ownerId !== file.tenant_id) {
+              await notify({
+                userId: ownerId,
+                type: 'DOSSIER_UPDATE',
+                title: 'Nouvelle candidature',
+                message: `Un locataire a soumis une candidature pour votre bien "${app.property?.title || ''}".`,
+                actionUrl: 'candidatures',
+                entityId: app.id,
+              })
+            }
+          }
+        } catch (deferErr) {
+          console.error(`Failed to send deferred app notifications for ${fileId}:`, deferErr)
+        }
+
+        // Notifier les propriétaires/agences des visites en attente de ce locataire
+        try {
+          const { data: pendingVisits } = await (supabase as any)
+            .from('visit_requests')
+            .select('id, property_id, property:property_id(owner_id, title)')
+            .eq('tenant_id', file.tenant_id)
+            .eq('status', 'PENDING')
+
+          const tenantName = file.tenant ? `${file.tenant.first_name} ${file.tenant.last_name}` : 'Un locataire'
+
+          const notifiedPropertyIds = new Set<string>()
+          const notifiedUserIds = new Set<string>()
+
+          for (const visit of (pendingVisits ?? []) as any[]) {
+            // Une seule notification par bien pour éviter les doublons
+            if (notifiedPropertyIds.has(visit.property_id)) continue
+            notifiedPropertyIds.add(visit.property_id)
+
+            const ownerId = visit.property?.owner_id
+            if (ownerId) {
+              notifiedUserIds.add(ownerId)
+              await notify({
+                userId: ownerId,
+                type: 'VISIT_REMINDER',
+                title: 'Nouvelle demande de visite',
+                message: `${tenantName} souhaite visiter "${visit.property?.title || ''}".`,
+                actionUrl: 'visit-requests',
+                entityId: visit.id,
+              })
+            }
+
+            // Notifier aussi les agences via les mandats actifs (sans dupliquer le propriétaire)
+            try {
+              const { data: mandats } = await (supabase as any)
+                .from('mandats')
+                .select('agency_id')
+                .eq('property_id', visit.property_id)
+                .eq('status', 'ACTIVE')
+
+              for (const mandat of (mandats ?? []) as any[]) {
+                if (notifiedUserIds.has(mandat.agency_id)) continue
+                notifiedUserIds.add(mandat.agency_id)
+                await notify({
+                  userId: mandat.agency_id,
+                  type: 'VISIT_REMINDER',
+                  title: 'Nouvelle demande de visite',
+                  message: `${tenantName} souhaite visiter "${visit.property?.title || ''}".`,
+                  actionUrl: 'visits',
+                  entityId: visit.id,
+                })
+              }
+            } catch (mandatErr) {
+              console.error(`Failed to notify agency for visit ${visit.id}:`, mandatErr)
+            }
+          }
+        } catch (deferErr) {
+          console.error(`Failed to send deferred visit notifications for ${fileId}:`, deferErr)
+        }
       }
 
       results.push({ fileId, success: true, file: updatedFile })

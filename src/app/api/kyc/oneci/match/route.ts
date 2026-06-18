@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
+    const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -11,7 +12,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/oneci-match`
 
-    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    const bearerToken = getEdgeFunctionBearerToken(accessToken, authSource)
+    if (!bearerToken) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const headers: Record<string, string> = {
       Authorization: `Bearer ${bearerToken}`,
       'Content-Type': 'application/json',

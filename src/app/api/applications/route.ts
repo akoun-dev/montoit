@@ -137,15 +137,24 @@ export async function POST(req: NextRequest) {
       .eq('property_id', propertyId)
       .order('order', { ascending: true })
 
-    // Notify the property owner
-    await notify({
-      userId: property.owner_id,
-      type: 'DOSSIER_UPDATE',
-      title: 'Nouvelle candidature',
-      message: `Un locataire a soumis une candidature pour votre bien "${propertyInfo?.title || ''}".`,
-      actionUrl: 'candidatures',
-      entityId: appId,
-    })
+    // Notify the property owner ONLY if the tenant's rental file is validated
+    const { data: validatedRentalFile } = await supabase
+      .from('rental_files')
+      .select('id')
+      .eq('tenant_id', userId)
+      .in('status', ['VALIDATED', 'ACCEPTED'])
+      .maybeSingle()
+
+    if (validatedRentalFile) {
+      await notify({
+        userId: property.owner_id,
+        type: 'DOSSIER_UPDATE',
+        title: 'Nouvelle candidature',
+        message: `Un locataire a soumis une candidature pour votre bien "${propertyInfo?.title || ''}".`,
+        actionUrl: 'candidatures',
+        entityId: appId,
+      })
+    }
 
     const resp = NextResponse.json({
       data: {

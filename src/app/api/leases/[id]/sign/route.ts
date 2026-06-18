@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
 import crypto from 'crypto'
 import { notify, notifyLeaseActivated } from '@/lib/notify'
 import { generateAndUploadLeasePdf } from '@/lib/generate-and-upload-lease-pdf'
@@ -102,7 +103,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
+    const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -148,13 +149,16 @@ export async function POST(
     }
 
     const isOwner = lease.owner_id === userId
-    const alreadySigned = isOwner ? !!lease.owner_signed_at : !!lease.tenant_signed_at
+    const isSamePerson = lease.owner_id === lease.tenant_id
+    const alreadySigned = isSamePerson
+      ? !!(lease.owner_signed_at && lease.tenant_signed_at)  // même personne : les deux doivent être signés
+      : isOwner ? !!lease.owner_signed_at : !!lease.tenant_signed_at
     if (alreadySigned) {
-      console.error('[sign/route] Already signed', { isOwner, ownerSignedAt: lease.owner_signed_at, tenantSignedAt: lease.tenant_signed_at })
+      console.error('[sign/route] Already signed', { isOwner, isSamePerson, ownerSignedAt: lease.owner_signed_at, tenantSignedAt: lease.tenant_signed_at })
       const resp = NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
       return applyCookies(resp)
     }
-    console.log('[sign/route] Step 4: user authorized', { isOwner })
+    console.log('[sign/route] Step 4: user authorized', { isOwner, isSamePerson })
 
     // Seul le propriétaire valide via CRYPTONEO
     let operationId: string | undefined
@@ -162,21 +166,19 @@ export async function POST(
 
     const { data: property } = await supabase
       .from('properties')
-      .select('id, title, address, city, price')
+      .select('id, title, address, city, price, rental_terms')
       .eq('id', lease.property_id)
       .maybeSingle()
 
-    if (isOwner) {
+    if (isOwner && !isSamePerson) {
+      // ── Propriétaire normal : OTP CRYPTONEO obligatoire ──
       console.log('[sign/route] Step 5: owner signing', { hasOtp: !!otpCode, hasSignature: !!signatureImage })
       if (!otpCode) {
         const resp = NextResponse.json({ error: 'Code OTP requis' }, { status: 400 })
         return applyCookies(resp)
       }
 
-      // ── Obtenir le PDF à signer ──
-      console.log('[sign/route] Step 6: generating PDF')
       const pdfInfo = await getCurrentPdfInfo(supabase, id, lease)
-      console.log('[sign/route] Step 7: PDF result', { hasPdfInfo: !!pdfInfo, publicUrl: pdfInfo?.publicUrl?.substring(0, 80) })
       if (!pdfInfo) {
         console.error('[sign/route] PDF generation failed')
         const resp = NextResponse.json(
@@ -186,26 +188,18 @@ export async function POST(
         return applyCookies(resp)
       }
 
-      // ── Récupérer les infos du signataire (propriétaire) ──
-      console.log('[sign/route] Step 8: fetching owner info')
       const { data: ownerInfo } = await supabase
         .from('users')
         .select('first_name, last_name, email, phone')
         .eq('id', userId)
         .single()
-      console.log('[sign/route] Step 9: owner info', { hasOwnerInfo: !!ownerInfo, email: ownerInfo?.email })
 
-      // ── Appeler CRYPTONEO signFileBatch via la Edge Function ──
       const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign`
-      const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
-
-      // CRYPTONEO a besoin d'une URL HTTP publique accessible depuis ses serveurs.
-      // En développement local, il faut exposer Supabase via un tunnel (ngrok).
-      // Voir Postman : https://ric-ci.ci/signatureelectronique/fichier_pdf_vingt_mega.pdf
-      console.log('[sign/route] PDF info:', {
-        publicUrl: pdfInfo.publicUrl?.substring(0, 80) + '...',
-        base64Len: pdfInfo.base64.length,
-      })
+      const bearerToken = getEdgeFunctionBearerToken(accessToken, authSource)
+      if (!bearerToken) {
+        const resp = NextResponse.json({ error: 'Session invalide. Veuillez vous reconnecter.' }, { status: 401 })
+        return applyCookies(resp)
+      }
 
       const documentHash = crypto.createHash('sha256').update(pdfInfo.buffer).digest('hex')
 
@@ -221,26 +215,10 @@ export async function POST(
         visibleSignature: true,
       }]
 
-      // URL de callback pour que CRYPTONEO notifie après la signature
       const callBackUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign-verify`
 
-      const signPayload = {
-        otp: otpCode,
-        signRequest,
-        callBackUrl,
-      }
-      console.log('[sign/route] Calling Edge Function sign with payload:', {
-        hasOtp: !!otpCode,
-        signRequestCount: signRequest.length,
-        callBackUrl,
-      })
+      const signPayload = { otp: otpCode, signRequest, callBackUrl }
 
-      console.log('[sign/route] Step 10: edge function URL resolution', {
-        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'NOT_SET',
-        functionUrl,
-        callBackUrl,
-        hasBearerToken: !!bearerToken,
-      })
       let signRes: Response
       try {
         signRes = await fetch(functionUrl, {
@@ -252,7 +230,6 @@ export async function POST(
           },
           body: JSON.stringify(signPayload),
         })
-        console.log('[sign/route] Step 11: edge function responded', { status: signRes.status })
       } catch (fetchErr) {
         console.error('[sign/route] Edge function fetch failed:', fetchErr)
         const resp = NextResponse.json({ error: 'Impossible de contacter le service de signature CRYPTONEO' }, { status: 500 })
@@ -260,24 +237,7 @@ export async function POST(
       }
 
       let signResult: any
-      try {
-        signResult = await signRes.json()
-      } catch (jsonErr) {
-        console.error('[sign/route] Edge function response not JSON:', jsonErr, { text: await signRes.text().catch(() => '') })
-        const resp = NextResponse.json({ error: 'Réponse invalide du service de signature' }, { status: 500 })
-        return applyCookies(resp)
-      }
-
-      console.log('[sign/route] Edge Function sign response full:', JSON.stringify(signResult).substring(0, 2000))
-      console.log('[sign/route] Edge Function sign parsed:', {
-        ok: signRes.ok,
-        status: signRes.status,
-        operationId: signResult?.operationId || signResult?.data?.operationId,
-        error: signResult?.error,
-        statusMessage: signResult?.statusMessage,
-        cryptoneoStatusCode: signResult?.cryptoneoRaw?.statusCode,
-        cryptoneoStatusMessage: signResult?.cryptoneoRaw?.statusMessage,
-      })
+      try { signResult = await signRes.json() } catch { /* ignore */ }
 
       if (!signRes.ok) {
         const errorMsg = signResult?.error || signResult?.statusMessage || 'Erreur CRYPTONEO lors de la signature'
@@ -287,7 +247,6 @@ export async function POST(
       }
 
       operationId = signResult?.operationId || signResult?.data?.operationId
-      const signedFileName = signResult?.signedFileName || signResult?.data?.signedFileName
       const edgeContractUrl = signResult?.contractUrl
 
       if (!operationId) {
@@ -297,8 +256,9 @@ export async function POST(
 
       newContractUrl = edgeContractUrl || await generateAndUploadLeasePdf(id, 'owner_signed')
     } else {
-      // Locataire : signature simple sans CRYPTONEO
-      newContractUrl = await generateAndUploadLeasePdf(id, 'tenant_signed')
+      // Locataire (ou même personne) : signature simple sans CRYPTONEO
+      console.log('[sign/route] Step 5: non-owner signing', { isSamePerson, hasOtp: !!otpCode })
+      newContractUrl = await generateAndUploadLeasePdf(id, isSamePerson ? 'owner_signed' : 'tenant_signed')
     }
 
     // ── Mettre à jour le bail ──
@@ -306,6 +266,7 @@ export async function POST(
     const signOtp = crypto.randomBytes(16).toString('hex')
 
     let updatedLease: any
+    const bothSigned = isSamePerson || !!(lease.tenant_signed_at && lease.owner_signed_at)
 
     if (isOwner) {
       const updateData: Record<string, unknown> = {
@@ -315,8 +276,14 @@ export async function POST(
         cryptoneo_operation_id: operationId,
         updated_at: now.toISOString(),
       }
+      // Si même personne, signer aussi pour le locataire
+      if (isSamePerson) {
+        updateData.tenant_signed_at = now.toISOString()
+        updateData.tenant_sign_otp = signOtp
+        updateData.tenant_signature_image = signatureImage || null
+      }
       if (newContractUrl) updateData.contract_url = newContractUrl
-      if (lease.tenant_signed_at) {
+      if (lease.tenant_signed_at || isSamePerson) {
         updateData.status = 'ACTIVE'
       }
 
@@ -328,12 +295,12 @@ export async function POST(
         .single()
       updatedLease = updated as any
 
-      if (lease.tenant_signed_at) {
+      if (bothSigned) {
         await supabase.from('properties').update({ rental_status: 'loue', updated_at: new Date().toISOString() }).eq('id', lease.property_id)
       }
 
       // Si les deux ont signé, générer la version finale
-      if (lease.tenant_signed_at) {
+      if (bothSigned) {
         generateAndUploadLeasePdf(id, 'final').then((url) => {
           if (url) {
             (supabase.from('leases').update({ contract_url: url, updated_at: new Date().toISOString() } as any).eq('id', id) as any).then()
@@ -341,19 +308,21 @@ export async function POST(
         }).catch((err) => console.error('Final PDF generation failed:', err))
       }
 
-      // Notifier le locataire
-      await notify({
-        userId: lease.tenant_id,
-        type: 'DOSSIER_UPDATE',
-        title: lease.tenant_signed_at ? 'Bail signé et activé' : 'Le propriétaire a signé le bail',
-        message: lease.tenant_signed_at
-          ? `Le bail pour "${property?.title || ''}" est maintenant actif. Les deux parties ont signé via CRYPTONEO.`
-          : `${/* owner name */ ''} a signé le bail pour "${property?.title || ''}" via CRYPTONEO. Votre signature est attendue.`,
-        actionUrl: 'my-leases',
-        entityId: lease.id,
-      })
+      // Notifier le locataire (sauf si même personne)
+      if (!isSamePerson) {
+        await notify({
+          userId: lease.tenant_id,
+          type: 'DOSSIER_UPDATE',
+          title: bothSigned ? 'Bail signé et activé' : 'Le propriétaire a signé le bail',
+          message: bothSigned
+            ? `Le bail pour "${property?.title || ''}" est maintenant actif. Les deux parties ont signé via CRYPTONEO.`
+            : `${/* owner name */ ''} a signé le bail pour "${property?.title || ''}" via CRYPTONEO. Votre signature est attendue.`,
+          actionUrl: 'my-leases',
+          entityId: lease.id,
+        })
+      }
 
-      if (lease.tenant_signed_at) {
+      if (bothSigned) {
         await notifyLeaseActivated(lease.tenant_id, lease.owner_id, property?.title || '', lease.id)
       }
     } else {
@@ -407,12 +376,19 @@ export async function POST(
       }
     }
 
-    // ── Créer les paiements initiaux (caution + 2 mois d'avance) ──
-    if (updatedLease?.status === 'ACTIVE') {
+    // ── Créer les paiements (propriétaire seul : toujours créer) ──
+    if (bothSigned && isOwner) {
       const actualRent = getLeaseMonthlyRent(lease.monthly_rent, property?.price || 0)
       const depositAmount = getLeaseDepositAmount(actualRent)
       const advanceRentAmount = getLeaseAdvanceRentAmount(actualRent)
-      const dueDate = lease.start_date || new Date().toISOString()
+      // Les paiements initiaux (caution + avance) sont dus à la signature, pas au début du bail
+      // On leur donne 7 jours pour éviter qu'ils soient marqués LATE immédiatement par check-overdue
+      const initialDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+
+      // Extraire les frais d'agence des rental_terms
+      const rentalTerms = typeof property?.rental_terms === 'object' ? property.rental_terms : {}
+      const agencyFeesMonths = (rentalTerms as any)?.agencyFeesMonths ?? 0
+      const agencyFeeAmount = agencyFeesMonths > 0 ? Math.round(agencyFeesMonths * actualRent) : 0
 
       const { data: existingPayments } = await supabase
         .from('payments')
@@ -435,7 +411,7 @@ export async function POST(
           tenant_id: lease.tenant_id,
           amount: depositAmount,
           status: 'PENDING',
-          due_date: dueDate,
+          due_date: initialDueDate,
           reference: depositReference,
         })
       }
@@ -448,8 +424,95 @@ export async function POST(
           tenant_id: lease.tenant_id,
           amount: advanceRentAmount,
           status: 'PENDING',
-          due_date: dueDate,
+          due_date: initialDueDate,
           reference: advanceReference,
+        })
+      }
+
+      // Frais d'agence
+      const agencyReference = `AGENCE-${id.slice(0, 8)}`
+      if (agencyFeeAmount > 0 && !existingReferences.has(agencyReference)) {
+        initialPayments.push({
+          id: generateId(),
+          lease_id: id,
+          tenant_id: lease.tenant_id,
+          amount: agencyFeeAmount,
+          status: 'PENDING',
+          due_date: initialDueDate,
+          reference: agencyReference,
+        })
+      }
+
+      if (initialPayments.length > 0) {
+        const { error: paymentsError } = await supabase.from('payments').insert(initialPayments)
+        if (paymentsError) {
+          console.error('[sign/route] Failed to create initial lease payments:', paymentsError)
+        }
+      }
+    }
+
+    // ── Créer les paiements initiaux (deux personnes distinctes) ──
+    if (updatedLease?.status === 'ACTIVE' && !isSamePerson) {
+      const actualRent = getLeaseMonthlyRent(lease.monthly_rent, property?.price || 0)
+      const depositAmount = getLeaseDepositAmount(actualRent)
+      const advanceRentAmount = getLeaseAdvanceRentAmount(actualRent)
+      const initialDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+
+      // Extraire les frais d'agence des rental_terms
+      const rentalTerms = typeof property?.rental_terms === 'object' ? property.rental_terms : {}
+      const agencyFeesMonths = (rentalTerms as any)?.agencyFeesMonths ?? 0
+      const agencyFeeAmount = agencyFeesMonths > 0 ? Math.round(agencyFeesMonths * actualRent) : 0
+
+      const { data: existingPayments } = await supabase
+        .from('payments')
+        .select('reference')
+        .eq('lease_id', id)
+
+      const existingReferences = new Set(
+        (existingPayments ?? [])
+          .map((payment: any) => payment.reference)
+          .filter(Boolean)
+      )
+
+      const initialPayments: any[] = []
+
+      const depositReference = `CAUTION-${id.slice(0, 8)}`
+      if (depositAmount > 0 && !existingReferences.has(depositReference)) {
+        initialPayments.push({
+          id: generateId(),
+          lease_id: id,
+          tenant_id: lease.tenant_id,
+          amount: depositAmount,
+          status: 'PENDING',
+          due_date: initialDueDate,
+          reference: depositReference,
+        })
+      }
+
+      const advanceReference = `AVANCE-${id.slice(0, 8)}`
+      if (advanceRentAmount > 0 && !existingReferences.has(advanceReference)) {
+        initialPayments.push({
+          id: generateId(),
+          lease_id: id,
+          tenant_id: lease.tenant_id,
+          amount: advanceRentAmount,
+          status: 'PENDING',
+          due_date: initialDueDate,
+          reference: advanceReference,
+        })
+      }
+
+      // Frais d'agence
+      const agencyReference = `AGENCE-${id.slice(0, 8)}`
+      if (agencyFeeAmount > 0 && !existingReferences.has(agencyReference)) {
+        initialPayments.push({
+          id: generateId(),
+          lease_id: id,
+          tenant_id: lease.tenant_id,
+          amount: agencyFeeAmount,
+          status: 'PENDING',
+          due_date: initialDueDate,
+          reference: agencyReference,
         })
       }
 

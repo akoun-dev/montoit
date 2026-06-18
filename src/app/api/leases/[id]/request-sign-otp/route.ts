@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
 
 
 export async function POST(
@@ -8,7 +9,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
+    const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -42,9 +43,22 @@ export async function POST(
     }
 
     const isOwner = lease.owner_id === userId
-    const alreadySigned = isOwner ? !!lease.owner_signed_at : !!lease.tenant_signed_at
+    const isSamePerson = lease.owner_id === lease.tenant_id
+    const alreadySigned = isSamePerson
+      ? !!(lease.owner_signed_at && lease.tenant_signed_at)
+      : isOwner ? !!lease.owner_signed_at : !!lease.tenant_signed_at
     if (alreadySigned) {
       const resp = NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
+      return applyCookies(resp)
+    }
+
+    // Même personne : pas besoin d'OTP, la signature est immédiate sans CRYPTONEO
+    if (isSamePerson) {
+      const resp = NextResponse.json({
+        message: 'Signature disponible sans code (même propriétaire et locataire).',
+        sentTo: lease.owner?.email || lease.owner?.phone || '',
+        canal: 'NONE',
+      })
       return applyCookies(resp)
     }
 
@@ -69,7 +83,11 @@ export async function POST(
 
     // Envoyer l'OTP via CRYPTONEO
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign-send-otp`
-    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    const bearerToken = getEdgeFunctionBearerToken(accessToken, authSource)
+    if (!bearerToken) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
+    }
 
     const body: Record<string, string> = { canal }
     if (recipientEmail) body.email = recipientEmail

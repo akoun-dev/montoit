@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
+    const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -14,7 +15,11 @@ export async function POST(req: NextRequest) {
     const { email, phone, alias, name, onlyAlias } = body
 
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/retrieve-certificates`
-    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    const bearerToken = getEdgeFunctionBearerToken(accessToken, authSource)
+    if (!bearerToken) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
+    }
 
     const res = await fetch(functionUrl, {
       method: 'POST',
@@ -53,7 +58,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
+    const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -65,7 +70,11 @@ export async function GET(req: NextRequest) {
     const alias = searchParams.get('alias')
 
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/retrieve-certificates`
-    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    const bearerToken = getEdgeFunctionBearerToken(accessToken, authSource)
+    if (!bearerToken) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
+    }
 
     const queryParams = new URLSearchParams()
     if (email) queryParams.set('email', email)

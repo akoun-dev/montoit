@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
 
 interface SignatureAlias {
   alias_certificat: string
@@ -11,7 +12,7 @@ interface SignatureAlias {
 
 export async function GET(req: NextRequest) {
   try {
-    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
+    const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -52,7 +53,11 @@ export async function GET(req: NextRequest) {
 
     // Check CRYPTONEO for existing certificate
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/check-certificate`
-    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    const bearerToken = getEdgeFunctionBearerToken(accessToken, authSource)
+    if (!bearerToken) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
+    }
 
     const checkUrl = new URL(functionUrl)
     if (email) checkUrl.searchParams.set('email', email)

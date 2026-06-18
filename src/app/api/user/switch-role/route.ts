@@ -23,14 +23,17 @@ export async function POST(req: NextRequest) {
       return applyCookies(response)
     }
 
-    if (user.role === 'ADMIN' || user.role === 'TIERS_CONFIANCE') {
-      const response = NextResponse.json({ error: 'Ce rôle ne peut pas être changé' }, { status: 403 })
+    // Les rôles ADMIN et TIERS_CONFIANCE ne sont pas commutables
+    if (role === 'ADMIN' || role === 'TIERS_CONFIANCE') {
+      const response = NextResponse.json({ error: 'Ce rôle ne peut pas être activé' }, { status: 403 })
       return applyCookies(response)
     }
 
-    if (user.role !== role) {
+    // Seuls le rôle de base et PROPRIETAIRE/LOCATAIRE sont autorisés comme cibles
+    // (un LOCATAIRE peut devenir PROPRIETAIRE et inversement)
+    if (role !== user.role && role !== 'LOCATAIRE' && role !== 'PROPRIETAIRE') {
       const response = NextResponse.json(
-        { error: 'Vous ne possédez pas ce rôle. Seuls les rôles que vous possédez réellement peuvent être activés.' },
+        { error: 'Changement de rôle non autorisé' },
         { status: 403 }
       )
       return applyCookies(response)

@@ -683,7 +683,7 @@ export function EnhancedRentalFiles() {
 
                         {/* Quick actions */}
                         <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          {rf.status === 'SUBMITTED' && !rf.leases.some(l => l.id) && (
+                          {rf.status === 'VALIDATED' && !rf.leases.some(l => l.id) && (
                             <>
                               <Button
                                 size="sm"
@@ -999,33 +999,56 @@ export function EnhancedRentalFiles() {
                       Statut de la candidature
                     </h4>
                     <div className="flex flex-wrap items-center gap-2">
-                      {[
-                        { status: 'SUBMITTED', label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-                        { status: 'ACCEPTED', label: 'Accepté', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-                      ].map((step, i) => {
-                        const statusOrder = ['SUBMITTED', 'ACCEPTED']
-                        const currentIdx = statusOrder.indexOf(selectedTenant.status)
-                        const stepIdx = statusOrder.indexOf(step.status)
-                        const completed = stepIdx < currentIdx
-                        const active = stepIdx === currentIdx
-                        return (
-                          <div key={step.status} className="flex items-center gap-1">
-                            <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border ${
-                              completed ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                              active ? step.color : 'bg-muted text-muted-foreground border-border'
-                            }`}>
-                              {completed ? <CheckCircle2 className="size-3.5" /> :
-                               active ? <Eye className="size-3.5" /> :
-                               <div className="size-1.5 rounded-full bg-neutral-300" />}
-                              {step.label}
+                      {(() => {
+                        const status = selectedTenant.status
+                        const isRejected = status === 'REJECTED'
+                        const steps = isRejected
+                          ? [
+                              { status: 'SUBMITTED', label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+                              { status: 'REJECTED', label: 'Refusé', color: 'bg-red-50 text-red-700 border-red-200' },
+                            ]
+                          : [
+                              { status: 'SUBMITTED', label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+                              { status: 'VALIDATED', label: 'Validé TC', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+                              { status: 'ACCEPTED', label: 'Accepté', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                            ]
+                        const statusOrder = steps.map(s => s.status)
+                        const currentIdx = statusOrder.indexOf(status)
+                        return steps.map((step, i) => {
+                          const stepIdx = i
+                          const completed = stepIdx < currentIdx
+                          const active = stepIdx === currentIdx
+                          return (
+                            <div key={step.status} className="flex items-center gap-1">
+                              <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border ${
+                                completed ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                active ? step.color : 'bg-muted text-muted-foreground border-border'
+                              }`}>
+                                {completed ? <CheckCircle2 className="size-3.5" /> :
+                                 active ? <Eye className="size-3.5" /> :
+                                 <div className="size-1.5 rounded-full bg-neutral-300" />}
+                                {step.label}
+                              </div>
+                              {i < steps.length - 1 && (
+                                <div className={`w-5 h-px ${completed ? 'bg-emerald-300' : 'bg-neutral-200'}`} />
+                              )}
                             </div>
-                            {i < 1 && (
-                              <div className={`w-5 h-px ${completed ? 'bg-emerald-300' : 'bg-neutral-200'}`} />
-                            )}
-                          </div>
-                        )
-                      })}
+                          )
+                        })
+                      })()}
                     </div>
+
+                    {selectedTenant.status === 'VALIDATED' && (
+                      <div className="mt-3 p-3 rounded-lg bg-brand-50 border border-brand-200">
+                        <p className="text-sm font-medium text-brand-700">
+                          ✅ Le dossier du locataire a été validé par le Tiers de Confiance.
+                        </p>
+                        <p className="text-sm text-brand-600 mt-0.5">
+                          Vous pouvez maintenant <strong>accepter</strong> ou <strong>refuser</strong> cette candidature.
+                        </p>
+                      </div>
+                    )}
+
                     {selectedTenant.status === 'REJECTED' && selectedTenant.rejectionReason && (
                       <div className="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
                         <p className="text-xs font-medium text-red-700">Motif du refus :</p>
@@ -1208,7 +1231,7 @@ export function EnhancedRentalFiles() {
                   </div>
 
                   {/* Quick actions */}
-                  {selectedTenant.status === 'SUBMITTED' && !selectedTenant.leases.some(l => l.id) && (
+                  {selectedTenant.status === 'VALIDATED' && !selectedTenant.leases.some(l => l.id) && (
                     <>
                       <Separator />
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">

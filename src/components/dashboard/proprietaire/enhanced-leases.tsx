@@ -175,7 +175,7 @@ export function EnhancedLeases() {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [requestingOtp, setRequestingOtp] = useState(false)
   const [otpRequested, setOtpRequested] = useState(false)
-  const [signCanal, setSignCanal] = useState<'MAIL' | 'SMS'>('MAIL')
+  const [signCanal, setSignCanal] = useState<'MAIL' | 'SMS' | 'NONE'>('MAIL')
 
   // Detail dialog
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
@@ -351,17 +351,47 @@ export function EnhancedLeases() {
     if (!signLease) return
     setRequestingOtp(true)
     try {
-      const result = await authFetch<{ message: string; sentTo: string; canal: 'MAIL' | 'SMS' }>(`/api/leases/${signLease.id}/request-sign-otp`, {
+      const result = await authFetch<{ message: string; sentTo: string; canal: string }>(`/api/leases/${signLease.id}/request-sign-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
       const canal = result.canal || 'MAIL'
-      setSignCanal(canal)
-      setOtpRequested(true)
-      const label = canal === 'SMS' ? 'par SMS' : 'par email'
-      toast.success(`OTP envoyé ${label}`, {
-        description: result.message || `Vérifiez votre ${canal === 'SMS' ? 'téléphone' : 'boîte de réception'} pour le code de certification CRYPTONEO.`,
-      })
+      setSignCanal(canal as 'MAIL' | 'SMS' | 'NONE')
+
+      if (canal === 'NONE') {
+        // Même propriétaire et locataire : pas besoin d'OTP, signer directement
+        toast.success('Signature en cours...')
+        setOtpRequested(true)
+        // Signer directement sans OTP
+        setSigning(true)
+        try {
+          const signResult = await authFetch<{ data: LeaseItem }>(`/api/leases/${signLease.id}/sign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signatureImage: signatureDataUrl }),
+          })
+          if (signResult.data) {
+            setSignLease(signResult.data)
+          }
+          toast.success('Bail signé avec succès !')
+          setSignStep('signature_locataire')
+          fetchData()
+        } catch (err) {
+          if (err instanceof AuthError) {
+            toast.error(err.message || 'Erreur lors de la signature')
+          } else {
+            toast.error('Erreur lors de la signature')
+          }
+        } finally {
+          setSigning(false)
+        }
+      } else {
+        setOtpRequested(true)
+        const label = canal === 'SMS' ? 'par SMS' : 'par email'
+        toast.success(`OTP envoyé ${label}`, {
+          description: result.message || `Vérifiez votre ${canal === 'SMS' ? 'téléphone' : 'boîte de réception'} pour le code de certification CRYPTONEO.`,
+        })
+      }
     } catch (err) {
       if (err instanceof AuthError) {
         toast.error(err.message || 'Erreur OTP')

@@ -12,14 +12,8 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabaseAdminClient()
 
-    const { data: caller } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .single()
-    if (!caller || caller.role !== 'ADMIN') {
-      return applyCookies(NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 }))
-    }
+    // Tout utilisateur authentifié peut déclencher la vérification des impayés
+    // (c'est une tâche non-sensible qui marque les paiements en retard)
 
     // Find all PENDING payments past their due date
     const now = new Date().toISOString()

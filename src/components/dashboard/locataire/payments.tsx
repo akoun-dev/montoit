@@ -11,6 +11,8 @@ import {
   Loader2,
   Smartphone,
   Zap,
+  CheckCircle2,
+  Hourglass,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -107,6 +109,64 @@ function formatCurrency(amount: number): string {
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// ─── Payment type row helpers ───────────────────────────────────────────────
+type PaymentTypeConfig = {
+  key: string
+  label: string
+  referencePrefix: string | null
+  icon: 'check' | 'trending'
+  isRecurring?: boolean
+}
+
+const PAYMENT_TYPES: PaymentTypeConfig[] = [
+  { key: 'caution', label: 'Caution (dépôt de garantie)', referencePrefix: 'CAUTION-', icon: 'check' },
+  { key: 'avance', label: 'Avance sur loyer', referencePrefix: 'AVANCE-', icon: 'check' },
+  { key: 'agence', label: "Frais d'agence", referencePrefix: 'AGENCE-', icon: 'check' },
+  { key: 'loyer', label: 'Loyer mensuel', referencePrefix: null, icon: 'trending', isRecurring: true },
+]
+
+function renderPaymentRowIcon(status: string, icon: PaymentTypeConfig['icon']) {
+  if (icon === 'check') {
+    const isPaid = status === 'PAID'
+    return (
+      <div className={cn(
+        'flex size-8 items-center justify-center rounded-full shrink-0',
+        isPaid ? 'bg-emerald-50' : 'bg-amber-50'
+      )}>
+        {isPaid
+          ? <CheckCircle2 className="size-4 text-emerald-500" />
+          : <Hourglass className="size-4 text-amber-500" />
+        }
+      </div>
+    )
+  }
+  return (
+    <div className="flex size-8 items-center justify-center rounded-full bg-blue-50 shrink-0">
+      <TrendingUp className="size-4 text-blue-500" />
+    </div>
+  )
+}
+
+function renderPaymentBadge(status: string) {
+  const isPaid = status === 'PAID'
+  return (
+    <Badge className={cn(
+      'shrink-0 text-[10px] px-2 py-0.5',
+      isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+      status === 'LATE' ? 'bg-red-50 text-red-700 border-red-200' :
+      'bg-amber-50 text-amber-700 border-amber-200'
+    )}>
+      <span className={cn(
+        'size-1.5 rounded-full mr-1',
+        isPaid ? 'bg-emerald-500' :
+        status === 'LATE' ? 'bg-red-500' :
+        'bg-amber-500'
+      )} />
+      {isPaid ? 'Payé' : status === 'LATE' ? 'En retard' : 'En attente'}
+    </Badge>
+  )
 }
 
 // ─── Animation Variants ────────────────────────────────────────────────────
@@ -351,6 +411,100 @@ export function Payments({ onDetail }: PaymentsProps) {
           </Card>
         </div>
       </motion.div>
+
+      {/* Récapitulatif des charges par type */}
+      {activeLease && payments.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-border overflow-hidden">
+            <CardContent className="p-0">
+              <div className="bg-gradient-to-r from-brand-500/10 to-transparent px-4 py-3 border-b border-border">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <CreditCard className="size-4 text-brand-500" />
+                  Récapitulatif des charges
+                </h3>
+              </div>
+              <div className="divide-y divide-border">
+                {PAYMENT_TYPES.map((pt) => {
+                  if (pt.referencePrefix) {
+                    const payment = payments.find(p => p.reference?.startsWith(pt.referencePrefix!))
+                    const status = payment?.status || 'PENDING'
+                    const amount = payment?.amount || 0
+                    const canPay = payment && (status === 'PENDING' || status === 'LATE')
+                    return (
+                      <div key={pt.key} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                          {renderPaymentRowIcon(status, pt.icon)}
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{pt.label}</p>
+                            <p className="text-xs text-muted-foreground">{amount.toLocaleString('fr-FR')} FCFA</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {canPay ? (
+                            <Button
+                              size="sm"
+                              onClick={(e) => handlePay(e, payment)}
+                              className={cn(
+                                'h-7 text-xs gap-1 px-3',
+                                status === 'LATE' && 'bg-red-600 hover:bg-red-700 text-white'
+                              )}
+                            >
+                              <CreditCard className="size-3" />
+                              {status === 'LATE' ? 'Régulariser' : 'Payer'}
+                            </Button>
+                          ) : null}
+                          {renderPaymentBadge(status)}
+                        </div>
+                      </div>
+                    )
+                  }
+                  // Loyer mensuel (pas de referencePrefix)
+                  const paidRents = payments.filter(p => p.status === 'PAID' && !p.reference?.startsWith('CAUTION-') && !p.reference?.startsWith('AVANCE-') && !p.reference?.startsWith('AGENCE-')).length
+                  return (
+                    <div key={pt.key} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
+                      <div className="flex items-center gap-3">
+                        {renderPaymentRowIcon('PAID', pt.icon)}
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{pt.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {activeLease.monthlyRent.toLocaleString('fr-FR')} FCFA/mois
+                            {paidRents > 0 && ` · ${paidRents} payé${paidRents > 1 ? 's' : ''}`}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-2 py-0.5">
+                        {pt.isRecurring ? 'Récurrent' : 'Unique'}
+                      </Badge>
+                    </div>
+                  )
+                })}
+
+                {/* Total restant dû */}
+                {(() => {
+                  const pendingTotal = payments
+                    .filter(p => p.status === 'PENDING' || p.status === 'LATE')
+                    .reduce((sum, p) => sum + p.amount, 0)
+                  if (pendingTotal <= 0) return null
+                  return (
+                    <div className="flex items-center justify-between px-4 py-3 bg-amber-50/50 border-t-2 border-amber-200/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-8 items-center justify-center rounded-full bg-amber-100 shrink-0">
+                          <AlertTriangle className="size-4 text-amber-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Total restant dû</p>
+                          <p className="text-xs text-amber-600">{payments.filter(p => p.status === 'PENDING').length} en attente · {payments.filter(p => p.status === 'LATE').length} en retard</p>
+                        </div>
+                      </div>
+                      <p className="text-sm font-bold text-amber-700">{pendingTotal.toLocaleString('fr-FR')} FCFA</p>
+                    </div>
+                  )
+                })()}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Filter Tabs */}
       <motion.div variants={itemVariants}>

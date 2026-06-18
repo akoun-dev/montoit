@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       const { data: validatedTenants } = await admin
         .from('rental_files')
         .select('tenant_id')
-        .eq('status', 'VALIDATED')
+        .in('status', ['VALIDATED', 'ACCEPTED'])
       validatedTenantIds = validatedTenants?.map((r) => r.tenant_id) ?? []
 
       if (validatedTenantIds.length === 0) {
@@ -182,36 +182,46 @@ export async function POST(req: NextRequest) {
       .eq('id', userId)
       .single()
 
-    const ownerId = propInfo?.owner_id
-    const tenantName = tenantInfo ? `${tenantInfo.first_name} ${tenantInfo.last_name}` : ''
+    // Notify the owner/agency ONLY if the tenant's rental file is validated
+    const { data: validatedRentalFile } = await admin
+      .from('rental_files')
+      .select('id')
+      .eq('tenant_id', userId)
+      .in('status', ['VALIDATED', 'ACCEPTED'])
+      .maybeSingle()
 
-    if (ownerId) {
-      await notify({
-        userId: ownerId,
-        type: 'VISIT_REMINDER',
-        title: 'Nouvelle demande de visite',
-        message: `${tenantName} souhaite visiter "${propInfo?.title || ''}".`,
-        actionUrl: 'visit-requests',
-        entityId: visitId,
-      })
-    }
+    if (validatedRentalFile) {
+      const ownerId = propInfo?.owner_id
+      const tenantName = tenantInfo ? `${tenantInfo.first_name} ${tenantInfo.last_name}` : ''
 
-    const { data: mandats } = await admin
-      .from('mandats')
-      .select('agency_id')
-      .eq('property_id', propertyId)
-      .eq('status', 'ACTIVE')
-
-    for (const mandat of mandats ?? []) {
-      if (mandat.agency_id !== ownerId) {
+      if (ownerId) {
         await notify({
-          userId: mandat.agency_id,
+          userId: ownerId,
           type: 'VISIT_REMINDER',
           title: 'Nouvelle demande de visite',
           message: `${tenantName} souhaite visiter "${propInfo?.title || ''}".`,
-          actionUrl: 'visits',
+          actionUrl: 'visit-requests',
           entityId: visitId,
         })
+      }
+
+      const { data: mandats } = await admin
+        .from('mandats')
+        .select('agency_id')
+        .eq('property_id', propertyId)
+        .eq('status', 'ACTIVE')
+
+      for (const mandat of mandats ?? []) {
+        if (mandat.agency_id !== ownerId) {
+          await notify({
+            userId: mandat.agency_id,
+            type: 'VISIT_REMINDER',
+            title: 'Nouvelle demande de visite',
+            message: `${tenantName} souhaite visiter "${propInfo?.title || ''}".`,
+            actionUrl: 'visits',
+            entityId: visitId,
+          })
+        }
       }
     }
 

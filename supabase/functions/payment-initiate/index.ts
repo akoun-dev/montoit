@@ -74,14 +74,6 @@ serve(async (req) => {
       .eq('id', userId)
       .single()
 
-    const effectiveRole = profile?.active_role
-    if (effectiveRole !== 'LOCATAIRE') {
-      return new Response(JSON.stringify({ error: 'Seuls les locataires peuvent initier un paiement' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     const body: InitiatePaymentBody = await req.json()
     const { paymentId, method, phoneNumber } = body
 
@@ -90,6 +82,23 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    const effectiveRole = profile?.active_role
+    if (effectiveRole !== 'LOCATAIRE') {
+      // Vérifier si l'utilisateur est bien le locataire du paiement (cas même personne propriétaire=locataire)
+      const { data: roleCheck } = await supabase
+        .from('payments')
+        .select('tenant_id')
+        .eq('id', paymentId)
+        .maybeSingle()
+
+      if (!roleCheck || roleCheck.tenant_id !== userId) {
+        return new Response(JSON.stringify({ error: 'Seuls les locataires peuvent initier un paiement' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
 
     const rawPhone = phoneNumber || profile?.phone
@@ -129,7 +138,7 @@ serve(async (req) => {
       })
     }
 
-    if (payment.status !== 'PENDING') {
+    if (payment.status !== 'PENDING' && payment.status !== 'LATE') {
       return new Response(JSON.stringify({ error: `Ce paiement ne peut pas être initié. Statut actuel: ${payment.status}` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

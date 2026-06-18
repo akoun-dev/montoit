@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit } from '@/lib/rate-limiter'
 
@@ -26,15 +27,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/kyc-face-auth`
 
-    // Use user's JWT as Bearer token (preferred by Supabase gateway)
-    // Fall back to service role key if no access token (custom session)
-    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    const bearerToken = getEdgeFunctionBearerToken(accessToken, authSource)
+    if (!bearerToken) {
+      return NextResponse.json({ error: 'Session invalide. Veuillez vous reconnecter.' }, { status: 401 })
+    }
+
     const headers: Record<string, string> = {
       Authorization: `Bearer ${bearerToken}`,
       'Content-Type': 'application/json',
     }
 
-    // When using service role key, also pass the user ID
+    // When using service role key (custom session), also pass the user ID
     if (!accessToken) {
       headers['x-user-id'] = userId
     }

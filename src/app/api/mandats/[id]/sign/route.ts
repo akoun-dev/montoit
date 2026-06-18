@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
 import crypto from 'crypto'
 import { generateAndUploadMandatPdf } from '@/lib/generate-and-upload-mandat-pdf'
 import { notify } from '@/lib/notify'
@@ -55,7 +56,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
+    const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -131,7 +132,11 @@ export async function POST(
         .single() as Promise<{ data: any; error: any }>)
 
       const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign`
-      const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+      const bearerToken = getEdgeFunctionBearerToken(accessToken, authSource)
+      if (!bearerToken) {
+        const resp = NextResponse.json({ error: 'Session invalide. Veuillez vous reconnecter.' }, { status: 401 })
+        return applyCookies(resp)
+      }
 
       const documentHash = crypto.createHash('sha256').update(pdfInfo.buffer).digest('hex')
 
