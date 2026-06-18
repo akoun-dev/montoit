@@ -74,6 +74,9 @@ export function OtpVerifyForm() {
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Code invalide')
+      // Important : vider le code pour casser la boucle d'auto-submit du useEffect.
+      // Sans ça, code.length=6 + isLoading=false re-déclenche doVerify avec le même mauvais code.
+      setCode('')
     }
   }, [isEmailOtp, pendingEmail, otpPurpose, pendingPhone, verifyEmailOtp, verifySmsOtp, setView])
 

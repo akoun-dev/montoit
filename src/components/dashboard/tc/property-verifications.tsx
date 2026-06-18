@@ -15,6 +15,8 @@ import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { usePagination } from '@/hooks/use-pagination'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 
 interface PendingProperty {
   id: string
@@ -206,6 +208,20 @@ export function PropertyVerifications() {
     return p.type === typeFilter
   })
 
+  // Pagination — réinitialise à la page 1 quand un filtre/recherche change
+  const {
+    paginatedItems: pagedProperties,
+    page,
+    totalPages,
+    total,
+    pageSize,
+    setPage,
+  } = usePagination({
+    items: filteredProperties,
+    pageSize: 10,
+    resetSignal: `${searchQuery}|${filterCommune}|${typeFilter}`,
+  })
+
   /* ─── Loading skeleton ─── */
   if (loading) {
     return (
@@ -354,8 +370,8 @@ export function PropertyVerifications() {
       ) : viewMode === 'card' ? (
         /* ─── CARD VIEW ─── */
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          <AnimatePresence mode="popLayout">
-            {filteredProperties.map((property) => (
+          <AnimatePresence mode="popLayout" initial={false} key={`page-${page}`}>
+            {pagedProperties.map((property) => (
               <motion.div
                 key={property.id}
                 layout
@@ -431,6 +447,14 @@ export function PropertyVerifications() {
               </motion.div>
             ))}
           </AnimatePresence>
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={pageSize}
+            onPageChange={setPage}
+            className="md:col-span-2"
+          />
         </div>
       ) : (
         /* ─── LIST VIEW ─── */
@@ -448,8 +472,8 @@ export function PropertyVerifications() {
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence mode="popLayout">
-                  {filteredProperties.map((property) => (
+                <AnimatePresence mode="popLayout" initial={false} key={`page-${page}`}>
+                  {pagedProperties.map((property) => (
                     <motion.tr
                       key={property.id}
                       layout
@@ -548,6 +572,15 @@ export function PropertyVerifications() {
                 </AnimatePresence>
               </tbody>
             </table>
+          </div>
+          <div className="px-4 pb-3">
+            <PaginationControls
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              limit={pageSize}
+              onPageChange={setPage}
+            />
           </div>
         </Card>
       )}

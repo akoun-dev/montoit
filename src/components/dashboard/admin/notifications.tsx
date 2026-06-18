@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { usePagination } from '@/hooks/use-pagination'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
@@ -150,6 +152,20 @@ export function AdminNotifications() {
   const [loading, setLoading] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [markingRead, setMarkingRead] = useState(false)
+  const [activeTab, setActiveTab] = useState('all')
+  const [notifPage, setNotifPage] = useState(1)
+  const NOTIF_PAGE_SIZE = 10
+
+  // Reset à la page 1 quand on change d'onglet
+  useEffect(() => { setNotifPage(1) }, [activeTab])
+
+  const tabFilteredCount = (tab: string) => {
+    if (tab === 'unread') return notifications.filter((n) => !n.isRead).length
+    if (tab === 'critical') return notifications.filter((n) => n.type === 'CRITICAL' || n.type === 'SECURITY').length
+    return notifications.length
+  }
+  const currentTabTotal = tabFilteredCount(activeTab)
+  const notifTotalPages = Math.max(1, Math.ceil(currentTabTotal / NOTIF_PAGE_SIZE))
   const [prefs, setPrefs] = useState({
     criticalErrors: true,
     securityAlerts: true,
@@ -248,7 +264,7 @@ export function AdminNotifications() {
         </div>
       </div>
 
-      <Tabs defaultValue="all" className="w-full">
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-muted">
           <TabsTrigger value="all">Toutes ({notifications.length})</TabsTrigger>
           <TabsTrigger value="unread">Non lues ({unreadCount})</TabsTrigger>
@@ -258,12 +274,14 @@ export function AdminNotifications() {
 
         {['all', 'unread', 'critical'].map((tab) => (
           <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
-            {notifications
-              .filter((n) => {
-                if (tab === 'unread') return !n.isRead
-                if (tab === 'critical') return n.type === 'CRITICAL' || n.type === 'SECURITY'
-                return true
-              })
+            {(activeTab === tab
+              ? notifications.filter((n) => {
+                  if (tab === 'unread') return !n.isRead
+                  if (tab === 'critical') return n.type === 'CRITICAL' || n.type === 'SECURITY'
+                  return true
+                }).slice((notifPage - 1) * NOTIF_PAGE_SIZE, notifPage * NOTIF_PAGE_SIZE)
+              : []
+            )
               .map((notification) => {
                 const Icon = typeIcons[notification.type] || Bell
                 const colorClass = typeColors[notification.type] || 'bg-neutral-100 text-neutral-700'
@@ -296,6 +314,15 @@ export function AdminNotifications() {
                   </Card>
                 )
               })}
+            {activeTab === tab && currentTabTotal > 0 && (
+              <PaginationControls
+                page={notifPage}
+                totalPages={notifTotalPages}
+                total={currentTabTotal}
+                limit={NOTIF_PAGE_SIZE}
+                onPageChange={setNotifPage}
+              />
+            )}
             {notifications.filter((n) => {
               if (tab === 'unread') return !n.isRead
               if (tab === 'critical') return n.type === 'CRITICAL' || n.type === 'SECURITY'

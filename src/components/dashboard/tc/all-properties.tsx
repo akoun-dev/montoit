@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Building2, Search, MapPin, X, Check,
-  Loader2, FileText, ChevronDown, ChevronsUpDown,
+  Loader2, FileText, ChevronsUpDown,
   User, Calendar, Eye, BadgeCheck, Clock,
   Flag, AlertTriangle, Trash2, AlertCircle,
 } from 'lucide-react'
@@ -20,9 +20,10 @@ import {
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -219,13 +220,13 @@ export function AllProperties() {
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false)
   const [filterCommune, setFilterCommune] = useState('')
 
-  // Pagination
+  // Pagination — server-side via offset/limit (page-based UI)
   const [total, setTotal] = useState(0)
-  const [offset, setOffset] = useState(0)
-  const [hasMore, setHasMore] = useState(false)
-  const LIMIT = 50
+  const [page, setPage] = useState(1)
+  const LIMIT = 10
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT))
 
-  const fetchData = useCallback(async (resetOffset = true) => {
+  const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
       setLoading(false)
       return
@@ -239,22 +240,12 @@ export function AllProperties() {
       if (filterType && filterType !== 'ALL') params.set('type', filterType)
       if (filterCommune) params.set('commune', filterCommune)
       params.set('limit', String(LIMIT))
-      params.set('offset', String(resetOffset ? 0 : offset))
+      params.set('offset', String((page - 1) * LIMIT))
       const qs = params.toString()
 
       const d = await authFetch<ApiResponse>(`/api/tc/properties${qs ? `?${qs}` : ''}`)
-      if (resetOffset) {
-        setProperties(d.properties || [])
-      } else {
-        setProperties((prev) => [...prev, ...(d.properties || [])])
-      }
+      setProperties(d.properties || [])
       setTotal(d.pagination?.total || 0)
-      setHasMore(d.pagination?.hasMore || false)
-      if (!resetOffset) {
-        setOffset((prev) => prev + LIMIT)
-      } else {
-        setOffset(LIMIT)
-      }
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) {
         setProperties([])
@@ -264,26 +255,31 @@ export function AllProperties() {
     } finally {
       setLoading(false)
     }
-  }, [isAuthenticated, searchQuery, filterStatus, filterType, filterCommune, offset])
+  }, [isAuthenticated, searchQuery, filterStatus, filterType, filterCommune, page])
 
   // ─── Realtime subscription (TC watches all properties) ────────────
   useRealtimeProperties({
     userId: user?.id,
     watchAll: true,
-    onPropertyChange: () => { fetchData(true) },
+    onPropertyChange: () => { fetchData() },
   })
 
+  // Refetch quand la page change OU les filtres changent
   useEffect(() => {
     setLoading(true)
-    setOffset(0)
-    setHasMore(false)
-    fetchData(true)
+    fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, filterStatus, filterType, filterCommune, page])
+
+  // Reset à la page 1 quand un filtre change (sinon on peut tomber sur une page vide)
+  useEffect(() => {
+    setPage(1)
   }, [searchQuery, filterStatus, filterType, filterCommune])
 
-  const handleLoadMore = () => {
-    fetchData(false)
-  }
+  // Clamp si la page courante dépasse le nouveau totalPages (suite à un filtre)
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   const handleViewDetail = (id: string) => {
     setSelectedItemId(id)
@@ -630,25 +626,19 @@ export function AllProperties() {
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence mode="popLayout">
-                  {properties.map((property) => {
-                    const isPending = property.status === 'PENDING_VERIFICATION'
-                    const statusInfo = statusLabels[property.status] || { label: property.status, className: 'bg-gray-100 text-gray-700' }
+                {properties.map((property) => {
+                  const isPending = property.status === 'PENDING_VERIFICATION'
+                  const statusInfo = statusLabels[property.status] || { label: property.status, className: 'bg-gray-100 text-gray-700' }
 
-                    return (
-                      <motion.tr
-                        key={property.id}
-                        layout
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15 }}
-                        className={cn(
-                          'border-b border-border hover:bg-muted/50 transition-colors cursor-pointer',
-                          isPending && 'bg-amber-50/40 border-l-2 border-l-amber-400'
-                        )}
-                        onClick={() => handleViewDetail(property.id)}
-                      >
+                  return (
+                    <tr
+                      key={property.id}
+                      className={cn(
+                        'border-b border-border hover:bg-muted/50 transition-colors cursor-pointer',
+                        isPending && 'bg-amber-50/40 border-l-2 border-l-amber-400'
+                      )}
+                      onClick={() => handleViewDetail(property.id)}
+                    >
                         <td className="p-3">
                           <div className="flex items-center gap-2 min-w-0">
                             <div className="size-8 rounded-md overflow-hidden shrink-0 bg-muted">
@@ -769,10 +759,9 @@ export function AllProperties() {
                             </Button>
                           </div>
                         </td>
-                      </motion.tr>
+                      </tr>
                     )
                   })}
-                </AnimatePresence>
               </tbody>
             </table>
           </div>
@@ -934,25 +923,14 @@ export function AllProperties() {
         </DialogContent>
       </Dialog>
 
-      {/* Load More */}
-      {hasMore && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLoadMore}
-            disabled={loading}
-            className="gap-2 px-8 h-11"
-          >
-            {loading ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <ChevronDown className="size-4" />
-            )}
-            Charger plus de biens
-          </Button>
-        </div>
-      )}
+      {/* Pagination */}
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        limit={LIMIT}
+        onPageChange={(p) => setPage(p)}
+      />
     </motion.div>
   )
 }

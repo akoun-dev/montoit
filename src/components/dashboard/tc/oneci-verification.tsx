@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { usePagination } from '@/hooks/use-pagination'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { useRealtimeFacialVerifications } from '@/hooks/use-realtime-facial-verifications'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
@@ -118,6 +120,19 @@ export function OneciVerification() {
     userId: user?.id,
     watchAll: true,
     onFacialVerificationChange: () => { fetchData() },
+  })
+
+  const {
+    paginatedItems: pagedUsers,
+    page,
+    totalPages,
+    total,
+    pageSize,
+    setPage,
+  } = usePagination({
+    items: users,
+    pageSize: 10,
+    resetSignal: `${filter}|${search}`,
   })
 
   // ─── Actions ──────────────────────────────────────────────────────────
@@ -286,8 +301,8 @@ export function OneciVerification() {
       ) : viewMode === 'card' ? (
         /* ─── Card View ──────────────────────────────────────────── */
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-          <AnimatePresence mode="popLayout">
-            {users.map((u) => (
+          <AnimatePresence mode="popLayout" initial={false} key={`page-${page}`}>
+            {pagedUsers.map((u) => (
               <motion.div
                 key={u.id}
                 layout
@@ -418,6 +433,14 @@ export function OneciVerification() {
               </motion.div>
             ))}
           </AnimatePresence>
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={pageSize}
+            onPageChange={setPage}
+            className="sm:col-span-2"
+          />
         </div>
       ) : (
         /* ─── List View ──────────────────────────────────────────── */
@@ -434,8 +457,8 @@ export function OneciVerification() {
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence mode="popLayout">
-                  {users.map((u) => (
+                <AnimatePresence mode="popLayout" initial={false} key={`page-${page}`}>
+                  {pagedUsers.map((u) => (
                     <motion.tr
                       key={u.id}
                       layout
@@ -534,6 +557,15 @@ export function OneciVerification() {
                 </AnimatePresence>
               </tbody>
             </table>
+          </div>
+          <div className="px-4 pb-3">
+            <PaginationControls
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              limit={pageSize}
+              onPageChange={setPage}
+            />
           </div>
         </Card>
       )}

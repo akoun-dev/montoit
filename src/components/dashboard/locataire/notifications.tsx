@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { usePagination } from '@/hooks/use-pagination'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
 import { useNotificationStore } from '@/lib/notification-store'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -183,6 +185,19 @@ export function Notifications() {
 
   useEffect(() => { fetchNotifications() }, [fetchNotifications])
 
+  const {
+    paginatedItems: pagedNotifications,
+    page,
+    totalPages,
+    total,
+    pageSize,
+    setPage,
+  } = usePagination({
+    items: notifications,
+    pageSize: 10,
+    resetSignal: activeFilter,
+  })
+
   const { setDashboardSection, setSelectedItemId } = useAuthStore()
 
   const handleMarkAsRead = async (notif: NotificationItem) => {
@@ -358,7 +373,7 @@ export function Notifications() {
           </motion.div>
         ) : (
           <motion.div key="list" variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
-            {notifications.map((notif) => {
+            {pagedNotifications.map((notif) => {
               const config = typeConfig[notif.type] || typeConfig.SYSTEM
               const IconComp = config.icon
 
@@ -408,6 +423,13 @@ export function Notifications() {
                 </motion.div>
               )
             })}
+            <PaginationControls
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              limit={pageSize}
+              onPageChange={setPage}
+            />
           </motion.div>
         )}
       </AnimatePresence>

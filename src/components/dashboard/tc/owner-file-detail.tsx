@@ -131,36 +131,50 @@ export function OwnerFileDetail() {
 
   useBackHandler('owner-file-detail', goBack)
 
-  const fetchFile = useCallback(async (skipCache?: boolean) => {
+  /**
+   * Fetch the file. Avec `silent=true` (utilisé par le realtime), ne touche
+   * pas au loading state ni à `file` → l'UI reste affichée pendant le refresh
+   * en arrière-plan, pas de flicker. Le state n'est mis à jour qu'à la fin
+   * si la donnée a effectivement changé.
+   */
+  const fetchFile = useCallback(async (opts?: { skipCache?: boolean; silent?: boolean }) => {
     if (!isAuthenticated || !selectedItemId) {
       setLoading(false)
       setNotFound(true)
       return
     }
 
-    setLoading(true)
-    setNotFound(false)
-    setFile(null)
+    if (!opts?.silent) {
+      setLoading(true)
+      setNotFound(false)
+      setFile(null)
+    }
 
     try {
       const d = await authFetch<{ files: OwnerFile[] }>(
         `/api/tc/owner-files?id=${selectedItemId}`,
-        skipCache ? { skipCache: true } : undefined
+        opts?.skipCache ? { skipCache: true } : undefined
       )
       const found = d.files?.[0]
       if (found) {
-        setFile(found)
-      } else {
+        setFile((prev) => {
+          // Comparaison naïve par updated_at : évite un re-render si rien n'a changé
+          if (prev && prev.updatedAt === found.updatedAt) return prev
+          return found
+        })
+      } else if (!opts?.silent) {
         setNotFound(true)
       }
     } catch (err) {
-      if (err instanceof AuthError && err.status === 401) {
+      if (!opts?.silent) {
+        if (err instanceof AuthError && err.status === 401) {
+          setNotFound(true)
+          return
+        }
         setNotFound(true)
-        return
       }
-      setNotFound(true)
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [isAuthenticated, selectedItemId])
 
@@ -170,8 +184,9 @@ export function OwnerFileDetail() {
 
   useRealtimeOwnerFiles({
     userId: user?.id,
-    watchAll: true,
-    onOwnerFileChange: () => { fetchFile(true) },
+    fileId: selectedItemId || undefined,
+    // Refresh silencieux : pas de spinner ni flicker, seule la donnée se met à jour
+    onOwnerFileChange: () => { fetchFile({ skipCache: true, silent: true }) },
   })
 
   const handleAction = useCallback(async (action: 'APPROVE' | 'REJECT' | 'REQUEST_INFO', comment?: string) => {

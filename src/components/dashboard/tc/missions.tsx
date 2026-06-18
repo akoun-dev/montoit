@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/command'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { usePagination } from '@/hooks/use-pagination'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useAuthStore } from '@/lib/auth-store'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -351,6 +353,19 @@ export function MissionsManagement() {
       )
     }
     return true
+  })
+
+  const {
+    paginatedItems: pagedMissions,
+    page: missionsPage,
+    totalPages: missionsTotalPages,
+    total: missionsTotal,
+    pageSize: missionsPageSize,
+    setPage: setMissionsPage,
+  } = usePagination({
+    items: filteredMissions,
+    pageSize: 10,
+    resetSignal: `${search}|${statusFilter}|${agentFilter}|${typeFilter}|${priorityFilter}`,
   })
 
   // ─── Create mission ───────────────────────────────────────────────────
@@ -799,8 +814,8 @@ export function MissionsManagement() {
             </Card>
           ) : viewMode === 'card' ? (
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-              <AnimatePresence mode="popLayout">
-                {filteredMissions.map((m) => (
+              <AnimatePresence mode="popLayout" initial={false} key={`page-${missionsPage}`}>
+                {pagedMissions.map((m) => (
                   <motion.div key={m.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }}>
                     <Card className="border-border hover:shadow-md transition-shadow">
                       <CardContent className="p-4 sm:p-6">
@@ -851,6 +866,14 @@ export function MissionsManagement() {
                   </motion.div>
                 ))}
               </AnimatePresence>
+              <PaginationControls
+                page={missionsPage}
+                totalPages={missionsTotalPages}
+                total={missionsTotal}
+                limit={missionsPageSize}
+                onPageChange={setMissionsPage}
+                className="sm:col-span-2"
+              />
             </div>
           ) : (
             <Card className="border-border overflow-hidden">
@@ -868,8 +891,8 @@ export function MissionsManagement() {
                     </tr>
                   </thead>
                   <tbody>
-                    <AnimatePresence mode="popLayout">
-                      {filteredMissions.map((m) => (
+                    <AnimatePresence mode="popLayout" initial={false} key={`page-${missionsPage}`}>
+                      {pagedMissions.map((m) => (
                         <motion.tr key={m.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="border-b border-border hover:bg-muted/30 transition-colors">
                           <td className="p-3">
                             <div className="min-w-0">
@@ -909,6 +932,15 @@ export function MissionsManagement() {
                     </AnimatePresence>
                   </tbody>
                 </table>
+              </div>
+              <div className="px-4 pb-3">
+                <PaginationControls
+                  page={missionsPage}
+                  totalPages={missionsTotalPages}
+                  total={missionsTotal}
+                  limit={missionsPageSize}
+                  onPageChange={setMissionsPage}
+                />
               </div>
             </Card>
           )}

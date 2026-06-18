@@ -108,6 +108,8 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
   const [submitting, setSubmitting] = useState(false)
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null)
   const [deleteDocConfirmId, setDeleteDocConfirmId] = useState<string | null>(null)
+  const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false)
+  const [withdrawing, setWithdrawing] = useState(false)
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const rentalFileIdRef = useRef<string | null>(null)
@@ -371,6 +373,20 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
     }
   }
 
+  const handleWithdrawSubmission = async () => {
+    setWithdrawing(true)
+    try {
+      await authFetch('/api/rental-file/withdraw', { method: 'POST' })
+      toast.success('Soumission retirée. Vous pouvez à nouveau modifier votre dossier.')
+      setWithdrawConfirmOpen(false)
+      fetchRentalFile()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Impossible de retirer la soumission')
+    } finally {
+      setWithdrawing(false)
+    }
+  }
+
   // ─── Loading skeleton ──────────────────────────────────────────────────
   if (loading) {
     return (
@@ -403,10 +419,18 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
     )
   }
 
-  // Read-only only when validated
+  // Read-only des champs (formulaire) quand le dossier est verrouillé côté TC
   const isReadOnly = !!(existingFile && (existingFile.status === 'VALIDATED' || existingFile.status === 'SUBMITTED'))
   const existingStatus = existingFile ? statusConfig[existingFile.status] : null
   const requiredDocs = documentRequirements
+
+  // Capacités sur les documents selon le statut du dossier.
+  // - Voir : toujours possible (consultation read-only de son propre doc)
+  // - Remplacer : DRAFT/TC_REVIEW/REJECTED autorisés ; bloqué en SUBMITTED/VALIDATED
+  // - Supprimer : DRAFT/REJECTED uniquement
+  const fileStatus = existingFile?.status
+  const canReplaceDoc = fileStatus === 'DRAFT' || fileStatus === 'TC_REVIEW' || fileStatus === 'REJECTED' || !existingFile
+  const canDeleteDoc = fileStatus === 'DRAFT' || fileStatus === 'REJECTED'
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -485,19 +509,43 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                 {submitting ? 'Envoi...' : 'Soumettre à nouveau'}
               </Button>
             )}
+
+            {/* Withdraw button when dossier is awaiting TC review */}
+            {existingFile.status === 'SUBMITTED' && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-amber-700">
+                  Votre dossier est verrouillé pendant la validation. Pour le modifier, retirez d&apos;abord votre soumission.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-100"
+                  onClick={() => setWithdrawConfirmOpen(true)}
+                  disabled={withdrawing}
+                >
+                  {withdrawing ? (
+                    <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <AlertCircle className="size-3.5" />
+                  )}
+                  {withdrawing ? 'Retrait…' : 'Retirer ma soumission'}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Progress Steps */}
+      {/* Progress Steps — toujours navigables même en read-only (l'utilisateur
+          doit pouvoir consulter ses propres infos / documents après soumission) */}
       <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-1 scrollbar-none">
         {steps.map((s, i) => (
           <div key={s.id} className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
-              onClick={() => !isReadOnly && setStep(s.id)}
-              className={`flex items-center justify-center size-8 sm:size-8 rounded-full text-xs sm:text-sm font-medium transition-all active:scale-95 ${
+              onClick={() => setStep(s.id)}
+              className={`flex items-center justify-center size-8 sm:size-8 rounded-full text-xs sm:text-sm font-medium transition-all active:scale-95 cursor-pointer hover:ring-2 hover:ring-brand-200 ${
                 step >= s.id ? 'bg-brand-500 text-white shadow-sm shadow-brand-200' : 'bg-muted text-muted-foreground'
-              } ${!isReadOnly ? 'cursor-pointer hover:ring-2 hover:ring-brand-200' : 'cursor-default'}`}
+              }`}
             >
               {step > s.id ? <CheckCircle2 className="size-4 sm:size-5" /> : s.id}
             </button>
@@ -707,7 +755,21 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end sm:justify-start">
-                        {!isReadOnly && existingDoc && (
+                        {/* Voir — toujours disponible quand un doc existe */}
+                        {existingDoc && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => window.open(existingDoc.url, '_blank', 'noopener,noreferrer')}
+                            title="Ouvrir le document dans un nouvel onglet"
+                          >
+                            <Eye className="size-3.5" />
+                            Voir
+                          </Button>
+                        )}
+                        {/* Supprimer — DRAFT / REJECTED uniquement */}
+                        {existingDoc && canDeleteDoc && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -718,22 +780,22 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                             <Trash2 className="size-3.5" />
                           </Button>
                         )}
-                        {!isReadOnly && (
+                        {/* Téléverser / Remplacer — bloqué en SUBMITTED et VALIDATED */}
+                        {canReplaceDoc && (
                           <Button
                             variant={existingDoc ? "outline" : "default"}
                             size="sm"
                             className={`gap-1.5 ${!existingDoc ? 'bg-brand-500 hover:bg-brand-600 text-white' : ''}`}
                             disabled={isUploading}
                             onClick={() => fileInputRefs.current[doc.type]?.click()}
+                            title={existingDoc ? 'Remplacer le document' : 'Téléverser le document'}
                           >
                             {isUploading ? (
                               <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                            ) : existingDoc ? (
-                              <Eye className="size-3.5" />
                             ) : (
                               <Upload className="size-3.5" />
                             )}
-                            {isUploading ? 'Envoi...' : existingDoc ? 'Remplacer' : 'Télécharger'}
+                            {isUploading ? 'Envoi...' : existingDoc ? 'Remplacer' : 'Téléverser'}
                           </Button>
                         )}
                         <input
@@ -839,6 +901,16 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         cancelLabel="Annuler"
         onConfirm={confirmDeleteDocument}
         variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={withdrawConfirmOpen}
+        onOpenChange={(open) => { if (!open) setWithdrawConfirmOpen(false) }}
+        title="Retirer votre soumission ?"
+        description="Votre dossier repassera en brouillon. Les Tiers de Confiance ne pourront plus le valider tant que vous ne l'avez pas re-soumis."
+        confirmLabel="Retirer la soumission"
+        cancelLabel="Annuler"
+        onConfirm={handleWithdrawSubmission}
       />
     </motion.div>
   )

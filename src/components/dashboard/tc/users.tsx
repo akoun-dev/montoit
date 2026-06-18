@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { usePagination } from '@/hooks/use-pagination'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -153,6 +155,19 @@ export function TcUsers() {
       if (!fullName.includes(q) && !email.includes(q) && !phone.includes(q)) return false
     }
     return true
+  })
+
+  const {
+    paginatedItems: paged,
+    page,
+    totalPages,
+    total,
+    pageSize,
+    setPage,
+  } = usePagination({
+    items: filtered,
+    pageSize: 10,
+    resetSignal: `${searchQuery}|${filterRole}|${statusFilter}`,
   })
 
   // ─── Loading Skeleton ─────────────────────────────────────────────────────
@@ -343,8 +358,8 @@ export function TcUsers() {
 
       {/* ─── Users List ──────────────────────────────────────────────────── */}
       <div className="space-y-1.5 sm:space-y-2">
-        <AnimatePresence mode="popLayout">
-          {filtered.map((u) => {
+        <AnimatePresence mode="popLayout" initial={false} key={`page-${page}`}>
+          {paged.map((u) => {
             const roleConfig = roleLabels[u.role] || { label: u.role, className: 'bg-gray-100 text-gray-700' }
 
             return (
@@ -410,6 +425,13 @@ export function TcUsers() {
             )
           })}
         </AnimatePresence>
+        <PaginationControls
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          limit={pageSize}
+          onPageChange={setPage}
+        />
       </div>
     </motion.div>
   )

@@ -3,6 +3,7 @@ import { generateOtpCode, sendOtpSms, normalizePhone } from '@/lib/ansut-messagi
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { checkRateLimit } from '@/lib/rate-limiter'
+import { validatePhoneCI } from '@/lib/validators'
 import crypto from 'crypto'
 
 const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
@@ -21,10 +22,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nouveau numéro de téléphone requis' }, { status: 400 })
     }
 
-    const normalizedPhone = normalizePhone(newPhone)
-    if (normalizedPhone.length !== 10) {
-      return NextResponse.json({ error: 'Numéro de téléphone invalide (10 chiffres requis)' }, { status: 400 })
+    const validation = validatePhoneCI(newPhone)
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
     }
+
+    const normalizedPhone = normalizePhone(newPhone)
 
     const { allowed } = checkRateLimit('otp-sms', normalizedPhone, { maxRequests: 3, windowMs: 60_000 })
     if (!allowed) {
@@ -65,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     const otpCode = generateOtpCode(6)
 
-    await admin.from('otp_codes').insert({
+    const { error: insertError } = await admin.from('otp_codes').insert({
       id: crypto.randomUUID(),
       phone: normalizedPhone,
       code: otpCode,
@@ -73,6 +76,14 @@ export async function POST(req: NextRequest) {
       expires_at: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString(),
       user_id: userId,
     })
+
+    if (insertError) {
+      console.error('[Change Phone] Failed to insert OTP:', insertError)
+      return NextResponse.json(
+        { error: "Impossible de générer le code de vérification. Réessayez ou contactez le support." },
+        { status: 500 }
+      )
+    }
 
     const smsResult = await sendOtpSms(normalizedPhone, otpCode, 'login')
     if (!smsResult.success) {

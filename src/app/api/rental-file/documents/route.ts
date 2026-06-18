@@ -36,7 +36,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Dossier locatif non trouvé' }, { status: 404 })
     }
 
-    if (rentalFile.status !== 'DRAFT') {
+    // Statuts autorisés pour ajouter/remplacer un document :
+    // - DRAFT : édition normale
+    // - TC_REVIEW : le TC a demandé un complément, le locataire répond
+    // - REJECTED : re-soumission après refus
+    // - SUBMITTED : BLOQUÉ (le locataire doit d'abord retirer sa soumission)
+    // - VALIDATED / EXPIRED : figé
+    if (rentalFile.status === 'SUBMITTED') {
+      return NextResponse.json({
+        error: 'Votre dossier est en cours de validation. Pour le modifier, retirez d\'abord votre soumission depuis la page du dossier.',
+        code: 'PENDING_REVIEW',
+      }, { status: 409 })
+    }
+    if (rentalFile.status !== 'DRAFT' && rentalFile.status !== 'TC_REVIEW' && rentalFile.status !== 'REJECTED') {
       return NextResponse.json({ error: 'Le dossier n\'est plus modifiable' }, { status: 400 })
     }
 
@@ -152,7 +164,15 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Document non trouvé' }, { status: 404 })
     }
 
-    if (rentalFile?.status !== 'DRAFT') {
+    // Suppression d'un document : autorisée uniquement en DRAFT ou REJECTED
+    // (en TC_REVIEW, le locataire doit RÉPONDRE à la demande du TC, pas supprimer la trace)
+    if (rentalFile?.status === 'SUBMITTED') {
+      return NextResponse.json({
+        error: 'Votre dossier est en cours de validation. Retirez d\'abord votre soumission pour modifier vos documents.',
+        code: 'PENDING_REVIEW',
+      }, { status: 409 })
+    }
+    if (rentalFile?.status !== 'DRAFT' && rentalFile?.status !== 'REJECTED') {
       return NextResponse.json({ error: 'Le dossier n\'est plus modifiable' }, { status: 400 })
     }
 

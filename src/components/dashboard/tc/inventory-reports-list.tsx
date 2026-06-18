@@ -99,6 +99,19 @@ export function InventoryReportsList() {
     onInventoryReportChange: () => { fetchData() },
   })
 
+  const {
+    paginatedItems: pagedReports,
+    page: reportsPage,
+    totalPages: reportsTotalPages,
+    total: reportsTotal,
+    pageSize: reportsPageSize,
+    setPage: setReportsPage,
+  } = usePagination({
+    items: reports,
+    pageSize: 10,
+    resetSignal: `${filterType}|${filterStatus}`,
+  })
+
   // ─── Handlers ────────────────────────────────────────────────────────────────
 
   const handleEditDraft = (report: InventoryReport) => {
@@ -238,7 +251,7 @@ export function InventoryReportsList() {
               transition={{ duration: 0.2 }}
               className="grid grid-cols-1 md:grid-cols-2 gap-4"
             >
-              {reports.map((report, idx) => {
+              {pagedReports.map((report, idx) => {
                 const config = statusConfig[report.status] || statusConfig.DRAFT
                 const StatusIcon = config.icon
                 const isDraft = report.status === 'DRAFT'
@@ -329,6 +342,14 @@ export function InventoryReportsList() {
                   </motion.div>
                 )
               })}
+              <PaginationControls
+                page={reportsPage}
+                totalPages={reportsTotalPages}
+                total={reportsTotal}
+                limit={reportsPageSize}
+                onPageChange={setReportsPage}
+                className="sm:col-span-2 lg:col-span-3"
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -353,7 +374,7 @@ export function InventoryReportsList() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reports.map((report, idx) => {
+                    {pagedReports.map((report, idx) => {
                       const config = statusConfig[report.status] || statusConfig.DRAFT
                       const StatusIcon = config.icon
                       const isDraft = report.status === 'DRAFT'
@@ -437,6 +458,15 @@ export function InventoryReportsList() {
                     })}
                   </TableBody>
                 </Table>
+                </div>
+                <div className="px-4 pb-3">
+                  <PaginationControls
+                    page={reportsPage}
+                    totalPages={reportsTotalPages}
+                    total={reportsTotal}
+                    limit={reportsPageSize}
+                    onPageChange={setReportsPage}
+                  />
                 </div>
               </Card>
             </motion.div>

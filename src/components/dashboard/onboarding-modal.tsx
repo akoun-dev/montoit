@@ -397,14 +397,14 @@ export function OnboardingModal() {
 
       {/* Modal */}
       <motion.div
-        className="relative w-full max-w-lg bg-background rounded-2xl shadow-2xl border border-border overflow-hidden"
+        className="relative w-full max-w-lg bg-background rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh]"
         variants={modalVariants}
         initial="hidden"
         animate="visible"
         transition={{ duration: 0.4, ease: 'easeOut' }}
       >
-        {/* Header gradient */}
-        <div className={`bg-gradient-to-br ${config.color} p-6 sm:p-8 relative overflow-hidden`}>
+        {/* Header gradient (shrink-0 = ne se réduit pas, reste visible) */}
+        <div className={`bg-gradient-to-br ${config.color} p-5 sm:p-8 relative overflow-hidden shrink-0`}>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
           <div className="relative z-10">
             {/* Close button */}
@@ -443,8 +443,8 @@ export function OnboardingModal() {
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 sm:p-8">
+        {/* Content (zone scrollable — flex-1 + min-h-0 + overflow-y-auto) */}
+        <div className="p-5 sm:p-8 flex-1 min-h-0 overflow-y-auto">
           <AnimatePresence mode="wait" custom={direction}>
             {isWelcomeStep ? (
               <motion.div
@@ -550,8 +550,8 @@ export function OnboardingModal() {
           </AnimatePresence>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 sm:px-8 pb-6 sm:pb-8">
+        {/* Footer (shrink-0 = toujours visible) */}
+        <div className="px-5 sm:px-8 pb-5 sm:pb-8 pt-3 sm:pt-4 border-t border-border/50 bg-background shrink-0">
           {/* Progress bar */}
           <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">

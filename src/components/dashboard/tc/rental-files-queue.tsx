@@ -45,6 +45,8 @@ import { useAuthStore } from '@/lib/auth-store'
 import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { DocumentPreviewDialog } from './document-preview-dialog'
+import { usePagination } from '@/hooks/use-pagination'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -258,6 +260,19 @@ export function RentalFilesQueue({ showHeaderAndStats = true }: { showHeaderAndS
     userId: user?.id,
     watchAll: true,
     onRentalFileChange: () => { fetchData(true) },
+  })
+
+  const {
+    paginatedItems: pagedFiles,
+    page: filesPage,
+    totalPages: filesTotalPages,
+    total: filesTotal,
+    pageSize: filesPageSize,
+    setPage: setFilesPage,
+  } = usePagination({
+    items: files,
+    pageSize: 10,
+    resetSignal: `${statusFilter}|${search}|${priorityFilter}|${onHoldFilter}|${overdueOnly}`,
   })
 
   useEffect(() => {
@@ -646,8 +661,8 @@ export function RentalFilesQueue({ showHeaderAndStats = true }: { showHeaderAndS
       ) : viewMode === 'card' ? (
         /* ─── Card View ──────────────────────────────────────────────── */
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-          <AnimatePresence mode="popLayout">
-            {files.map((rf) => (
+          <AnimatePresence mode="popLayout" initial={false} key={`page-${filesPage}`}>
+            {pagedFiles.map((rf) => (
               <motion.div
                 key={rf.id}
                 layout
@@ -892,6 +907,13 @@ export function RentalFilesQueue({ showHeaderAndStats = true }: { showHeaderAndS
               </motion.div>
             ))}
           </AnimatePresence>
+          <PaginationControls
+            page={filesPage}
+            totalPages={filesTotalPages}
+            total={filesTotal}
+            limit={filesPageSize}
+            onPageChange={setFilesPage}
+          />
         </div>
       ) : (
         /* ─── List View ──────────────────────────────────────────────── */
@@ -910,8 +932,8 @@ export function RentalFilesQueue({ showHeaderAndStats = true }: { showHeaderAndS
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence mode="popLayout">
-                  {files.map((rf) => (
+                <AnimatePresence mode="popLayout" initial={false} key={`page-${filesPage}`}>
+                  {pagedFiles.map((rf) => (
                     <motion.tr
                       key={rf.id}
                       layout
@@ -1066,6 +1088,15 @@ export function RentalFilesQueue({ showHeaderAndStats = true }: { showHeaderAndS
                 </AnimatePresence>
               </tbody>
             </table>
+          </div>
+          <div className="px-4 pb-3">
+            <PaginationControls
+              page={filesPage}
+              totalPages={filesTotalPages}
+              total={filesTotal}
+              limit={filesPageSize}
+              onPageChange={setFilesPage}
+            />
           </div>
         </Card>
       )}
