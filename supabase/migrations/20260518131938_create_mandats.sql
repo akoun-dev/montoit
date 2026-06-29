@@ -72,3 +72,5 @@ create policy "mandats_delete_owner"
   on mandats for delete
   to authenticated
   using ((select auth.uid()::text) = owner_id);
+
+alter publication supabase_realtime add table mandats;

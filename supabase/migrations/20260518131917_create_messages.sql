@@ -47,3 +47,5 @@ create policy "messages_update_own"
   to authenticated
   using ((select auth.uid()::text) = sender_id)
   with check ((select auth.uid()::text) = sender_id);
+
+alter publication supabase_realtime add table messages;

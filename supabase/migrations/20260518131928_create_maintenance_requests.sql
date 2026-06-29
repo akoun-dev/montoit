@@ -81,3 +81,5 @@ create policy "maintenance_requests_delete_own"
   on maintenance_requests for delete
   to authenticated
   using ((select auth.uid()::text) = tenant_id);
+
+alter publication supabase_realtime add table maintenance_requests;

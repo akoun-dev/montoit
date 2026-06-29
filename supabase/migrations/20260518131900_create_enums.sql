@@ -138,3 +138,8 @@ begin
     create type signalement_reason as enum ('INAPPROPRIATE_CONTENT', 'FRAUD', 'SPAM', 'HARASSMENT', 'FALSE_INFORMATION', 'OTHER');
   end if;
 end $$;
+
+-- Add missing otp_type enum values used by profile change endpoints
+alter type otp_type add value if not exists 'EMAIL_CHANGE';
+alter type otp_type add value if not exists 'PHONE_CHANGE';
+alter type otp_type add value if not exists 'PHONE_VERIFY';

@@ -16,7 +16,9 @@ create table if not exists visit_requests (
   created_at        timestamptz         not null default now(),
   updated_at        timestamptz         not null default now(),
   property_id       text                not null references properties(id) on delete cascade,
-  tenant_id         text                not null references users(id) on delete cascade
+  tenant_id         text                not null references users(id) on delete cascade,
+  tenant_rating     integer             check (tenant_rating >= 1 and tenant_rating <= 5),
+  tenant_review     text
 );
 
 create index if not exists idx_visit_requests_property_id on visit_requests (property_id);
@@ -91,3 +93,5 @@ create policy "visit_requests_update_assigned_agent"
   to authenticated
   using ((select auth.uid()::text) = assigned_agent_id)
   with check ((select auth.uid()::text) = assigned_agent_id);
+
+alter publication supabase_realtime add table visit_requests;

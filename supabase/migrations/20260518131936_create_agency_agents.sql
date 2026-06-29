@@ -51,3 +51,5 @@ create policy "agency_agents_delete_agency"
   on agency_agents for delete
   to authenticated
   using ((select auth.uid()::text) = agency_id);
+
+alter publication supabase_realtime add table agency_agents;

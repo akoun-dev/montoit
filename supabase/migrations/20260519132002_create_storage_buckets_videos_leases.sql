@@ -51,3 +51,6 @@ create policy "lease_documents_delete_own"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'lease-documents');
+
+-- Ensure lease-documents bucket is public (CRYPTONEO needs to download PDFs via public URL)
+update storage.buckets set public = true where id = 'lease-documents';

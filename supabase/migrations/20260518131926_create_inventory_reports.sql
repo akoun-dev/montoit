@@ -67,3 +67,5 @@ create policy "inventory_reports_update_tc"
   with check (
     exists (select 1 from users where id = (select auth.uid()::text) and role in ('TIERS_CONFIANCE', 'ADMIN'))
   );
+
+alter publication supabase_realtime add table inventory_reports;
