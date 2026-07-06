@@ -16,13 +16,15 @@ const resourceLinks: { label: string; view: AppView }[] = [
   { label: "Centre d'aide", view: 'faq' },
   { label: 'CGU', view: 'cgu' },
   { label: 'Politique de confidentialité', view: 'confidentialite' },
+  { label: 'Mentions légales', view: 'mentions-legales' },
+  { label: 'Cookies', view: 'cookies' },
 ]
 
 const socialLinks = [
-  { icon: Facebook, href: '#', label: 'Facebook' },
-  { icon: Twitter, href: '#', label: 'Twitter' },
-  { icon: Instagram, href: '#', label: 'Instagram' },
-  { icon: Linkedin, href: '#', label: 'LinkedIn' },
+  { icon: Facebook, href: 'https://facebook.com/montoit', label: 'Facebook' },
+  { icon: Twitter, href: 'https://twitter.com/montoit', label: 'Twitter' },
+  { icon: Instagram, href: 'https://instagram.com/montoit', label: 'Instagram' },
+  { icon: Linkedin, href: 'https://linkedin.com/company/montoit', label: 'LinkedIn' },
 ]
 
 export function Footer() {

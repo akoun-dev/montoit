@@ -87,7 +87,7 @@ export function normalizePhone(phone: string): string {
  * Generate a random numeric OTP code of specified length
  */
 export function generateOtpCode(length: number = 6): string {
-  const digits = '0140984943'
+  const digits = '0123456789'
   let code = ''
   // Use crypto for better randomness
   const array = new Uint8Array(length)
