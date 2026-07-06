@@ -161,10 +161,10 @@ export async function POST(
         .eq('id', id)
       if (rferr) console.error('Failed to update rental_file status:', rferr)
 
-      // Mark property as rented
+      // Mark property as reserved (not fully rented until both parties sign)
       const { error: propreerr } = await supabase
         .from('properties' as any)
-        .update({ rental_status: 'loue' })
+        .update({ rental_status: 'reserve' })
         .eq('id', property.id)
       if (propreerr) console.error('Failed to update property rental_status:', propreerr)
 
