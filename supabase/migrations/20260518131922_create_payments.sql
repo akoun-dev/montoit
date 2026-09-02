@@ -67,5 +67,3 @@ create policy "payments_update_admin"
   with check (
     exists (select 1 from users where id = (select auth.uid()::text) and role in ('TIERS_CONFIANCE', 'ADMIN'))
   );
-
-alter publication supabase_realtime add table payments;

@@ -80,8 +80,6 @@ export function OwnerFileForm() {
   const [submitting, setSubmitting] = useState(false)
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null)
   const [deleteDocConfirmId, setDeleteDocConfirmId] = useState<string | null>(null)
-  const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false)
-  const [withdrawing, setWithdrawing] = useState(false)
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const ownerFileIdRef = useRef<string | null>(null)
@@ -316,20 +314,6 @@ export function OwnerFileForm() {
     }
   }
 
-  const handleWithdrawSubmission = async () => {
-    setWithdrawing(true)
-    try {
-      await authFetch('/api/owner-file/withdraw', { method: 'POST' })
-      toast.success('Soumission retirée. Vous pouvez à nouveau modifier vos documents.')
-      setWithdrawConfirmOpen(false)
-      fetchOwnerFile()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Impossible de retirer la soumission')
-    } finally {
-      setWithdrawing(false)
-    }
-  }
-
   // ─── Loading skeleton ──────────────────────────────────────────────────
   if (loading) {
     return (
@@ -359,16 +343,6 @@ export function OwnerFileForm() {
 
   const isReadOnly = !!(existingFile && existingFile.status === 'VALIDATED')
   const existingStatus = existingFile ? statusConfig[existingFile.status] : null
-
-  // Capacités du propriétaire sur ses documents selon le statut du dossier.
-  // - Voir : toujours possible (consultation read-only)
-  // - Remplacer : DRAFT/REJECTED libre, TC_REVIEW (l'owner répond à une demande du TC),
-  //   bloqué en SUBMITTED (en attente du TC) et VALIDATED (figé)
-  // - Supprimer : DRAFT/REJECTED uniquement (en TC_REVIEW on garde la trace ;
-  //   l'owner remplace au lieu de supprimer)
-  const fileStatus = existingFile?.status
-  const canReplaceDoc = fileStatus === 'DRAFT' || fileStatus === 'TC_REVIEW' || fileStatus === 'REJECTED' || !existingFile
-  const canDeleteDoc = fileStatus === 'DRAFT' || fileStatus === 'REJECTED'
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -436,29 +410,6 @@ export function OwnerFileForm() {
                     )}
                     {submitting ? 'Envoi...' : 'Soumettre à nouveau'}
                   </Button>
-                )}
-
-                {/* Withdraw button when dossier is awaiting TC review */}
-                {existingFile.status === 'SUBMITTED' && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-xs text-amber-700">
-                      Vos documents sont verrouillés pendant la validation. Pour les modifier, retirez d&apos;abord votre soumission.
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-100"
-                      onClick={() => setWithdrawConfirmOpen(true)}
-                      disabled={withdrawing}
-                    >
-                      {withdrawing ? (
-                        <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <AlertCircle className="size-3.5" />
-                      )}
-                      {withdrawing ? 'Retrait…' : 'Retirer ma soumission'}
-                    </Button>
-                  </div>
                 )}
               </div>
             </div>
@@ -569,21 +520,7 @@ export function OwnerFileForm() {
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Voir — toujours disponible quand un doc existe (consultation read-only) */}
-                        {existingDoc && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5"
-                            onClick={() => window.open(existingDoc.url, '_blank', 'noopener,noreferrer')}
-                            title="Ouvrir le document dans un nouvel onglet"
-                          >
-                            <Eye className="size-3.5" />
-                            Voir
-                          </Button>
-                        )}
-                        {/* Supprimer — uniquement DRAFT/REJECTED */}
-                        {existingDoc && canDeleteDoc && (
+                        {!isReadOnly && existingDoc && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -594,22 +531,22 @@ export function OwnerFileForm() {
                             <Trash2 className="size-3.5" />
                           </Button>
                         )}
-                        {/* Téléverser / Remplacer — bloqué en SUBMITTED et VALIDATED */}
-                        {canReplaceDoc && (
+                        {!isReadOnly && (
                           <Button
                             variant={existingDoc ? "outline" : "default"}
                             size="sm"
                             className={`gap-1.5 ${!existingDoc ? 'bg-brand-500 hover:bg-brand-600 text-white' : ''}`}
                             disabled={isUploading}
                             onClick={() => fileInputRefs.current[doc.type]?.click()}
-                            title={existingDoc ? 'Remplacer le document' : 'Téléverser le document'}
                           >
                             {isUploading ? (
                               <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            ) : existingDoc ? (
+                              <Eye className="size-3.5" />
                             ) : (
                               <Upload className="size-3.5" />
                             )}
-                            {isUploading ? 'Envoi...' : existingDoc ? 'Remplacer' : 'Téléverser'}
+                            {isUploading ? 'Envoi...' : existingDoc ? 'Remplacer' : 'Télécharger'}
                           </Button>
                         )}
                         <input
@@ -696,16 +633,6 @@ export function OwnerFileForm() {
         cancelLabel="Annuler"
         onConfirm={confirmDeleteDocument}
         variant="destructive"
-      />
-
-      <ConfirmDialog
-        open={withdrawConfirmOpen}
-        onOpenChange={(open) => { if (!open) setWithdrawConfirmOpen(false) }}
-        title="Retirer votre soumission ?"
-        description="Votre dossier repassera en brouillon. Les Tiers de Confiance ne pourront plus le valider tant que vous ne l'avez pas re-soumis."
-        confirmLabel="Retirer la soumission"
-        cancelLabel="Annuler"
-        onConfirm={handleWithdrawSubmission}
       />
     </motion.div>
   )

@@ -12,8 +12,6 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { usePagination } from '@/hooks/use-pagination'
-import { PaginationControls } from '@/components/ui/pagination-controls'
 import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -193,19 +191,6 @@ export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaul
     [items, filter, statusFilter]
   )
 
-  const {
-    paginatedItems: pagedItems,
-    page,
-    totalPages,
-    total,
-    pageSize,
-    setPage,
-  } = usePagination({
-    items: filteredItems,
-    pageSize: 10,
-    resetSignal: `${filter}|${statusFilter}`,
-  })
-
   const getCount = (key: FilterKey) => {
     if (key === 'all') return items.length
     return items.filter(i => i.category === key).length
@@ -377,7 +362,7 @@ export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaul
               <p className="text-xs text-muted-foreground mt-0.5">Tous les dossiers ont été traités ✓</p>
             </div>
           ) : (
-            pagedItems.map((item) => {
+            filteredItems.map((item) => {
               const cat = CATEGORIES.find(c => c.key === item.category)!
               const Icon = cat.icon
               const badge = CATEGORY_BADGE[item.category]
@@ -444,15 +429,6 @@ export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaul
             })
           )}
         </CardContent>
-        <div className="px-4 pb-3">
-          <PaginationControls
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            limit={pageSize}
-            onPageChange={setPage}
-          />
-        </div>
       </Card>
     </motion.div>
   )

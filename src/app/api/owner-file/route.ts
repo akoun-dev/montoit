@@ -198,29 +198,6 @@ export async function POST(req: NextRequest) {
         })
       }
     } else {
-      // Garde-fou : si un dossier est déjà en cours de validation côté TC
-      // (SUBMITTED ou VALIDATED), on refuse de créer un nouveau brouillon.
-      // Sinon ça crée un dossier fantôme à côté de celui en attente → TC voit
-      // deux entrées pour la même personne (DRAFT + Soumis).
-      const { data: blockingFile } = await admin
-        .from('owner_files')
-        .select('id, status')
-        .eq('owner_id', userId)
-        .in('status', ['SUBMITTED', 'VALIDATED'])
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (blockingFile) {
-        return NextResponse.json({
-          error: blockingFile.status === 'SUBMITTED'
-            ? 'Votre dossier est en cours de validation. Pour le modifier, retirez d\'abord votre soumission.'
-            : 'Votre dossier est déjà validé.',
-          code: blockingFile.status === 'SUBMITTED' ? 'PENDING_REVIEW' : 'ALREADY_VALIDATED',
-          existingFileId: blockingFile.id,
-        }, { status: 409 })
-      }
-
       // Vérifier d'abord si l'utilisateur a un fichier REJECTED à réutiliser
       const { data: rejectedFile } = await admin
         .from('owner_files')

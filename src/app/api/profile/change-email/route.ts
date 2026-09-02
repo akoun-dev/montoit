@@ -4,7 +4,6 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { normalizeEmail, getUserProfileByEmail } from '@/lib/supabase/email-auth'
 import { checkRateLimit } from '@/lib/rate-limiter'
-import { validateEmail } from '@/lib/validators'
 import crypto from 'crypto'
 
 const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
@@ -21,12 +20,6 @@ export async function POST(req: NextRequest) {
     const { newEmail } = await req.json()
     if (!newEmail || typeof newEmail !== 'string') {
       return NextResponse.json({ error: 'Nouvelle adresse email requise' }, { status: 400 })
-    }
-
-    const validation = validateEmail(newEmail)
-    if (!validation.valid) {
-      const resp = NextResponse.json({ error: validation.error }, { status: 400 })
-      return applyCookies(resp)
     }
 
     const normalizedEmail = normalizeEmail(newEmail)
@@ -65,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     const otpCode = generateOtpCode(6)
 
-    const { error: insertError } = await admin.from('otp_codes').insert({
+    await admin.from('otp_codes').insert({
       id: crypto.randomUUID(),
       email: normalizedEmail,
       code: otpCode,
@@ -73,15 +66,6 @@ export async function POST(req: NextRequest) {
       expires_at: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString(),
       user_id: userId,
     })
-
-    if (insertError) {
-      console.error('[Change Email] Failed to insert OTP:', insertError)
-      const resp = NextResponse.json(
-        { error: "Impossible de générer le code de vérification. Réessayez ou contactez le support." },
-        { status: 500 }
-      )
-      return applyCookies(resp)
-    }
 
     const emailResult = await sendOtpEmail(normalizedEmail, otpCode, 'Utilisateur', 'email_verify')
     if (!emailResult.success) {

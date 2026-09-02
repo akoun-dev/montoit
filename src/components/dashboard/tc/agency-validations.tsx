@@ -10,8 +10,6 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { usePagination } from '@/hooks/use-pagination'
-import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useRealtimeOwnershipDocs } from '@/hooks/use-realtime-ownership-docs'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { DocumentPreviewDialog } from './document-preview-dialog'
@@ -124,19 +122,6 @@ export function AgencyValidations({ showHeaderAndStats = true }: { showHeaderAnd
       d.owner.lastName.toLowerCase().includes(s) ||
       d.name.toLowerCase().includes(s)
     )
-  })
-
-  const {
-    paginatedItems: pagedDocs,
-    page,
-    totalPages,
-    total,
-    pageSize,
-    setPage,
-  } = usePagination({
-    items: filteredDocs,
-    pageSize: 10,
-    resetSignal: `${typeFilter}|${search}`,
   })
 
   if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
@@ -265,7 +250,7 @@ export function AgencyValidations({ showHeaderAndStats = true }: { showHeaderAnd
         </Card>
       ) : viewMode === 'card' ? (
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          {pagedDocs.map((doc) => (
+          {filteredDocs.map((doc) => (
             <Card key={doc.id} className="border-border">
               <CardContent className="p-5">
                 <div className="flex items-start gap-3 mb-3">
@@ -323,13 +308,6 @@ export function AgencyValidations({ showHeaderAndStats = true }: { showHeaderAnd
               </CardContent>
             </Card>
           ))}
-          <PaginationControls
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            limit={pageSize}
-            onPageChange={setPage}
-          />
         </div>
       ) : (
         <Card className="border-border overflow-hidden">
@@ -345,7 +323,7 @@ export function AgencyValidations({ showHeaderAndStats = true }: { showHeaderAnd
                 </tr>
               </thead>
               <tbody>
-                {pagedDocs.map((doc) => (
+                {filteredDocs.map((doc) => (
                   <tr key={doc.id} className="border-b border-border hover:bg-muted/30">
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium text-foreground truncate max-w-[140px]">{doc.owner.firstName} {doc.owner.lastName}</p>
@@ -381,15 +359,6 @@ export function AgencyValidations({ showHeaderAndStats = true }: { showHeaderAnd
                 ))}
               </tbody>
             </table>
-          </div>
-          <div className="px-4 pb-3">
-            <PaginationControls
-              page={page}
-              totalPages={totalPages}
-              total={total}
-              limit={pageSize}
-              onPageChange={setPage}
-            />
           </div>
         </Card>
       )}

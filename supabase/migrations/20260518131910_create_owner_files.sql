@@ -68,5 +68,3 @@ create policy "owner_files_delete_own"
   on owner_files for delete
   to authenticated
   using ((select auth.uid()::text) = owner_id);
-
-alter publication supabase_realtime add table owner_files;

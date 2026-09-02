@@ -24,8 +24,6 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { usePagination } from '@/hooks/use-pagination'
-import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useAuthStore } from '@/lib/auth-store'
 import { useRealtimeDisputes } from '@/hooks/use-realtime-disputes'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
@@ -292,19 +290,6 @@ export function LitigesManagement() {
       )
     }
     return true
-  })
-
-  const {
-    paginatedItems: pagedDisputes,
-    page: disputesPage,
-    totalPages: disputesTotalPages,
-    total: disputesTotal,
-    pageSize: disputesPageSize,
-    setPage: setDisputesPage,
-  } = usePagination({
-    items: filteredDisputes,
-    pageSize: 10,
-    resetSignal: `${activeTab}|${search}|${statusFilter}|${typeFilter}|${priorityFilter}`,
   })
 
   // ─── Actions ───────────────────────────────────────────────────────────
@@ -835,8 +820,8 @@ export function LitigesManagement() {
             </Card>
           ) : viewMode === 'card' ? (
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-              <AnimatePresence mode="popLayout" initial={false} key={`page-${disputesPage}-${activeTab}`}>
-                {pagedDisputes.map((dispute) => {
+              <AnimatePresence mode="popLayout">
+                {filteredDisputes.map((dispute) => {
                   const TypeIcon = typeIcons[dispute.type]
                   const iconColor = typeIconColors[dispute.type]
                   return (
@@ -928,14 +913,6 @@ export function LitigesManagement() {
                   )
                 })}
               </AnimatePresence>
-              <PaginationControls
-                page={disputesPage}
-                totalPages={disputesTotalPages}
-                total={disputesTotal}
-                limit={disputesPageSize}
-                onPageChange={setDisputesPage}
-                className="sm:col-span-2"
-              />
             </div>
           ) : (
             /* ─── List View ────────────────────────────────────────── */
@@ -955,8 +932,8 @@ export function LitigesManagement() {
                     </tr>
                   </thead>
                   <tbody>
-                    <AnimatePresence mode="popLayout" initial={false} key={`page-${disputesPage}-${activeTab}`}>
-                      {pagedDisputes.map((dispute) => {
+                    <AnimatePresence mode="popLayout">
+                      {filteredDisputes.map((dispute) => {
                         const TypeIcon = typeIcons[dispute.type]
                         const iconColor = typeIconColors[dispute.type]
                         return (
@@ -1042,15 +1019,6 @@ export function LitigesManagement() {
                   </tbody>
                 </table>
               </div>
-              <div className="px-4 pb-3">
-                <PaginationControls
-                  page={disputesPage}
-                  totalPages={disputesTotalPages}
-                  total={disputesTotal}
-                  limit={disputesPageSize}
-                  onPageChange={setDisputesPage}
-                />
-              </div>
             </Card>
           )}
         </TabsContent>
@@ -1067,8 +1035,8 @@ export function LitigesManagement() {
             </Card>
           ) : viewMode === 'card' ? (
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-              <AnimatePresence mode="popLayout" initial={false} key={`page-${disputesPage}-${activeTab}`}>
-                {pagedDisputes.map((dispute) => {
+              <AnimatePresence mode="popLayout">
+                {filteredDisputes.map((dispute) => {
                   const TypeIcon = typeIcons[dispute.type]
                   const iconColor = typeIconColors[dispute.type]
                   return (
@@ -1124,14 +1092,6 @@ export function LitigesManagement() {
                   )
                 })}
               </AnimatePresence>
-              <PaginationControls
-                page={disputesPage}
-                totalPages={disputesTotalPages}
-                total={disputesTotal}
-                limit={disputesPageSize}
-                onPageChange={setDisputesPage}
-                className="sm:col-span-2"
-              />
             </div>
           ) : (
             <Card className="border-border overflow-hidden">
@@ -1148,7 +1108,7 @@ export function LitigesManagement() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pagedDisputes.map((dispute) => {
+                    {filteredDisputes.map((dispute) => {
                       const TypeIcon = typeIcons[dispute.type]
                       const iconColor = typeIconColors[dispute.type]
                       return (
@@ -1188,15 +1148,6 @@ export function LitigesManagement() {
                     })}
                   </tbody>
                 </table>
-              </div>
-              <div className="px-4 pb-3">
-                <PaginationControls
-                  page={disputesPage}
-                  totalPages={disputesTotalPages}
-                  total={disputesTotal}
-                  limit={disputesPageSize}
-                  onPageChange={setDisputesPage}
-                />
               </div>
             </Card>
           )}

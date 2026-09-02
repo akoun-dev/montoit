@@ -30,8 +30,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { usePagination } from '@/hooks/use-pagination'
-import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useAuthStore } from '@/lib/auth-store'
 import { useRealtimeOwnerFiles } from '@/hooks/use-realtime-owner-files'
 import { DocumentPreviewDialog } from './document-preview-dialog'
@@ -118,18 +116,6 @@ export function OwnerDossierValidations() {
 
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; type: string } | null>(null)
-
-  const {
-    paginatedItems: pagedFiles,
-    page,
-    totalPages,
-    total,
-    pageSize,
-    setPage,
-  } = usePagination({
-    items: files,
-    pageSize: 10,
-  })
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -239,7 +225,7 @@ export function OwnerDossierValidations() {
           </CardContent>
         </Card>
       ) : (
-        pagedFiles.map((file) => (
+        files.map((file) => (
           <Card key={file.id} className="border-border">
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-4">
@@ -351,14 +337,6 @@ export function OwnerDossierValidations() {
           </Card>
         ))
       )}
-
-      <PaginationControls
-        page={page}
-        totalPages={totalPages}
-        total={total}
-        limit={pageSize}
-        onPageChange={setPage}
-      />
 
       {/* Action Dialog */}
       <Dialog open={!!actionDialog} onOpenChange={(open) => { if (!open) { setActionDialog(null); setSelectedFile(null) } }}>

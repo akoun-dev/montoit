@@ -63,5 +63,3 @@ create policy "owner_file_documents_delete_own"
       where id = owner_file_id and owner_id = (select auth.uid()::text)
     )
   );
-
-alter publication supabase_realtime add table owner_file_documents;

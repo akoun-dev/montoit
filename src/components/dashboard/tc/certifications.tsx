@@ -16,8 +16,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { usePagination } from '@/hooks/use-pagination'
-import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useRealtimeCertifications } from '@/hooks/use-realtime-certifications'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -188,19 +186,6 @@ export function CertificationsManagement() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
-
-  const {
-    paginatedItems: pagedCerts,
-    page: certsPage,
-    totalPages: certsTotalPages,
-    total: certsTotal,
-    pageSize: certsPageSize,
-    setPage: setCertsPage,
-  } = usePagination({
-    items: certifications,
-    pageSize: 10,
-    resetSignal: `${search}|${statusFilter}|${typeFilter}`,
-  })
 
   // Auto-navigate to certification detail when selectedItemId matches
   useEffect(() => {
@@ -531,8 +516,8 @@ export function CertificationsManagement() {
       ) : viewMode === 'card' ? (
         /* ─── Card View ──────────────────────────────────────────── */
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-          <AnimatePresence mode="popLayout" initial={false} key={`page-${certsPage}`}>
-            {pagedCerts.map((cert) => {
+          <AnimatePresence mode="popLayout">
+            {certifications.map((cert) => {
               const TypeIcon = typeIcons[cert.type] || Award
               return (
                 <motion.div
@@ -637,14 +622,6 @@ export function CertificationsManagement() {
               )
             })}
           </AnimatePresence>
-          <PaginationControls
-            page={certsPage}
-            totalPages={certsTotalPages}
-            total={certsTotal}
-            limit={certsPageSize}
-            onPageChange={setCertsPage}
-            className="sm:col-span-2"
-          />
         </div>
       ) : (
         /* ─── List View ──────────────────────────────────────────── */
@@ -662,8 +639,8 @@ export function CertificationsManagement() {
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence mode="popLayout" initial={false} key={`page-${certsPage}`}>
-                  {pagedCerts.map((cert) => {
+                <AnimatePresence mode="popLayout">
+                  {certifications.map((cert) => {
                     const TypeIcon = typeIcons[cert.type] || Award
                     return (
                       <motion.tr
@@ -757,15 +734,6 @@ export function CertificationsManagement() {
                 </AnimatePresence>
               </tbody>
             </table>
-          </div>
-          <div className="px-4 pb-3">
-            <PaginationControls
-              page={certsPage}
-              totalPages={certsTotalPages}
-              total={certsTotal}
-              limit={certsPageSize}
-              onPageChange={setCertsPage}
-            />
           </div>
         </Card>
       )}

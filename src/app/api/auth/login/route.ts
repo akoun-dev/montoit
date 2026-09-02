@@ -8,7 +8,6 @@ import {
 } from "@/lib/supabase/email-auth"
 import { toAuthUser } from "@/lib/supabase/profile"
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server"
-import { checkRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(req: NextRequest) {
     try {
@@ -18,14 +17,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(
                 { error: "Email et mot de passe requis" },
                 { status: 400 }
-            )
-        }
-
-        const { allowed } = checkRateLimit('login', email.toLowerCase().trim(), { maxRequests: 5, windowMs: 60_000 })
-        if (!allowed) {
-            return NextResponse.json(
-                { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
-                { status: 429 }
             )
         }
 

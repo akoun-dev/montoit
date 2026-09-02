@@ -60,11 +60,8 @@ export async function GET(req: NextRequest) {
       query = query.eq('status', status)
     } else if (!status) {
       query = query.eq('status', 'SUBMITTED')
-    } else {
-      // status=ALL : on exclut explicitement DRAFT. Le TC n'a aucune raison
-      // de voir les dossiers que le propriétaire n'a pas encore soumis.
-      query = query.neq('status', 'DRAFT')
     }
+    // status=ALL => no filter
 
     query = query
       .order('created_at', { ascending: true })

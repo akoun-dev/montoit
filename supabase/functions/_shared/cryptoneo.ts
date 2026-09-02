@@ -4,10 +4,16 @@ const APP_SECRET = Deno.env.get("CRYPTONEO_APP_SECRET") || "";
 const TOKEN_TTL_MS = 30 * 60 * 1000;
 let cachedToken = null;
 export async function getCryptoneoToken() {
+  console.log('[cryptoneo] getCryptoneoToken called');
+  console.log('[cryptoneo] CRYPTONEO_API_URL:', CRYPTONEO_API_URL);
+  console.log('[cryptoneo] APP_KEY:', APP_KEY ? 'set' : 'not set');
+  console.log('[cryptoneo] APP_SECRET:', APP_SECRET ? 'set' : 'not set');
   if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
+    console.log('[cryptoneo] Returning cached token');
     return cachedToken.token;
   }
   const url = `${CRYPTONEO_API_URL}/user/auth`;
+  console.log('[cryptoneo] Fetching token from:', url);
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -33,6 +39,7 @@ export async function getCryptoneoToken() {
     token,
     expiresAt: Date.now() + TOKEN_TTL_MS
   };
+  console.log('[cryptoneo] Token obtained successfully, expires at:', new Date(cachedToken.expiresAt).toISOString());
   return token;
 }
 export function clearCryptoneoToken() {

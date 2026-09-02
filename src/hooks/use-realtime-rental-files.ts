@@ -32,11 +32,6 @@ interface UseRealtimeRentalFilesOptions {
    * If true, watches ALL rental files (for TC/admin).
    */
   watchAll?: boolean
-  /**
-   * Si fourni, filtre les abonnements realtime à ce dossier uniquement (mode "page détail").
-   * Évite les re-fetch quand un autre dossier locataire change.
-   */
-  fileId?: string
   onRentalFileChange: (event: RentalFileChangeEvent, payload: RealtimeRentalFilePayload) => void
 }
 
@@ -49,18 +44,16 @@ interface UseRealtimeRentalFilesOptions {
  *   - If `tenant_id === userId` → the user is the tenant (own file)
  *   - If `tenant_id` is in `watchedTenantIds` → the user is an owner watching
  */
-export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, fileId, onRentalFileChange }: UseRealtimeRentalFilesOptions) {
+export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, onRentalFileChange }: UseRealtimeRentalFilesOptions) {
   const callbackRef = useRef(onRentalFileChange)
   const watchedRef = useRef(watchedTenantIds)
   const watchAllRef = useRef(watchAll)
-  const fileIdRef = useRef(fileId)
 
   useEffect(() => {
     callbackRef.current = onRentalFileChange
     watchedRef.current = watchedTenantIds
     watchAllRef.current = watchAll
-    fileIdRef.current = fileId
-  }, [onRentalFileChange, watchedTenantIds, watchAll, fileId])
+  }, [onRentalFileChange, watchedTenantIds, watchAll])
 
   useEffect(() => {
     if (!userId) return
@@ -69,8 +62,8 @@ export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, fil
 
     const supabase = getSupabaseBrowserClient()
 
-    // Channel name unique par fileId pour éviter les conflits entre détails ouverts en parallèle
-    const channel = supabase.channel(`rental-files-realtime${fileId ? `-${fileId}` : ''}`)
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('rental-files-realtime')
 
     async function subscribeAfterAuth() {
       // Ensure the auth session is initialized before subscribing,
@@ -83,10 +76,6 @@ export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, fil
         console.warn('[realtime-rental-files] No session — subscribing anyway (will likely fail)')
       }
 
-      // Filtre serveur : si on a un fileId (mode "page détail"), on ne s'abonne
-      // qu'aux changements de CE dossier. Sinon on écoute tout et on filtre côté client.
-      const filter = fileIdRef.current ? `id=eq.${fileIdRef.current}` : undefined
-
       channel
         .on<RealtimeRentalFilePayload>(
           'postgres_changes',
@@ -94,7 +83,6 @@ export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, fil
             event: '*',
             schema: 'public',
             table: 'rental_files',
-            filter,
           },
           (payload: RealtimePostgresChangesPayload<RealtimeRentalFilePayload>) => {
             const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
@@ -104,12 +92,6 @@ export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, fil
 
             // Mark mutation so authFetch skips the response cache
             markMutation()
-
-            // En mode fileId, le filtre serveur garantit déjà la pertinence
-            if (fileIdRef.current) {
-              callbackRef.current(payload.eventType as RentalFileChangeEvent, rf)
-              return
-            }
 
             // Always fire for INSERT — a new file might be from a tenant we don't know yet
             if (payload.eventType === 'INSERT') {
@@ -132,7 +114,9 @@ export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, fil
           }
         )
         .subscribe((status) => {
-          if (status === 'CHANNEL_ERROR') {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-rental-files] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
             console.warn('[realtime-rental-files] Channel error')
           }
         })
@@ -144,6 +128,5 @@ export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, fil
       cancelled = true
       channel.unsubscribe()
     }
-    // fileId fait partie du nom du channel → re-souscrire quand il change
-  }, [userId, fileId])
+  }, [userId])
 }

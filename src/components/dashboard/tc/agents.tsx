@@ -17,8 +17,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { usePagination } from '@/hooks/use-pagination'
-import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useAuthStore } from '@/lib/auth-store'
 import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
@@ -257,19 +255,6 @@ export function AgentsManagement() {
       a.email.toLowerCase().includes(q) ||
       (a.phone && a.phone.includes(q))
     )
-  })
-
-  const {
-    paginatedItems: pagedAgents,
-    page: agentsPage,
-    totalPages: agentsTotalPages,
-    total: agentsTotal,
-    pageSize: agentsPageSize,
-    setPage: setAgentsPage,
-  } = usePagination({
-    items: filteredAgents,
-    pageSize: 10,
-    resetSignal: search,
   })
 
   // ─── Stats ─────────────────────────────────────────────────────────────
@@ -844,8 +829,8 @@ export function AgentsManagement() {
       ) : viewMode === 'card' ? (
         /* ─── Card View ──────────────────────────────────────────────── */
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-          <AnimatePresence mode="popLayout" initial={false} key={`page-${agentsPage}`}>
-            {pagedAgents.map((agent) => (
+          <AnimatePresence mode="popLayout">
+            {filteredAgents.map((agent) => (
               <motion.div
                 key={agent.id}
                 layout
@@ -977,14 +962,6 @@ export function AgentsManagement() {
               </motion.div>
             ))}
           </AnimatePresence>
-          <PaginationControls
-            page={agentsPage}
-            totalPages={agentsTotalPages}
-            total={agentsTotal}
-            limit={agentsPageSize}
-            onPageChange={setAgentsPage}
-            className="md:col-span-2 lg:col-span-3"
-          />
         </div>
       ) : (
         /* ─── List View ──────────────────────────────────────────────── */
@@ -1005,8 +982,8 @@ export function AgentsManagement() {
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence mode="popLayout" initial={false} key={`page-${agentsPage}`}>
-                  {pagedAgents.map((agent) => (
+                <AnimatePresence mode="popLayout">
+                  {filteredAgents.map((agent) => (
                     <motion.tr
                       key={agent.id}
                       layout
@@ -1153,15 +1130,6 @@ export function AgentsManagement() {
                 </AnimatePresence>
               </tbody>
             </table>
-          </div>
-          <div className="px-4 pb-3">
-            <PaginationControls
-              page={agentsPage}
-              totalPages={agentsTotalPages}
-              total={agentsTotal}
-              limit={agentsPageSize}
-              onPageChange={setAgentsPage}
-            />
           </div>
         </Card>
       )}

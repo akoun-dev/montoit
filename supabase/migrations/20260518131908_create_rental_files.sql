@@ -29,7 +29,9 @@ create table if not exists rental_files (
 create index if not exists idx_rental_files_status on rental_files (status);
 create index if not exists idx_rental_files_tenant_id on rental_files (tenant_id);
 
--- Multi-dossiers autorisés (pas de contrainte uniq sur DRAFT)
+-- Un seul dossier brouillon (DRAFT) par locataire
+create unique index if not exists idx_rental_files_one_draft_per_tenant
+  on rental_files (tenant_id) where status = 'DRAFT';
 
 alter table rental_files enable row level security;
 
@@ -75,5 +77,3 @@ create policy "rental_files_delete_own"
   on rental_files for delete
   to authenticated
   using ((select auth.uid()::text) = tenant_id);
-
-alter publication supabase_realtime add table rental_files;

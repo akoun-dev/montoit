@@ -34,5 +34,3 @@ create policy "notifications_update_own"
   to authenticated
   using ((select auth.uid()::text) = user_id)
   with check ((select auth.uid()::text) = user_id);
-
-alter publication supabase_realtime add table notifications;

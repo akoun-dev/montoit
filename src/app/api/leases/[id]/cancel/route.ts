@@ -3,6 +3,20 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
+// Shape of the lease row with the relations we need for cancellation.
+// Defined explicitly because the combined select (relations) collapses the
+// Postgrest inferred type to `never` and breaks the authorization checks below.
+type LeaseWithRelations = {
+  id: string
+  status: string
+  property_id: string
+  tenant_id: string
+  owner_id: string
+  rental_file_id: string
+  property?: { id: string; title: string; owner_id: string } | null
+  rental_file?: { id: string; tenant_id: string } | null
+}
+
 // PATCH /api/leases/[id]/cancel — Cancel a lease pending signature (either party)
 export async function PATCH(
   req: NextRequest,
@@ -18,11 +32,12 @@ export async function PATCH(
     const { id } = await params
     const supabase = getSupabaseAdminClient()
 
-    const { data: lease, error: leaseError } = await supabase
+    const { data, error: leaseError } = await supabase
       .from('leases')
-      .select('*, property:properties!leases_property_id_fkey(id, title, owner_id), rental_file:rental_files!leases_rental_file_id_fkey(id, tenant_id)')
+      .select('id, status, property_id, tenant_id, owner_id, rental_file_id, property:properties!leases_property_id_fkey(id, title, owner_id), rental_file:rental_files!leases_rental_file_id_fkey(id, tenant_id)')
       .eq('id', id)
       .maybeSingle()
+    const lease = data as unknown as LeaseWithRelations | null
 
     if (leaseError) throw leaseError
     if (!lease) {

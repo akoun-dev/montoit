@@ -48,5 +48,3 @@ create policy "agency_agent_properties_delete_agency"
       where id = agent_id and agency_id = (select auth.uid()::text)
     )
   );
-
-alter publication supabase_realtime add table agency_agent_properties;

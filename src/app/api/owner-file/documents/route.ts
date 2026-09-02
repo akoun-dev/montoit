@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { notifyMany } from '@/lib/notify'
 import { BUCKETS, deleteFromStorage, extractBucketAndPath, uploadFromBase64 } from '@/lib/supabase/storage'
 
 function generateId() {
@@ -112,20 +113,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Dossier propriétaire non trouvé' }, { status: 404 })
     }
 
-    // TC_REVIEW = le TC a demandé un complément → l'owner peut modifier ses docs
-    // pour répondre à cette demande. Le dossier reste en TC_REVIEW (visible côté TC)
-    // jusqu'à ce que l'owner re-soumette explicitement.
     if (ownerFile.status === 'TC_REVIEW') {
-      // OK, on autorise la modification du document. Pas de bascule en DRAFT silencieuse.
-    } else if (ownerFile.status === 'SUBMITTED') {
-      // Le dossier est en attente de prise en charge par un TC. Modification interdite
-      // tant que l'owner n'a pas explicitement retiré sa soumission (endpoint withdraw).
-      return NextResponse.json({
-        error: 'Votre dossier est en cours de validation. Pour le modifier, retirez d\'abord votre soumission depuis la page du dossier.',
-        code: 'PENDING_REVIEW',
-      }, { status: 409 })
+      await supabase
+        .from('owner_files')
+        .update({ status: 'DRAFT', reviewed_by_id: null, reviewed_at: null })
+        .eq('id', ownerFile.id)
+
+      await supabase
+        .from('owner_file_documents')
+        .update({ status: 'PENDING' })
+        .eq('owner_file_id', ownerFile.id)
+
+      ownerFile.status = 'DRAFT'
     } else if (ownerFile.status !== 'DRAFT') {
-      // VALIDATED / EXPIRED — le dossier est terminé, on ne touche plus.
       return NextResponse.json({ error: 'Le dossier n\'est plus modifiable' }, { status: 400 })
     }
 
@@ -187,11 +187,22 @@ export async function POST(req: NextRequest) {
       document = created
     }
 
-    // ⚠️ Aucune notification TC à l'upload d'un document individuel.
-    // Le dossier est en DRAFT pendant que l'utilisateur ajoute/remplace ses docs ;
-    // les TC seront notifiés UNE SEULE FOIS quand le dossier sera soumis
-    // (POST /api/owner-file → status DRAFT → TC_REVIEW).
-    // Sans ce silence, chaque doc uploadé spam les TC (1 dossier avec N docs = N+1 notifs).
+    const { data: tcUsers } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'TIERS_CONFIANCE')
+      .eq('is_active', true)
+
+    if (tcUsers && tcUsers.length > 0) {
+      await notifyMany({
+        userIds: tcUsers.map((tc: any) => tc.id),
+        type: 'DOSSIER_UPDATE',
+        title: 'Nouveau document de propriété soumis',
+        message: 'Un nouveau document de propriété a été soumis et nécessite votre validation.',
+        actionUrl: 'owner-dossiers',
+        entityId: document.id,
+      })
+    }
 
     const mapped = {
       id: document.id,

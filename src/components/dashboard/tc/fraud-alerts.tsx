@@ -16,8 +16,6 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeFraudAlerts } from '@/hooks/use-realtime-fraud-alerts'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
-import { usePagination } from '@/hooks/use-pagination'
-import { PaginationControls } from '@/components/ui/pagination-controls'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -137,19 +135,6 @@ export function FraudAlertsManagement() {
     userId: user?.id,
     watchAll: true,
     onFraudAlertChange: () => { fetchData() },
-  })
-
-  const {
-    paginatedItems: pagedAlerts,
-    page: alertsPage,
-    totalPages: alertsTotalPages,
-    total: alertsTotal,
-    pageSize: alertsPageSize,
-    setPage: setAlertsPage,
-  } = usePagination({
-    items: alerts,
-    pageSize: 10,
-    resetSignal: `${search}|${statusFilter}`,
   })
 
   useEffect(() => {
@@ -412,8 +397,8 @@ export function FraudAlertsManagement() {
       ) : viewMode === 'card' ? (
         /* ─── Card View ──────────────────────────────────────────── */
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-          <AnimatePresence mode="popLayout" initial={false} key={`page-${alertsPage}`}>
-            {pagedAlerts.map((alert) => (
+          <AnimatePresence mode="popLayout">
+            {alerts.map((alert) => (
               <motion.div
                 key={alert.id}
                 layout
@@ -524,14 +509,6 @@ export function FraudAlertsManagement() {
               </motion.div>
             ))}
           </AnimatePresence>
-          <PaginationControls
-            page={alertsPage}
-            totalPages={alertsTotalPages}
-            total={alertsTotal}
-            limit={alertsPageSize}
-            onPageChange={setAlertsPage}
-            className="sm:col-span-2"
-          />
         </div>
       ) : (
         /* ─── List View ──────────────────────────────────────────── */
@@ -549,8 +526,8 @@ export function FraudAlertsManagement() {
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence mode="popLayout" initial={false} key={`page-${alertsPage}`}>
-                  {pagedAlerts.map((alert) => (
+                <AnimatePresence mode="popLayout">
+                  {alerts.map((alert) => (
                     <motion.tr
                       key={alert.id}
                       layout
@@ -643,15 +620,6 @@ export function FraudAlertsManagement() {
                 </AnimatePresence>
               </tbody>
             </table>
-          </div>
-          <div className="px-4 pb-3">
-            <PaginationControls
-              page={alertsPage}
-              totalPages={alertsTotalPages}
-              total={alertsTotal}
-              limit={alertsPageSize}
-              onPageChange={setAlertsPage}
-            />
           </div>
         </Card>
       )}

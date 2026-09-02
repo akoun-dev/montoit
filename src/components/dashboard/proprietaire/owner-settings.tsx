@@ -32,7 +32,6 @@ import type { ScoringData } from '@/components/dashboard/locataire/settings/type
 import { toast } from 'sonner'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { CITIES } from '@/lib/cities'
-import { validateEmail, validatePhoneCI } from '@/lib/validators'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -130,14 +129,6 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
   const [phoneOtpCode, setPhoneOtpCode] = useState('')
   const [phoneVerifyError, setPhoneVerifyError] = useState<string | null>(null)
   const [phoneVerifySuccess, setPhoneVerifySuccess] = useState<string | null>(null)
-
-  // Email verification state
-  const [emailValue, setEmailValue] = useState('')
-  const [emailSending, setEmailSending] = useState(false)
-  const [emailOtpSent, setEmailOtpSent] = useState(false)
-  const [emailOtpCode, setEmailOtpCode] = useState('')
-  const [emailVerifyError, setEmailVerifyError] = useState<string | null>(null)
-  const [emailVerifySuccess, setEmailVerifySuccess] = useState<string | null>(null)
 
   const fetchScoring = useCallback(async () => {
     try {
@@ -254,11 +245,8 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
   }
 
   // ── Fetch profile data ──────────────────────────────────────────────────
-  // Dep sur user?.id (string stable) plutôt que user (nouvelle référence à chaque
-  // checkAuth → réécraserait profileForm à chaque visibilitychange).
-  const userId = user?.id
   const fetchProfile = useCallback(async () => {
-    if (!userId) return
+    if (!user) return
     try {
       const result = await authFetch<{ user: OwnerProfileData }>('/api/profile')
       const p = result.user
@@ -272,13 +260,12 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
         showPhone: (p as unknown as Record<string, unknown>).showPhone as boolean ?? true,
         showEmail: (p as unknown as Record<string, unknown>).showEmail as boolean ?? false,
       })
-      setEmailValue(p.email || '')
     } catch {
       // Silent
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [user])
 
   useEffect(() => {
     fetchProfile()
@@ -297,21 +284,11 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
 
   // ── Save profile ────────────────────────────────────────────────────────
   const handleSaveProfile = useCallback(async () => {
-    // Bloque l'enregistrement si le téléphone ou l'email a été MODIFIÉ mais pas
-    // (encore) vérifié. L'utilisateur doit cliquer sur le bouton "Vérifier"
-    // dédié et confirmer l'OTP — ne pas envoyer l'OTP automatiquement ici.
-    const phoneChanged = profileForm.phone.trim() !== (profile?.phone || '').trim()
-    const emailChanged = emailValue.trim() !== (profile?.email || '').trim()
-
-    if (phoneChanged && profileForm.phone.trim() && !profile?.isPhoneVerified) {
-      toast.error('Vérifiez d\'abord votre nouveau numéro de téléphone avant d\'enregistrer (bouton « Vérifier » à côté du champ).')
+    if (profileForm.phone.trim() && !profile?.isPhoneVerified) {
+      handleSendPhoneVerification()
+      toast.info('Code de vérification envoyé par SMS. Confirmez-le pour activer la sauvegarde.')
       return
     }
-    if (emailChanged && emailValue.trim() && !profile?.isEmailVerified) {
-      toast.error('Vérifiez d\'abord votre nouvelle adresse email avant d\'enregistrer (bouton « Vérifier » à côté du champ).')
-      return
-    }
-
     setProfileSaving(true)
     try {
       const result = await authFetch<{ user: OwnerProfileData }>('/api/user/profile', {
@@ -333,16 +310,11 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
     } finally {
       setProfileSaving(false)
     }
-  }, [profileForm, emailValue, updateUser, profile])
+  }, [profileForm, updateUser, profile])
 
   // ── Phone verification ──────────────────────────────────────────────────
   const handleSendPhoneVerification = useCallback(async () => {
-    const validation = validatePhoneCI(profileForm.phone)
-    if (!validation.valid) {
-      setPhoneVerifyError(validation.error ?? 'Numéro invalide')
-      setPhoneVerifySuccess(null)
-      return
-    }
+    if (!profileForm.phone.trim()) return
     setPhoneSending(true)
     setPhoneVerifyError(null)
     setPhoneVerifySuccess(null)
@@ -386,58 +358,6 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
       setPhoneSending(false)
     }
   }, [phoneOtpCode, profileForm.phone, updateUser])
-
-  // ── Email verification ──────────────────────────────────────────────────
-  const handleSendEmailVerification = useCallback(async () => {
-    const validation = validateEmail(emailValue)
-    if (!validation.valid) {
-      setEmailVerifyError(validation.error ?? 'Email invalide')
-      setEmailVerifySuccess(null)
-      return
-    }
-    setEmailSending(true)
-    setEmailVerifyError(null)
-    setEmailVerifySuccess(null)
-    setEmailOtpSent(false)
-    try {
-      await authFetch('/api/profile/change-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newEmail: emailValue.trim() }),
-      })
-      setEmailOtpSent(true)
-      setEmailVerifySuccess('Code de vérification envoyé à ' + emailValue.trim())
-    } catch (err) {
-      setEmailVerifyError(err instanceof Error ? err.message : "Erreur lors de l'envoi du code")
-    } finally {
-      setEmailSending(false)
-    }
-  }, [emailValue])
-
-  const handleVerifyEmailCode = useCallback(async () => {
-    if (!emailOtpCode.trim() || !emailValue.trim()) return
-    setEmailSending(true)
-    setEmailVerifyError(null)
-    try {
-      const result = await authFetch<{ verified: boolean; email: string }>('/api/profile/change-email/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newEmail: emailValue.trim(), code: emailOtpCode.trim() }),
-      })
-      if (result.verified) {
-        setEmailVerifySuccess('Adresse email vérifiée avec succès !')
-        setEmailOtpSent(false)
-        setEmailOtpCode('')
-        const profileResult = await authFetch<{ user: OwnerProfileData }>('/api/profile')
-        setProfile(profileResult.user)
-        updateUser({ email: profileResult.user.email, isEmailVerified: true })
-      }
-    } catch (err) {
-      setEmailVerifyError(err instanceof Error ? err.message : 'Code invalide ou expiré')
-    } finally {
-      setEmailSending(false)
-    }
-  }, [emailOtpCode, emailValue, updateUser])
 
   // ── Toggle notification preference ──────────────────────────────────────
   const handleToggleNotif = useCallback(async (key: keyof NotificationPreferences, value: boolean) => {
@@ -818,7 +738,7 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
                       <Mail className="size-3" /> Email
-                      {profile?.isEmailVerified && emailValue.trim() === (profile?.email || '').trim() && (
+                      {profile?.isEmailVerified && (
                         <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0 border">
                           <CheckCircle2 className="size-2.5 mr-0.5" /> Vérifié
                         </Badge>
@@ -826,17 +746,9 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
                     </Label>
                     <div className="flex gap-2">
                       <Input
-                        value={emailValue}
-                        onChange={(e) => {
-                          setEmailValue(e.target.value)
-                          setEmailVerifyError(null)
-                          setEmailVerifySuccess(null)
-                          setEmailOtpSent(false)
-                          setEmailOtpCode('')
-                        }}
-                        placeholder="email@exemple.ci"
-                        className="h-9 text-sm flex-1 min-w-0"
-                        disabled={emailSending}
+                        value={profile?.email || user?.email || ''}
+                        disabled
+                        className="h-9 text-sm bg-muted text-muted-foreground flex-1"
                       />
                       <div className="flex items-center gap-2 shrink-0">
                         <Switch
@@ -851,63 +763,10 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
                           )}
                         </span>
                       </div>
-                      {(!profile?.isEmailVerified || emailValue.trim() !== (profile?.email || '').trim()) && emailValue && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-9 text-xs shrink-0 border-brand-200 text-brand-600 hover:bg-brand-50"
-                          onClick={handleSendEmailVerification}
-                          disabled={emailSending}
-                        >
-                          {emailSending ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : emailOtpSent ? (
-                            'Renvoyer'
-                          ) : (
-                            <><CheckCircle2 className="size-3.5 mr-1" /> Vérifier</>
-                          )}
-                        </Button>
-                      )}
                     </div>
                     <p className="text-[10px] text-muted-foreground">
                       {profileForm.showEmail ? 'Visible par les candidats' : 'Masqué pour les candidats'}
                     </p>
-
-                    {emailOtpSent && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex gap-2"
-                      >
-                        <Input
-                          placeholder="Code de vérification"
-                          value={emailOtpCode}
-                          onChange={(e) => setEmailOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                          className="h-9 text-sm text-center tracking-widest"
-                          maxLength={6}
-                          disabled={emailSending}
-                        />
-                        <Button
-                          size="sm"
-                          className="h-9 text-xs shrink-0 bg-brand-500 hover:bg-brand-600 text-white"
-                          onClick={handleVerifyEmailCode}
-                          disabled={emailSending || emailOtpCode.length < 4}
-                        >
-                          {emailSending ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            'Confirmer'
-                          )}
-                        </Button>
-                      </motion.div>
-                    )}
-
-                    {emailVerifyError && (
-                      <p className="text-[10px] text-red-500">{emailVerifyError}</p>
-                    )}
-                    {emailVerifySuccess && (
-                      <p className="text-[10px] text-emerald-600">{emailVerifySuccess}</p>
-                    )}
                   </div>
                 </div>
 

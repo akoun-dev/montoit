@@ -28,7 +28,6 @@ import type { ProfileData, ScoringData, SessionInfo, NotificationPreferences, Se
 import type { RentalFileItem } from '@/components/dashboard/locataire/rental-file'
 import { ScoreCircle, ScoreComponentCard } from './sub-components'
 import { KycVerificationModal } from '@/components/dashboard/locataire/settings/kyc-modal'
-import { validateEmail, validatePhoneCI } from '@/lib/validators'
 
 
 // ── Animations ──────────────────────────────────────────────────────────────
@@ -129,11 +128,8 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
   const oneciSectionRef = useRef<HTMLDivElement>(null)
 
   // Fetch profile & scoring data
-  // Dep sur user?.id (string stable) plutôt que user (nouvelle référence à chaque
-  // checkAuth → réécraserait formState à chaque visibilitychange). Voir AppLifecycleManager.
-  const userId = user?.id
   const fetchProfileAndScoring = useCallback(async () => {
-    if (!userId) return
+    if (!user) return
 
     try {
       const [profileResult, scoringResult, rentalFileResult] = await Promise.allSettled([
@@ -172,7 +168,7 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [user])
 
   useEffect(() => {
     fetchProfileAndScoring()
@@ -434,18 +430,16 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
 
   // Save profile
   const handleSave = async () => {
-    // Bloque l'enregistrement si email ou téléphone a été MODIFIÉ mais pas
-    // (encore) vérifié. L'utilisateur doit cliquer sur "Vérifier" et confirmer
-    // l'OTP — ne pas envoyer d'OTP automatiquement au moment du save.
-    const phoneChanged = formState.phone.trim() !== (profile?.phone || '').trim()
-    const emailChanged = emailValue.trim() !== (profile?.email || '').trim()
-
-    if (emailChanged && emailValue.trim() && !profile?.isEmailVerified) {
-      setError('Vérifiez d\'abord votre nouvelle adresse email avant d\'enregistrer (bouton « Vérifier » à côté du champ).')
+    const phoneFilled = formState.phone.trim().length > 0
+    const emailFilled = emailValue.trim().length > 0
+    if (emailFilled && !profile?.isEmailVerified) {
+      await handleSendEmailVerification()
+      setError('Code de vérification envoyé par email. Confirmez-le pour activer la sauvegarde.')
       return
     }
-    if (phoneChanged && formState.phone.trim() && !profile?.isPhoneVerified) {
-      setError('Vérifiez d\'abord votre nouveau numéro de téléphone avant d\'enregistrer (bouton « Vérifier » à côté du champ).')
+    if (phoneFilled && !profile?.isPhoneVerified) {
+      await handleSendPhoneVerification()
+      setError('Code de vérification envoyé par SMS. Confirmez-le pour activer la sauvegarde.')
       return
     }
 
@@ -555,12 +549,7 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
 
   // ── Email verification handlers ──────────────────────────────────────
   const handleSendEmailVerification = useCallback(async () => {
-    const validation = validateEmail(emailValue)
-    if (!validation.valid) {
-      setEmailVerifyError(validation.error ?? 'Email invalide')
-      setEmailVerifySuccess(null)
-      return
-    }
+    if (!emailValue.trim()) return
 
     setEmailSending(true)
     setEmailVerifyError(null)
@@ -613,12 +602,7 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
 
   // ── Phone verification handlers ──────────────────────────────────────
   const handleSendPhoneVerification = useCallback(async () => {
-    const validation = validatePhoneCI(formState.phone)
-    if (!validation.valid) {
-      setPhoneVerifyError(validation.error ?? 'Numéro invalide')
-      setPhoneVerifySuccess(null)
-      return
-    }
+    if (!formState.phone.trim()) return
 
     setPhoneSending(true)
     setPhoneVerifyError(null)

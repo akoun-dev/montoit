@@ -24,11 +24,7 @@ create table if not exists leases (
   owner_id             text          not null references users(id) on delete cascade,
   rental_file_id       text          not null references rental_files(id) on delete cascade,
   contract_url         text,
-  cryptoneo_operation_id text,
-  renewal_status          text,
-  renewal_requested_at    timestamptz,
-  renewal_notes           text,
-  renewed_lease_id        text references leases(id) on delete set null
+  cryptoneo_operation_id text
 );
 
 create index if not exists idx_leases_property_id on leases (property_id);
@@ -100,20 +96,6 @@ create policy "lease_documents_select_authenticated"
   using (
     bucket_id = 'lease-documents'::text
   );
-
--- Add CHECK constraint for renewal_status values
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'chk_leases_renewal_status'
-  ) then
-    alter table leases
-      add constraint chk_leases_renewal_status
-      check (renewal_status in (null, 'REQUESTED', 'ACCEPTED', 'REJECTED', 'RENEWED'));
-  end if;
-end $$;
-
-alter publication supabase_realtime add table leases;
 
 -- Allow authenticated users to insert lease documents (for server-side uploads)
 create policy "lease_documents_insert_authenticated"
