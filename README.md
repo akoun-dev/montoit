@@ -131,7 +131,9 @@ signed-file/          — Fichier signé
 kyc-face-auth/        — Authentification faciale NeoFace
 oneci-match/          — Correspondance ONECI
 oneci-face-auth/      — Vérification faciale ONECI
-oneci-subscription/   — Abonnement ONECI
+oneci-fingerprint-auth/ — Vérification par empreinte RNPP
+oneci-person/         — Consultation d'une personne RNPP
+oneci-subscription/   — Consultation du solde RNPP
 ```
 
 ## Variables d'environnement
@@ -160,9 +162,9 @@ INTOUCH_PUBLIC_APP_URL=
 CRYPTONEO_API_URL=
 CRYPTONEO_API_KEY=
 
-# ONECI (KYC)
-ONECI_API_KEY=
-ONECI_API_URL=
+# RNPP Connect (KYC)
+RNPP_API_BASE=https://kyc.rnpp-connect.ci/api
+RNPP_API_KEY=
 
 # NeoFace (KYC)
 NEOFACE_API_KEY=

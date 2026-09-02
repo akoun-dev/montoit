@@ -28,7 +28,10 @@ export async function GET(req: NextRequest) {
     })
 
     const data = await res.json()
-    return applyCookies(NextResponse.json(data, { status: res.status }))
+    const response = NextResponse.json(data, { status: res.status })
+    const retryAfter = res.headers.get('Retry-After')
+    if (retryAfter) response.headers.set('Retry-After', retryAfter)
+    return applyCookies(response)
   } catch (error) {
     console.error('[ONECI] Proxy error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
 import { resolveUserFromRequest } from '../_shared/auth.ts'
-import { oneciFaceAuth } from '../_shared/oneci.ts'
+import { RnppApiError, rnppFaceAuth } from '../_shared/oneci.ts'
 
 serve(async (req) => {
   const corsRes = handleCors(req)
@@ -26,15 +26,6 @@ serve(async (req) => {
 
     const supabase = getSupabaseAdminClient()
 
-    const apiKey = Deno.env.get('ONECI_API_KEY')
-    const secretKey = Deno.env.get('ONECI_SECRET_KEY')
-    if (!apiKey || !secretKey) {
-      return new Response(JSON.stringify({ error: 'ONECI API credentials not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     const { data: dbUser } = await supabase
       .from('users')
       .select('id, oneci_verified, nni')
@@ -52,8 +43,15 @@ serve(async (req) => {
       })
     }
 
+    const contentLength = Number(req.headers.get('content-length') || 0)
+    if (contentLength > 2 * 1024 * 1024) {
+      return new Response(JSON.stringify({ message: 'Face payload exceeds the 2 MB limit' }), {
+        status: 413,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
     if (!faceImage || typeof faceImage !== 'string' || faceImage.length < 100) {
-      return new Response(JSON.stringify({ error: 'Valid faceImage base64 string is required (min 100 characters)' }), {
+      return new Response(JSON.stringify({ message: 'A valid faceImage base64 string is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -61,22 +59,29 @@ serve(async (req) => {
 
     let result
     try {
-      result = await oneciFaceAuth({ nni: resolvedNni, faceImage })
+      result = await rnppFaceAuth({ nni: resolvedNni, faceImage })
     } catch (apiErr) {
-      const message = apiErr instanceof Error ? apiErr.message : 'ONECI request failed'
+      if (apiErr instanceof RnppApiError) {
+        const headers: Record<string, string> = { ...corsHeaders, 'Content-Type': 'application/json' }
+        if (apiErr.retryAfter) headers['Retry-After'] = apiErr.retryAfter
+        return new Response(JSON.stringify(apiErr.body || { message: apiErr.message }), { status: apiErr.status, headers })
+      }
+      const message = apiErr instanceof Error ? apiErr.message : 'RNPP request failed'
       if (apiErr instanceof DOMException && apiErr.name === 'AbortError') {
-        return new Response(JSON.stringify({ error: 'ONECI request timed out' }), {
+        return new Response(JSON.stringify({ message: 'RNPP request timed out' }), {
           status: 504,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
-      return new Response(JSON.stringify({ error: message }), {
+      return new Response(JSON.stringify({ message }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    if (result?.authenticated) {
+    const resultCode = result?.Code ?? result?.code
+    const authenticated = result?.authenticated === true || resultCode === 200 || resultCode === '200'
+    if (authenticated) {
       await supabase.from('users').update({
         oneci_verified: true,
         oneci_verified_at: new Date().toISOString(),

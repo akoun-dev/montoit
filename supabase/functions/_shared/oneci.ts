@@ -1,128 +1,80 @@
-const ONECI_API_BASE = Deno.env.get('ONECI_API_BASE') || 'https://api-rnpp.verif.ci'
-const ONECI_API_KEY = Deno.env.get('ONECI_API_KEY') || ''
-const ONECI_SECRET_KEY = Deno.env.get('ONECI_SECRET_KEY') || ''
-const ONECI_TIMEOUT = 15_000
-const TOKEN_TTL_MS = 30 * 60 * 1000
+// RNPP Connect client for Supabase Edge Functions.
 
-interface CachedToken {
-  token: string
-  expiresAt: number
-}
-let cachedToken: CachedToken | null = null
+const RNPP_API_BASE = (Deno.env.get('RNPP_API_BASE') || 'https://kyc.rnpp-connect.ci/api').replace(/\/$/, '')
+const RNPP_API_KEY = Deno.env.get('RNPP_API_KEY') || ''
+const RNPP_TIMEOUT = 30_000
 
-export interface OneciAuthResponse {
-  token?: string
-  data?: { token?: string }
-  [key: string]: unknown
-}
-export interface OneciPersonMatchResponse {
-  match?: boolean
-  score?: number
-  message?: string
-  data?: Record<string, unknown>
-  [key: string]: unknown
-}
-export interface OneciSubscriptionResponse {
-  remainingRequests?: number
-  totalRequests?: number
-  usedRequests?: number
-  data?: { remainingRequests?: number; totalRequests?: number; usedRequests?: number }
-  [key: string]: unknown
-}
-export interface OneciFaceAuthResponse {
-  authenticated?: boolean
-  score?: number
-  message?: string
-  data?: Record<string, unknown>
-  [key: string]: unknown
+export class RnppApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: Record<string, unknown> | null,
+    readonly retryAfter: string | null,
+  ) {
+    super(String(body?.message || body?.error || `RNPP Connect request failed (${status})`))
+    this.name = 'RnppApiError'
+  }
 }
 
-async function fetchWithTimeout(url: string, options: RequestInit, timeout = ONECI_TIMEOUT): Promise<Response> {
-  const controller = new AbortController()
-  const id = setTimeout(() => controller.abort(), timeout)
+export interface RnppMatchResponse { [key: string]: unknown; match?: boolean; score?: number; message?: string; Code?: number | string; code?: number | string }
+export interface RnppBiometricResponse { [key: string]: unknown; authenticated?: boolean; score?: number; message?: string; Code?: number | string; code?: number | string }
+export interface RnppBalanceResponse { apiAvailable: number; sandboxAvailable: number }
+
+function parseBody(text: string): Record<string, unknown> | null {
+  if (!text) return null
   try {
-    return await fetch(url, { ...options, signal: controller.signal })
-  } finally {
-    clearTimeout(id)
+    const parsed = JSON.parse(text)
+    return parsed && typeof parsed === 'object' ? parsed : { message: text }
+  } catch {
+    return { message: text }
   }
 }
 
-export async function getOneciToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
-    return cachedToken.token
-  }
-  if (!ONECI_API_KEY || !ONECI_SECRET_KEY) {
-    throw new Error('ONECI API credentials not configured')
-  }
-  const res = await fetchWithTimeout(`${ONECI_API_BASE}/api/v1/authenticate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ apiKey: ONECI_API_KEY, secretKey: ONECI_SECRET_KEY }),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`ONECI auth failed (${res.status}): ${text}`)
-  }
-  const data: OneciAuthResponse = await res.json()
-  const token = data?.bearerToken || data?.token || data?.data?.token
-  if (!token) throw new Error(`ONECI auth returned no token: ${JSON.stringify(data)}`)
-  cachedToken = { token, expiresAt: Date.now() + TOKEN_TTL_MS }
-  return token
+async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), RNPP_TIMEOUT)
+  try { return await fetch(url, { ...options, signal: controller.signal }) }
+  finally { clearTimeout(timeoutId) }
 }
 
-export function clearOneciToken(): void {
-  cachedToken = null
-}
-
-export async function oneciFetch(path: string, options: RequestInit = {}, retry = true): Promise<Response> {
-  const token = await getOneciToken()
-  const res = await fetchWithTimeout(`${ONECI_API_BASE}${path}`, {
-    ...options,
-    headers: { Authorization: `Bearer ${token}`, ...options.headers },
-  })
-  if (res.status === 401 && retry) {
-    clearOneciToken()
-    return oneciFetch(path, options, false)
+export async function rnppFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  if (!RNPP_API_KEY) throw new RnppApiError(503, { message: 'RNPP API key is not configured' }, null)
+  const headers = new Headers(options.headers)
+  headers.set('X-Api-Key', RNPP_API_KEY)
+  const response = await fetchWithTimeout(`${RNPP_API_BASE}${path}`, { ...options, headers })
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new RnppApiError(response.status, parseBody(text), response.headers.get('Retry-After'))
   }
-  return res
+  return response
 }
 
-export async function oneciPersonMatch(params: {
-  nni: string; firstName: string; lastName: string; birthDate: string; gender: string
-}): Promise<OneciPersonMatchResponse> {
+export async function rnppPerson(nni: string): Promise<Record<string, unknown>> {
+  return (await rnppFetch(`/rnpp/persons/${encodeURIComponent(nni)}`)).json()
+}
+
+export async function rnppPersonMatch(params: { nni: string; firstName: string; lastName: string; birthDate: string; gender: string }): Promise<RnppMatchResponse> {
   const formData = new FormData()
   formData.append('FIRST_NAME', params.firstName)
   formData.append('LAST_NAME', params.lastName)
   formData.append('BIRTH_DATE', params.birthDate)
   formData.append('GENDER', params.gender)
-  const res = await oneciFetch(`/api/v1/oneci/persons/${params.nni}/match`, {
-    method: 'POST', body: formData,
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`ONECI person match failed (${res.status}): ${text}`)
-  }
-  return res.json()
+  return (await rnppFetch(`/rnpp/persons/${encodeURIComponent(params.nni)}/match`, { method: 'POST', body: formData })).json()
 }
 
-export async function oneciFaceAuth(params: { nni: string; faceImage: string }): Promise<OneciFaceAuthResponse> {
-  const res = await oneciFetch('/api/v1/oneci/face-auth', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+export async function rnppFaceAuth(params: { nni: string; faceImage: string }): Promise<RnppBiometricResponse> {
+  return (await rnppFetch('/rnpp/face-auth', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ NNI: params.nni, BIOMETRIC_TYPE: 'AUTH_FACE', BIOMETRIC_DATA: params.faceImage }),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`ONECI face auth failed (${res.status}): ${text}`)
-  }
-  return res.json()
+  })).json()
 }
 
-export async function oneciCheckSubscription(): Promise<OneciSubscriptionResponse> {
-  const res = await oneciFetch('/api/v1/subscription/remaining-requests', { method: 'GET' })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`ONECI subscription check failed (${res.status}): ${text}`)
-  }
-  return res.json()
+export async function rnppFingerprintAuth(params: { nni: string; fingerprintData: string }): Promise<RnppBiometricResponse> {
+  return (await rnppFetch('/rnpp/fingerprint-auth', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ NNI: params.nni, BIOMETRIC_TYPE: 'AUTH_FINGERPRINT', BIOMETRIC_DATA: params.fingerprintData }),
+  })).json()
+}
+
+export async function rnppBalance(): Promise<RnppBalanceResponse> {
+  return (await rnppFetch('/billing/balance')).json()
 }
