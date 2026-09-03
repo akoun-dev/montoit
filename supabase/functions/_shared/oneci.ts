@@ -40,7 +40,15 @@ export async function rnppFetch(path: string, options: RequestInit = {}): Promis
   if (!RNPP_API_KEY) throw new RnppApiError(503, { message: 'RNPP API key is not configured' }, null)
   const headers = new Headers(options.headers)
   headers.set('X-Api-Key', RNPP_API_KEY)
-  const response = await fetchWithTimeout(`${RNPP_API_BASE}${path}`, { ...options, headers })
+  let response: Response
+  try {
+    response = await fetchWithTimeout(`${RNPP_API_BASE}${path}`, { ...options, headers })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new RnppApiError(504, { message: 'RNPP Connect request timed out' }, null)
+    }
+    throw new RnppApiError(503, { message: 'RNPP Connect is unreachable' }, null)
+  }
   if (!response.ok) {
     const text = await response.text().catch(() => '')
     throw new RnppApiError(response.status, parseBody(text), response.headers.get('Retry-After'))

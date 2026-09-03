@@ -2,13 +2,13 @@
  * ANSUT Messaging Service
  * Handles SMS and Email sending via the ANSUT API (Côte d'Ivoire)
  * 
- * SMS:  POST {{baseUrl}}/api/SendSMS
- * Email: POST {{baseUrl}}/api/message/send (channel: "Email")
+ * SMS:  POST {{baseUrl}}/SendSMS
+ * Email: POST {{baseUrl}}/message/send (channel: "Email")
  */
 
 // ─── Configuration ──────────────────────────────────────────────────────────────
 
-const ANSUT_BASE_URL = process.env.ANSUT_API_BASE_URL || ''
+const ANSUT_BASE_URL = (process.env.ANSUT_API_BASE_URL || '').trim().replace(/\/+$/, '')
 const ANSUT_USERNAME = process.env.ANSUT_API_USERNAME || ''
 const ANSUT_PASSWORD = process.env.ANSUT_API_PASSWORD || ''
 const ANSUT_SMS_SENDER = process.env.ANSUT_SMS_SENDER || 'ANSUT'
@@ -104,7 +104,7 @@ export function generateOtpCode(length: number = 6): string {
 
 /**
  * Send an SMS via the ANSUT API
- * POST {{baseUrl}}/api/SendSMS
+ * POST {{baseUrl}}/SendSMS
  */
 export async function sendSms(params: SendSmsParams): Promise<MessagingResult> {
   const { to, text, dlrUrl } = params
@@ -154,7 +154,7 @@ export async function sendSms(params: SendSmsParams): Promise<MessagingResult> {
 
 /**
  * Send an Email via the ANSUT API
- * POST {{baseUrl}}/api/message/send (channel: "Email")
+ * POST {{baseUrl}}/message/send (channel: "Email")
  */
 export async function sendEmail(params: SendEmailParams): Promise<MessagingResult> {
   const { to, subject, content, cc, bcc, isHtml = true } = params

@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch } from '@/lib/auth-fetch'
+import { normalizePhone } from '@/lib/ansut-messaging'
 import { motion, AnimatePresence } from 'framer-motion'
 import { OwnerSecurity } from './security'
 import { ScoreCircle, ScoreComponentCard } from '@/components/dashboard/locataire/settings/sub-components'
@@ -129,6 +130,15 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
   const [phoneOtpCode, setPhoneOtpCode] = useState('')
   const [phoneVerifyError, setPhoneVerifyError] = useState<string | null>(null)
   const [phoneVerifySuccess, setPhoneVerifySuccess] = useState<string | null>(null)
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null)
+
+  const phoneChanged = normalizePhone(profileForm.phone) !== normalizePhone(profile?.phone || '')
+  const phoneVerifiedForCurrentValue = Boolean(
+    profileForm.phone.trim() && (
+      normalizePhone(profileForm.phone) === normalizePhone(verifiedPhone || '') ||
+      (profile?.isPhoneVerified && normalizePhone(profileForm.phone) === normalizePhone(profile.phone || ''))
+    ),
+  )
 
   const fetchScoring = useCallback(async () => {
     try {
@@ -284,7 +294,7 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
 
   // ── Save profile ────────────────────────────────────────────────────────
   const handleSaveProfile = useCallback(async () => {
-    if (profileForm.phone.trim() && !profile?.isPhoneVerified) {
+    if (profileForm.phone.trim() && phoneChanged && !phoneVerifiedForCurrentValue) {
       handleSendPhoneVerification()
       toast.info('Code de vérification envoyé par SMS. Confirmez-le pour activer la sauvegarde.')
       return
@@ -310,7 +320,7 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
     } finally {
       setProfileSaving(false)
     }
-  }, [profileForm, updateUser, profile])
+  }, [profileForm, updateUser, profile, verifiedPhone])
 
   // ── Phone verification ──────────────────────────────────────────────────
   const handleSendPhoneVerification = useCallback(async () => {
@@ -348,6 +358,7 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
         setPhoneVerifySuccess('Numéro de téléphone vérifié avec succès !')
         setPhoneOtpSent(false)
         setPhoneOtpCode('')
+        setVerifiedPhone(result.phone)
         const profileResult = await authFetch<{ user: OwnerProfileData }>('/api/profile')
         setProfile(profileResult.user)
         updateUser({ phone: profileResult.user.phone, isPhoneVerified: true })
@@ -677,7 +688,7 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
                           )}
                         </span>
                       </div>
-                      {!profile?.isPhoneVerified && profileForm.phone && (
+                      {!phoneVerifiedForCurrentValue && profileForm.phone && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -697,7 +708,7 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
                       {profileForm.showPhone ? 'Visible par les candidats' : 'Masqué pour les candidats'}
                     </p>
 
-                    {phoneOtpSent && !profile?.isPhoneVerified && (
+                    {phoneOtpSent && !phoneVerifiedForCurrentValue && (
                       <motion.div
                         initial={{ opacity: 0, y: -5 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -882,15 +893,15 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
                       id="owner-nni"
                       value={(profile as any)?.nni || ''}
                       onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 11)
+                        const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 20)
                         setProfile((prev) => prev ? { ...prev, nni: val } : prev)
                       }}
                       placeholder="Numéro National d'Identification"
                       className="h-9 text-sm"
                       disabled={oneciVerifying}
-                      maxLength={11}
+                      maxLength={20}
                     />
-                    <p className="text-[10px] text-muted-foreground">10 à 11 chiffres — requis pour la vérification ONECI</p>
+                    <p className="text-[10px] text-muted-foreground">Saisissez le NNI exactement comme indiqué sur votre document</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="owner-birthDate" className="text-xs font-medium text-foreground flex items-center gap-1.5">

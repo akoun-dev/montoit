@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const nni = String(body.nni || user.nni || '').trim()
     const birthDate = String(body.birthDate || user.birth_date || '').slice(0, 10)
-    const gender = String(user.gender || '').toUpperCase()
+    const genderMap: Record<string, string> = { M: 'M', F: 'F', HOMME: 'M', FEMME: 'F' }
+    const gender = genderMap[String(user.gender || '').toUpperCase()]
     if (!nni) return NextResponse.json({ message: 'Le NNI est requis' }, { status: 400 })
     if (!user.first_name || !user.last_name) return NextResponse.json({ message: 'Votre nom et prénom doivent être renseignés dans votre profil' }, { status: 400 })
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return NextResponse.json({ message: 'La date de naissance doit être au format YYYY-MM-DD' }, { status: 400 })
@@ -40,7 +41,6 @@ export async function POST(req: NextRequest) {
         oneci_verified_at: new Date().toISOString(),
         nni,
         birth_date: birthDate,
-        gender,
       }).eq('id', userId)
     }
 

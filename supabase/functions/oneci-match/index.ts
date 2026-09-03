@@ -38,7 +38,14 @@ serve(async (req) => {
     const resolvedFirstName = firstName || dbUser?.first_name
     const resolvedLastName = lastName || dbUser?.last_name
     const resolvedGender = gender || dbUser?.gender
-    const resolvedBirthDate = birthDate || dbUser?.birth_date
+    const resolvedBirthDate = String(birthDate || dbUser?.birth_date || '').slice(0, 10)
+    const genderMap: Record<string, string> = {
+      M: 'M',
+      F: 'F',
+      HOMME: 'M',
+      FEMME: 'F',
+    }
+    const rnppGender = genderMap[String(resolvedGender || '').toUpperCase()]
 
     if (!resolvedNni) {
       return new Response(JSON.stringify({ error: 'NNI is required' }), {
@@ -58,7 +65,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    if (!resolvedGender || !['M', 'F'].includes(resolvedGender.toUpperCase())) {
+    if (!rnppGender) {
       return new Response(JSON.stringify({ error: 'Gender must be "M" or "F"' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -78,7 +85,7 @@ serve(async (req) => {
         firstName: resolvedFirstName,
         lastName: resolvedLastName,
         birthDate: resolvedBirthDate,
-        gender: resolvedGender.toUpperCase(),
+         gender: rnppGender,
       })
     } catch (apiErr) {
       if (apiErr instanceof RnppApiError) {
@@ -104,7 +111,6 @@ serve(async (req) => {
         oneci_verified: true,
         oneci_verified_at: new Date().toISOString(),
         nni: resolvedNni,
-        gender: resolvedGender.toUpperCase(),
         birth_date: resolvedBirthDate,
       }).eq('id', userId)
 

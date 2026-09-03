@@ -21,6 +21,7 @@ import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
+import { normalizePhone } from '@/lib/ansut-messaging'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { CITIES } from '@/lib/cities'
@@ -94,6 +95,15 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
   const [phoneOtpCode, setPhoneOtpCode] = useState('')
   const [phoneVerifyError, setPhoneVerifyError] = useState<string | null>(null)
   const [phoneVerifySuccess, setPhoneVerifySuccess] = useState<string | null>(null)
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null)
+
+  const phoneChanged = normalizePhone(formState.phone) !== normalizePhone(profile?.phone || '')
+  const phoneVerifiedForCurrentValue = Boolean(
+    formState.phone.trim() && (
+      normalizePhone(formState.phone) === normalizePhone(verifiedPhone || '') ||
+      (profile?.isPhoneVerified && normalizePhone(formState.phone) === normalizePhone(profile.phone || ''))
+    ),
+  )
 
   // ONECI verification state
   const [oneciVerifying, setOneciVerifying] = useState(false)
@@ -437,7 +447,7 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
       setError('Code de vérification envoyé par email. Confirmez-le pour activer la sauvegarde.')
       return
     }
-    if (phoneFilled && !profile?.isPhoneVerified) {
+    if (phoneFilled && phoneChanged && !phoneVerifiedForCurrentValue) {
       await handleSendPhoneVerification()
       setError('Code de vérification envoyé par SMS. Confirmez-le pour activer la sauvegarde.')
       return
@@ -642,6 +652,7 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
         setPhoneVerifySuccess('Numéro de téléphone vérifié avec succès !')
         setPhoneOtpSent(false)
         setPhoneOtpCode('')
+        setVerifiedPhone(result.phone)
         const profileResult = await authFetch<{ user: ProfileData }>('/api/profile')
         setProfile(profileResult.user)
         updateUser({ phone: profileResult.user.phone, isPhoneVerified: true })
@@ -1138,7 +1149,7 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
                         placeholder="07 00 00 00 00"
                         className="h-9 text-sm flex-1"
                       />
-                      {!profile?.isPhoneVerified && formState.phone && (
+                      {!phoneVerifiedForCurrentValue && formState.phone && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -1155,7 +1166,7 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
                       )}
                     </div>
 
-                    {phoneOtpSent && !profile?.isPhoneVerified && (
+                    {phoneOtpSent && !phoneVerifiedForCurrentValue && (
                       <motion.div
                         initial={{ opacity: 0, y: -5 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1397,15 +1408,15 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
                       id="nni-scoring"
                       value={formState.nni}
                       onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 11)
+                         const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 20)
                         setFormState((prev) => ({ ...prev, nni: val }))
                       }}
                       placeholder="Numéro National d'Identification"
                       className="h-9 text-sm"
                       disabled={oneciVerifying}
-                      maxLength={11}
+                       maxLength={20}
                     />
-                    <p className="text-[10px] text-muted-foreground">10 à 11 chiffres — requis pour la vérification ONECI</p>
+                     <p className="text-[10px] text-muted-foreground">Saisissez le NNI exactement comme indiqué sur votre document</p>
                   </div>
                   {/* Birth Date */}
                   <div className="space-y-1.5">

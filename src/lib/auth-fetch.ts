@@ -141,7 +141,15 @@ export async function authFetch<T = Record<string, unknown>>(
 
   // ─── 5xx Server Error → don't logout, just throw ────────────────────────
   if (res.status >= 500) {
-    throw new AuthError(res.status, 'Erreur serveur. Veuillez réessayer.')
+    let message = `Erreur serveur (${res.status}). Veuillez réessayer.`
+    try {
+      const data = await res.json() as { message?: unknown; error?: unknown }
+      if (typeof data.message === 'string' && data.message.trim()) message = data.message
+      else if (typeof data.error === 'string' && data.error.trim()) message = data.error
+    } catch {
+      // Keep the status-based fallback when the server response is not JSON.
+    }
+    throw new AuthError(res.status, message)
   }
 
   // ─── 401 Unauthorized → try to re-validate session once ─────────────────
@@ -169,8 +177,16 @@ export async function authFetch<T = Record<string, unknown>>(
             await logout()
             throw new AuthError(401, 'Session expirée. Veuillez vous reconnecter.')
           }
-          // Other error on retry
-          throw new AuthError(retryRes.status, `Erreur ${retryRes.status}`)
+          // Preserve the upstream error details on a retry failure.
+          let message = `Erreur ${retryRes.status}`
+          try {
+            const data = await retryRes.json() as { message?: unknown; error?: unknown }
+            if (typeof data.message === 'string' && data.message.trim()) message = data.message
+            else if (typeof data.error === 'string' && data.error.trim()) message = data.error
+          } catch {
+            // Keep the status-based fallback when the response is not JSON.
+          }
+          throw new AuthError(retryRes.status, message)
         }
       } catch (e) {
         if (e instanceof AuthError) throw e
