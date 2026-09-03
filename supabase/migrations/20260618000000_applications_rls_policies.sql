@@ -7,7 +7,7 @@
 -- Allow a tenant to select their own applications
 create policy applications_select_own
   on applications for select
-  using (tenant_id = auth.uid());
+  using (tenant_id = (select auth.uid()::text));
 
 -- Allow TC/ADMIN to select all applications
 create policy applications_select_tc_admin
@@ -15,7 +15,7 @@ create policy applications_select_tc_admin
   using (
     exists (
       select 1 from users
-      where users.id = auth.uid()
+      where users.id = (select auth.uid()::text)
       and (users.role = 'TIERS_CONFIANCE' or users.role = 'ADMIN')
     )
   );
@@ -23,12 +23,12 @@ create policy applications_select_tc_admin
 -- Allow a tenant to insert their own applications
 create policy applications_insert_own
   on applications for insert
-  with check (tenant_id = auth.uid());
+  with check (tenant_id = (select auth.uid()::text));
 
 -- Allow a tenant to update their own applications
 create policy applications_update_own
   on applications for update
-  using (tenant_id = auth.uid());
+  using (tenant_id = (select auth.uid()::text));
 
 -- Allow TC/ADMIN to update any application
 create policy applications_update_tc_admin
@@ -36,7 +36,7 @@ create policy applications_update_tc_admin
   using (
     exists (
       select 1 from users
-      where users.id = auth.uid()
+      where users.id = (select auth.uid()::text)
       and (users.role = 'TIERS_CONFIANCE' or users.role = 'ADMIN')
     )
   );

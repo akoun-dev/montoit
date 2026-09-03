@@ -149,4 +149,16 @@ exception when others then
 end;
 $$;
 
-alter publication supabase_realtime add table search_alerts;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'search_alerts'
+  ) then
+    alter publication supabase_realtime add table public.search_alerts;
+  end if;
+end
+$$;
