@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { resolveUserFromRequest } from '../_shared/auth.ts'
+import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
 import { RnppApiError, rnppBalance } from '../_shared/oneci.ts'
 
 serve(async (req) => {
@@ -19,6 +20,19 @@ serve(async (req) => {
     if (!userId) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const supabase = getSupabaseAdminClient()
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+    if ((profile?.active_role || profile?.role) !== 'ADMIN') {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }

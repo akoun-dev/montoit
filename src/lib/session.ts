@@ -1,4 +1,7 @@
 import crypto from 'crypto'
+import { SESSION_COOKIE_NAME } from './session-constants'
+
+export { SESSION_COOKIE_NAME } from './session-constants'
 
 const SESSION_DURATION_DAYS = 30
 
@@ -34,7 +37,6 @@ export async function deleteSession(
   await (supabase.from('sessions') as any).delete().eq('token', token).catch(() => {})
 }
 
-export const SESSION_COOKIE_NAME = 'montoit-session'
 export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',

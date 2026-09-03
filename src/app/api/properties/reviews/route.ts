@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
     const { data: ratings } = await admin
       .from('ratings')
-      .select('*')
+      .select('id, from_user_id, score, comment, created_at')
       .in('lease_id', leaseIds)
       .order('created_at', { ascending: false })
 

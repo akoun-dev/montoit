@@ -9,16 +9,21 @@ function generateId() {
 
 /** Expire les fichiers VALIDATED dont la validité est dépassée */
 async function expireOverdueFiles(admin: ReturnType<typeof getSupabaseAdminClient>) {
-  const now = new Date().toISOString()
-  const { data: overdue } = await admin
-    .from('rental_files')
-    .select('id')
-    .eq('status', 'VALIDATED')
-    .lt('valid_until', now)
-  if (!overdue || overdue.length === 0) return
-  const ids = overdue.map(r => r.id)
-  await admin.from('rental_files').update({ status: 'EXPIRED' } as any).in('id', ids)
-  await admin.from('applications' as any).update({ status: 'EXPIRED' } as any).in('rental_file_id', ids)
+  try {
+    const now = new Date().toISOString()
+    const { data: overdue } = await admin
+      .from('rental_files')
+      .select('id')
+      .eq('status', 'VALIDATED')
+      .lt('valid_until', now)
+    if (!overdue || overdue.length === 0) return
+    const ids = overdue.map(r => r.id)
+    await admin.from('rental_files').update({ status: 'EXPIRED' } as any).in('id', ids)
+    await admin.from('applications' as any).update({ status: 'EXPIRED' } as any).in('rental_file_id', ids)
+  } catch (error) {
+    // Expiration is maintenance work and must not block a user operation.
+    console.error('Rental file expiration error:', error)
+  }
 }
 
 /** Synchronise le statut des candidatures liées à un dossier locatif */

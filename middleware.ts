@@ -2,8 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { getUserRole } from '@/lib/supabase/middleware'
 import type { Database } from '@/lib/supabase/types'
+import { SESSION_COOKIE_NAME } from '@/lib/session-constants'
 
-const PUBLIC_ROUTE_PREFIXES = ['/api/auth/']
+const PUBLIC_ROUTE_PREFIXES = ['/api/auth/', '/api/properties/reviews']
 
 const ROLE_ROUTES: Array<{ roles: string[]; prefixes: string[] }> = [
   { roles: ['LOCATAIRE'], prefixes: ['/api/dashboard/locataire', '/api/locataire/'] },
@@ -87,7 +88,9 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     const { pathname } = request.nextUrl
 
-    if (isProtectedApiRoute(pathname) && !user) {
+    // Custom SMS sessions are resolved by route handlers. Only redirect when
+    // neither Supabase Auth nor the custom session cookie is present.
+    if (isProtectedApiRoute(pathname) && !user && !request.cookies.has(SESSION_COOKIE_NAME)) {
       const loginUrl = new URL('/', request.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)

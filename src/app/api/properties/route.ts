@@ -16,6 +16,16 @@ function generateId() {
 const VALID_PROPERTY_TYPES = ['APPARTEMENT', 'MAISON', 'STUDIO', 'DUPLEX', 'PENTHOUSE', 'VILLA'] as const
 const MAX_IMAGES = 10
 const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024
+const MAX_LIST_LIMIT = 100
+const MAX_ALL_RESULTS = 1000
+
+function sanitizeSearchTerm(value: string): string {
+  return value
+    .replace(/[\\,()]/g, ' ')
+    .replace(/[*%_]/g, ' ')
+    .trim()
+    .slice(0, 100)
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,7 +45,10 @@ export async function GET(req: NextRequest) {
     const pending = searchParams.get('pending')
     const mine = searchParams.get('mine')
 
-    const limit = limitParam ? parseInt(limitParam) : 12
+    const requestedLimit = limitParam ? Number.parseInt(limitParam, 10) : 12
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), MAX_LIST_LIMIT)
+      : 12
     const page = pageParam ? Math.max(1, parseInt(pageParam)) : 1
     const offset = (page - 1) * limit
 
@@ -56,10 +69,10 @@ export async function GET(req: NextRequest) {
         const admin = getSupabaseAdminClient()
         const { data: user } = await admin
           .from('users')
-          .select('role')
+          .select('role, active_role')
           .eq('id', auth.userId)
           .single()
-        if (user?.role === 'TIERS_CONFIANCE') {
+        if ((user?.active_role || user?.role) === 'TIERS_CONFIANCE') {
           isTCRequestingPending = true
         }
       }
@@ -108,12 +121,13 @@ export async function GET(req: NextRequest) {
       dataQuery = dataQuery.ilike('commune', `%${commune}%`)
     }
 
-    if (search) {
+    const safeSearch = search ? sanitizeSearchTerm(search) : ''
+    if (safeSearch) {
       countQuery = countQuery.or(
-        `title.ilike.%${search}%,address.ilike.%${search}%,commune.ilike.%${search}%`
+        `title.ilike.%${safeSearch}%,address.ilike.%${safeSearch}%,commune.ilike.%${safeSearch}%`
       )
       dataQuery = dataQuery.or(
-        `title.ilike.%${search}%,address.ilike.%${search}%,commune.ilike.%${search}%`
+        `title.ilike.%${safeSearch}%,address.ilike.%${safeSearch}%,commune.ilike.%${safeSearch}%`
       )
     }
 
@@ -159,10 +173,9 @@ export async function GET(req: NextRequest) {
       dataQuery = dataQuery.order('created_at', { ascending: false })
     }
 
-    // Pagination — pour "all=true" (Nos biens public), on retourne tout
-    // car le client fait son propre filtrage/tri/pagination
+    // Keep the legacy `all` client behavior while enforcing a hard server cap.
     if (all === 'true') {
-      // pas de limite serveur
+      dataQuery = dataQuery.limit(MAX_ALL_RESULTS)
     } else {
       dataQuery = dataQuery.limit(limit)
     }
@@ -477,7 +490,7 @@ async function enrichProperties(admin: ReturnType<typeof getSupabaseAdminClient>
 
   const { data: owners } = await admin
     .from('users')
-    .select('id, first_name, last_name, email, phone, created_at')
+    .select('id, first_name, last_name, email, phone, created_at, show_email, show_phone')
     .in('id', ownerIds)
 
   const imgMap = groupBy(allImages ?? [], 'property_id')
@@ -488,7 +501,7 @@ async function enrichProperties(admin: ReturnType<typeof getSupabaseAdminClient>
     const firstImage = images.length > 0 ? images[0] : null
     const owner = ownerMap.get(p.owner_id)
 
-    const mapped = mapProperty(p, images, owner)
+    const mapped = mapProperty(p, images, owner, isPublicPropertyResponse(p))
     return {
       ...mapped,
       image: firstImage ? firstImage.url : null,
@@ -496,7 +509,11 @@ async function enrichProperties(admin: ReturnType<typeof getSupabaseAdminClient>
   })
 }
 
-function mapProperty(p: any, images: any[], owner: any) {
+function isPublicPropertyResponse(property: any): boolean {
+  return property.status === 'ACTIVE'
+}
+
+function mapProperty(p: any, images: any[], owner: any, publicResponse = false) {
   let rentalTermsParsed: Record<string, unknown> = {}
   try {
     rentalTermsParsed = JSON.parse(p.rental_terms || '{}')
@@ -551,8 +568,8 @@ function mapProperty(p: any, images: any[], owner: any) {
       id: owner.id,
       firstName: owner.first_name,
       lastName: owner.last_name,
-      email: owner.email,
-      phone: owner.phone,
+      email: publicResponse && owner.show_email ? owner.email : undefined,
+      phone: publicResponse && owner.show_phone ? owner.phone : undefined,
       createdAt: owner.created_at,
     } : undefined,
   }

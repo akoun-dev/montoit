@@ -15,6 +15,12 @@ export const BUCKETS = {
 
 export type BucketName = (typeof BUCKETS)[keyof typeof BUCKETS]
 
+const PUBLIC_BUCKETS = new Set<BucketName>([
+  BUCKETS.AVATARS,
+  BUCKETS.PROPERTY_IMAGES,
+  BUCKETS.PROPERTY_VIDEOS,
+])
+
 export async function ensureBucketExists(bucket: BucketName): Promise<void> {
   const supabase = getSupabaseAdminClient()
   const { data: buckets, error: listError } = await supabase.storage.listBuckets()
@@ -29,7 +35,9 @@ export async function ensureBucketExists(bucket: BucketName): Promise<void> {
 
   console.log('[ensureBucketExists] creating bucket:', bucket)
   const { error } = await supabase.storage.createBucket(bucket, {
-    public: true,
+    // User documents must never become public merely because a bucket was
+    // created lazily. Public access is limited to catalogue media.
+    public: PUBLIC_BUCKETS.has(bucket),
     fileSizeLimit: 52428800,
     allowedMimeTypes: [
       'image/jpeg', 'image/png', 'image/webp', 'image/gif',
@@ -52,10 +60,7 @@ export async function uploadFromBase64(
   base64Data: string,
   filePath: string
 ): Promise<string> {
-  console.log('[uploadFromBase64] start:', bucket, filePath, 'base64 length:', base64Data.length)
-
   const base64Payload = base64Data.split(',')[1] || base64Data
-  console.log('[uploadFromBase64] payload length after split:', base64Payload.length)
 
   let binaryStr: string
   try {
@@ -68,10 +73,7 @@ export async function uploadFromBase64(
   for (let i = 0; i < binaryStr.length; i++) {
     bytes[i] = binaryStr.charCodeAt(i)
   }
-  console.log('[uploadFromBase64] decoded bytes:', bytes.length)
-
   await ensureBucketExists(bucket)
-  console.log('[uploadFromBase64] bucket ensured')
 
   const { error } = await getSupabaseAdminClient()
     .storage
@@ -87,7 +89,6 @@ export async function uploadFromBase64(
   }
 
   const url = getPublicUrl(bucket, filePath)
-  console.log('[uploadFromBase64] success:', url)
   return url
 }
 

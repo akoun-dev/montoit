@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(req: NextRequest) {
   try {
     const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
+
+    const admin = getSupabaseAdminClient()
+    const { data: profile } = await admin
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+    if ((profile?.active_role || profile?.role) !== 'ADMIN') {
+      return applyCookies(NextResponse.json({ error: 'Accès réservé aux administrateurs' }, { status: 403 }))
     }
 
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/oneci-subscription`

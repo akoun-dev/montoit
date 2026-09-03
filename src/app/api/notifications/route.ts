@@ -87,11 +87,11 @@ export async function POST(req: NextRequest) {
     const admin = getSupabaseAdminClient()
     const { data: profile } = await admin
       .from('users')
-      .select('role')
+      .select('role, active_role')
       .eq('id', userId)
       .single()
 
-    const effectiveRole = profile?.role
+    const effectiveRole = profile?.active_role || profile?.role
 
     const body = await req.json()
     const { userId: targetUserId, type, title, message, entityId, actionUrl } = body as {

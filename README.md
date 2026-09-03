@@ -174,10 +174,10 @@ NEOFACE_API_URL=
 ## Installation
 
 ```bash
-pnpm install
+npm ci
 cp .env.local.example .env.local
 # Configurer les variables d'environnement
-pnpm dev
+npm run dev
 ```
 
 ## Déploiement Edge Functions
