@@ -440,7 +440,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
   }
 
   // ── Save Draft ─────────────────────────────────────────────────────────────
-  const handleSaveDraft = async (silent = false) => {
+  async function handleSaveDraft(silent = false) {
     if (!silent) setSavingDraft(true)
     setError(null)
     try {

@@ -293,6 +293,27 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
   }, [activeTab, user])
 
   // ── Save profile ────────────────────────────────────────────────────────
+  async function handleSendPhoneVerification() {
+    if (!profileForm.phone.trim()) return
+    setPhoneSending(true)
+    setPhoneVerifyError(null)
+    setPhoneVerifySuccess(null)
+    setPhoneOtpSent(false)
+    try {
+      await authFetch('/api/profile/change-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPhone: profileForm.phone.trim() }),
+      })
+      setPhoneOtpSent(true)
+      setPhoneVerifySuccess('Code de vérification envoyé par SMS au ' + profileForm.phone.trim())
+    } catch (err) {
+      setPhoneVerifyError(err instanceof Error ? err.message : "Erreur lors de l'envoi du code")
+    } finally {
+      setPhoneSending(false)
+    }
+  }
+
   const handleSaveProfile = useCallback(async () => {
     if (profileForm.phone.trim() && phoneChanged && !phoneVerifiedForCurrentValue) {
       handleSendPhoneVerification()
@@ -323,27 +344,6 @@ export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: stri
   }, [profileForm, updateUser, profile, verifiedPhone])
 
   // ── Phone verification ──────────────────────────────────────────────────
-  const handleSendPhoneVerification = useCallback(async () => {
-    if (!profileForm.phone.trim()) return
-    setPhoneSending(true)
-    setPhoneVerifyError(null)
-    setPhoneVerifySuccess(null)
-    setPhoneOtpSent(false)
-    try {
-      await authFetch('/api/profile/change-phone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newPhone: profileForm.phone.trim() }),
-      })
-      setPhoneOtpSent(true)
-      setPhoneVerifySuccess('Code de vérification envoyé par SMS au ' + profileForm.phone.trim())
-    } catch (err) {
-      setPhoneVerifyError(err instanceof Error ? err.message : "Erreur lors de l'envoi du code")
-    } finally {
-      setPhoneSending(false)
-    }
-  }, [profileForm.phone])
-
   const handleVerifyPhoneCode = useCallback(async () => {
     if (!phoneOtpCode.trim() || !profileForm.phone.trim()) return
     setPhoneSending(true)

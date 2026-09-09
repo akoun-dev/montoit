@@ -25,15 +25,15 @@ const CELLULAR_GENERATION_LABELS: Record<string, string> = {
   '5g': '5G',
 }
 
-function getConnectionIcon(type: string) {
+function ConnectionIcon({ type }: { type: string }) {
   switch (type) {
     case 'cellular':
-      return Smartphone
+      return <Smartphone className="size-3 shrink-0" />
     case 'wifi':
     case 'ethernet':
-      return Wifi
+      return <Wifi className="size-3 shrink-0" />
     default:
-      return WifiOff
+      return <WifiOff className="size-3 shrink-0" />
   }
 }
 
@@ -125,16 +125,13 @@ export function OfflineBanner() {
 
   const isOffline = visible && !isConnected
 
-  const ConnectionIcon = getConnectionIcon(connectionType)
-
   // Build connection label: "Réseau mobile 4G" / "Wi-Fi" / etc.
   const connectionLabel =
     connectionType === 'cellular' && cellularGeneration
       ? `Réseau mobile ${cellularGeneration}`
       : CONNECTION_LABELS[connectionType] ?? connectionType
 
-  const offlineDuration =
-    offlineSinceRef.current ? formatDuration(elapsedSeconds) : null
+  const offlineDuration = isOffline ? formatDuration(elapsedSeconds) : null
 
   return (
     <AnimatePresence>
@@ -174,7 +171,7 @@ export function OfflineBanner() {
                 </p>
                 <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300/80 flex-wrap">
                   <span className="flex items-center gap-1">
-                    <ConnectionIcon className="size-3 shrink-0" />
+                    <ConnectionIcon type={connectionType} />
                     <span className="truncate max-w-[160px] sm:max-w-none">
                       {connectionLabel}
                     </span>

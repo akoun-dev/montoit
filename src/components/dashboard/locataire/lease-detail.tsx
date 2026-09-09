@@ -254,6 +254,11 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
     }
   }
 
+  const resetSignState = useCallback(() => {
+    setSignatureDataUrl(null)
+    setSigning(false)
+  }, [])
+
   // Step 1: User confirmed handwritten signature → sign directly (no CRYPTONEO for tenant)
   const handleSignatureConfirm = useCallback((dataUrl: string) => {
     setSignatureDataUrl(dataUrl)
@@ -283,11 +288,6 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
     setShowSignDialog(false)
     resetSignState()
   }, [])
-
-  const resetSignState = () => {
-    setSignatureDataUrl(null)
-    setSigning(false)
-  }
 
   const closeSignDialog = (open: boolean) => {
     setShowSignDialog(open)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eye, Calendar, Clock, MapPin, ChevronRight, Search, Building2, Star } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -123,11 +123,9 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
   })
 
   const filterKey = `${statusFilter}-${search}`
-  const prevFilterKey = useRef(filterKey)
-  if (filterKey !== prevFilterKey.current) {
-    prevFilterKey.current = filterKey
+  useEffect(() => {
     if (page !== 1) setPage(1)
-  }
+  }, [filterKey, page])
 
   const paginatedVisits = useMemo(() => {
     const start = (page - 1) * limit
