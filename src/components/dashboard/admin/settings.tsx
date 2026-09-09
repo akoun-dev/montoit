@@ -191,7 +191,7 @@ export function AdminSettings() {
                   <Input
                     type="number"
                     value={security.otpExpiryMinutes}
-                    onChange={(e) => setSecurity({ ...security, otpExpiryMinutes: parseInt(e.target.value) || 5 })}
+                    onChange={(e) => setSecurity({ ...security, otpExpiryMinutes: Math.max(1, parseInt(e.target.value.replace(/-/g, '')) || 5) })}
                     className="w-20 h-9 text-sm"
                     min={1}
                     max={60}
@@ -312,7 +312,7 @@ export function AdminSettings() {
                   <Input
                     type="number"
                     value={sla.tcValidationHours}
-                    onChange={(e) => setSla({ ...sla, tcValidationHours: parseInt(e.target.value) || 48 })}
+                    onChange={(e) => setSla({ ...sla, tcValidationHours: Math.max(1, parseInt(e.target.value.replace(/-/g, '')) || 48) })}
                     className="w-32 h-9 text-sm"
                     min={1}
                     max={720}
@@ -324,7 +324,7 @@ export function AdminSettings() {
                   <Input
                     type="number"
                     value={sla.ownerResponseHours}
-                    onChange={(e) => setSla({ ...sla, ownerResponseHours: parseInt(e.target.value) || 24 })}
+                    onChange={(e) => setSla({ ...sla, ownerResponseHours: Math.max(1, parseInt(e.target.value.replace(/-/g, '')) || 24) })}
                     className="w-32 h-9 text-sm"
                     min={1}
                     max={720}
@@ -336,7 +336,7 @@ export function AdminSettings() {
                   <Input
                     type="number"
                     value={sla.signalementHours}
-                    onChange={(e) => setSla({ ...sla, signalementHours: parseInt(e.target.value) || 72 })}
+                    onChange={(e) => setSla({ ...sla, signalementHours: Math.max(1, parseInt(e.target.value.replace(/-/g, '')) || 72) })}
                     className="w-32 h-9 text-sm"
                     min={1}
                     max={720}
@@ -370,7 +370,7 @@ export function AdminSettings() {
                   <Input
                     type="number"
                     value={sla.autoValidationThreshold}
-                    onChange={(e) => setSla({ ...sla, autoValidationThreshold: parseInt(e.target.value) || 70 })}
+                    onChange={(e) => setSla({ ...sla, autoValidationThreshold: Math.max(0, parseInt(e.target.value.replace(/-/g, '')) || 70) })}
                     className="w-20 h-9 text-sm"
                     min={0}
                     max={100}

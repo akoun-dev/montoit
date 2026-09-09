@@ -105,6 +105,8 @@ export interface PropertyDetail {
   updatedAt: string
   ownerId: string
   images: Array<{ id: string; url: string; order: number }>
+  documents: Array<{ id: string; name: string; type: string; url: string; description: string | null; expiryDate: string | null }>
+  similarProperties: Array<{ id: string; title: string; type: string; price: number; area: number; city: string; commune: string | null; rentalStatus: string; image: string | null }>
   owner: {
     id: string
     firstName: string
@@ -471,7 +473,7 @@ function PropertyDetailSkeleton() {
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export function PropertyDetailView({ propertyId }: { propertyId: string }) {
-  const { setView, isAuthenticated, user, previousView } = useAuthStore()
+  const { setView, setSelectedPropertyId, isAuthenticated, user, previousView } = useAuthStore()
   const { isFavorite: checkIsFavorite, toggleFavorite: apiToggleFavorite, checkSingle } = useFavorites([propertyId])
   const [currentImage, setCurrentImage] = useState(0)
   const [showVideo, setShowVideo] = useState(false)
@@ -614,6 +616,23 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
     return () => { cancelled = true }
   }, [propertyId])
 
+  // Keep the action in sync with the server after navigation or a page refresh.
+  useEffect(() => {
+    if (!isAuthenticated || !propertyId) return
+    setApplySubmitted(false)
+    let cancelled = false
+    authFetch<{ data?: Array<{ propertyId?: string; linkedProperty?: { id: string } | null }> }>('/api/applications')
+      .then((result) => {
+        if (!cancelled) {
+          setApplySubmitted((result.data ?? []).some((application) =>
+            application.propertyId === propertyId || application.linkedProperty?.id === propertyId,
+          ))
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [isAuthenticated, propertyId])
+
   // Check favorite status on mount
   useEffect(() => {
     if (propertyId && isAuthenticated) {
@@ -729,6 +748,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
 
   // Apply for property
   const handleApply = () => {
+    if (applySubmitted) return
     requireAuth('soumettre votre candidature', () => setApplyDialogOpen(true))
   }
 
@@ -1124,7 +1144,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
           </div>
 
           {/* États des Lieux — Mobile version */}
-          {!inventoryLoading && inventoryReports.length > 0 && (
+           {!inventoryLoading && inventoryReports.length > 0 && (
             <div className="lg:hidden mt-6 pb-[72px]">
               <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
@@ -1180,9 +1200,46 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                 </div>
               </div>
             </div>
-          )}
+           )}
 
-          {/* ── Right Sidebar (1/3) ─────────────────────────────────────── */}
+           <div className="mt-6 space-y-6 pb-6">
+             <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
+               <div className="flex items-center justify-between mb-3">
+                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><FileText className="size-4 text-brand-500" /> Documents du bien</h3>
+                 <span className="text-xs text-muted-foreground">{property.documents.length}</span>
+               </div>
+               {property.documents.length === 0 ? (
+                 <p className="text-sm text-muted-foreground">Aucun document disponible pour ce bien.</p>
+               ) : (
+                 <div className="space-y-2">
+                   {property.documents.map((document) => (
+                     <a key={document.id} href={document.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-muted transition-colors">
+                       <FileText className="size-4 text-brand-500 shrink-0" />
+                       <span className="text-sm font-medium flex-1 truncate">{document.name}</span>
+                       <span className="text-xs text-brand-600">Voir</span>
+                     </a>
+                   ))}
+                 </div>
+               )}
+             </div>
+             <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
+               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3"><Building2 className="size-4 text-brand-500" /> Biens similaires</h3>
+               {property.similarProperties.length === 0 ? (
+                 <p className="text-sm text-muted-foreground">Aucun bien similaire disponible pour le moment.</p>
+               ) : (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                   {property.similarProperties.map((similar) => (
+                     <button key={similar.id} type="button" onClick={() => { setSelectedPropertyId(similar.id); setView('property-detail') }} className="flex items-center gap-3 text-left rounded-lg border border-border p-2 hover:bg-muted transition-colors">
+                       <div className="size-14 rounded-md overflow-hidden bg-muted shrink-0">{similar.image ? <img src={similar.image} alt="" className="size-full object-cover" /> : <Building2 className="size-6 m-4 text-muted-foreground" />}</div>
+                       <div className="min-w-0"><p className="text-sm font-medium truncate">{similar.title}</p><p className="text-xs text-muted-foreground truncate">{similar.city} · {similar.area} m²</p><p className="text-xs font-semibold text-brand-600">{similar.price.toLocaleString('fr-FR')} FCFA/mois</p></div>
+                     </button>
+                   ))}
+                 </div>
+               )}
+             </div>
+           </div>
+
+           {/* ── Right Sidebar (1/3) ─────────────────────────────────────── */}
           <motion.aside
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -1239,13 +1296,14 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                       <Phone className="size-4 mr-1.5" />
                       Contacter le propriétaire
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 h-10 text-sm font-semibold"
-                      onClick={handleApply}
-                    >
-                      <FileText className="size-4 mr-1.5" />
-                      Soumettre ma candidature
+                   <Button
+                       variant="outline"
+                       className="w-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 h-10 text-sm font-semibold"
+                       onClick={handleApply}
+                       disabled={applySubmitted}
+                     >
+                       {applySubmitted ? <CheckCircle2 className="size-4 mr-1.5" /> : <FileText className="size-4 mr-1.5" />}
+                       {applySubmitted ? 'Candidature soumise' : 'Soumettre ma candidature'}
                     </Button>
                   </>
                 )}
@@ -1354,9 +1412,10 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                   variant="outline"
                   className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 h-11 px-3 text-sm"
                   onClick={handleApply}
+                  disabled={applySubmitted}
                 >
-                  <FileText className="size-4 sm:mr-1.5" />
-                  <span className="hidden sm:inline">Candidature</span>
+                  {applySubmitted ? <CheckCircle2 className="size-4 sm:mr-1.5" /> : <FileText className="size-4 sm:mr-1.5" />}
+                  <span className="hidden sm:inline">{applySubmitted ? 'Candidature soumise' : 'Candidature'}</span>
                 </Button>
               </>
             )}
@@ -2371,7 +2430,6 @@ function ApplyDialog({
   const { setView, setDashboardSection } = useAuthStore()
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [dossierIncomplete, setDossierIncomplete] = useState(false)
   const submittingRef = useRef(false)
 
   const handleSubmit = async () => {
@@ -2390,17 +2448,6 @@ function ApplyDialog({
       if (res.error) {
         throw new Error(res.error)
       }
-      // Vérifier le statut du dossier locataire
-      try {
-        const rentalRes = await authFetch<{ data?: Array<{ status: string }> }>('/api/rental-file')
-        const rentalFile = Array.isArray(rentalRes?.data) ? rentalRes.data[0] : null
-        const status = rentalFile?.status
-        if (!status || status === 'DRAFT' || status !== 'VALIDATED') {
-          setDossierIncomplete(true)
-        }
-      } catch {
-        setDossierIncomplete(true)
-      }
       setSubmitted(true)
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Erreur lors de la soumission')
@@ -2412,17 +2459,12 @@ function ApplyDialog({
 
   const handleCompleteDossier = () => {
     onOpenChange(false)
-    setSubmitted(false)
     setView('dashboard')
     setDashboardSection('rental-file')
   }
 
   const handleClose = () => {
     onOpenChange(false)
-    if (submitted) {
-      setSubmitted(false)
-      setDossierIncomplete(false)
-    }
   }
 
   return (
@@ -2446,33 +2488,13 @@ function ApplyDialog({
               Vous serez notifié de la suite donnée à votre demande.
             </p>
 
-            {dossierIncomplete && (
-              <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-left">
-                <p className="text-xs font-semibold text-amber-800 mb-1">
-                  ⚠️ Dossier locataire incomplet
-                </p>
-                <p className="text-xs text-amber-700">
-                  Votre candidature ne sera pas prise en compte tant que vous n&apos;avez pas soumis votre dossier locataire avec les documents requis.
-                </p>
-                <Button
-                  className="mt-3 w-full h-9 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
-                  onClick={handleCompleteDossier}
-                >
-                  <FileText className="size-3.5" />
-                  Compléter mon dossier
-                </Button>
-              </div>
-            )}
-
             <div className="flex gap-2 mt-4">
-              {!dossierIncomplete && (
-                <Button
-                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white"
-                  onClick={handleClose}
-                >
-                  Fermer
-                </Button>
-              )}
+              <Button
+                   className="flex-1 bg-brand-500 hover:bg-brand-600 text-white"
+                   onClick={handleClose}
+                 >
+                   Fermer
+              </Button>
             </div>
           </div>
         ) : (

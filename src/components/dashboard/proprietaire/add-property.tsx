@@ -720,15 +720,15 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
                 <div className="space-y-1.5 sm:col-span-1">
                   <Label htmlFor="area" className="text-xs font-medium">Surface (m²) <span className="text-red-400">*</span></Label>
-                  <Input id="area" type="number" placeholder="85" value={form.area} onChange={(e) => update('area', e.target.value)} className="h-9 text-sm" />
+                  <Input id="area" type="number" min="0" placeholder="85" value={form.area} onChange={(e) => update('area', e.target.value.replace(/-/g, ''))} className="h-9 text-sm" />
                 </div>
                 <div className="space-y-1.5 sm:col-span-1">
                   <Label htmlFor="bedrooms" className="text-xs font-medium">Pièces</Label>
-                  <Input id="bedrooms" type="number" placeholder="2" value={form.bedrooms} onChange={(e) => update('bedrooms', e.target.value)} className="h-9 text-sm" />
+                  <Input id="bedrooms" type="number" min="0" placeholder="2" value={form.bedrooms} onChange={(e) => update('bedrooms', e.target.value.replace(/-/g, ''))} className="h-9 text-sm" />
                 </div>
                 <div className="space-y-1.5 col-span-2 sm:col-span-1">
                   <Label htmlFor="bathrooms" className="text-xs font-medium">Salle de Bain</Label>
-                  <Input id="bathrooms" type="number" placeholder="1" value={form.bathrooms} onChange={(e) => update('bathrooms', e.target.value)} className="h-9 text-sm" />
+                  <Input id="bathrooms" type="number" min="0" placeholder="1" value={form.bathrooms} onChange={(e) => update('bathrooms', e.target.value.replace(/-/g, ''))} className="h-9 text-sm" />
                 </div>
               </div>
             </CardContent>
@@ -752,7 +752,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Loyer mensuel <span className="text-red-500">*</span></Label>
                 <div className="relative">
-                  <input value={form.price} onChange={(e) => update('price', e.target.value)} placeholder="500 000" inputMode="numeric" className="w-full h-11 px-3 pr-14 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" />
+                  <input value={form.price} onChange={(e) => { const v = e.target.value.replace(/-/g, ''); if (v === '' || parseFloat(v) >= 0) update('price', v) }} placeholder="500 000" inputMode="numeric" className="w-full h-11 px-3 pr-14 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">FCFA/mois</span>
                 </div>
               </div>

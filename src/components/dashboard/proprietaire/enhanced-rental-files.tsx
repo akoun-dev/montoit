@@ -62,6 +62,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ContactDialog } from '@/components/messaging/contact-dialog'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface TenantInfo {
@@ -718,15 +719,16 @@ export function EnhancedRentalFiles() {
                               <span className="hidden lg:inline">Supprimer le bail</span>
                             </Button>
                           )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 gap-1 text-muted-foreground hover:text-foreground"
-                            onClick={() => setDashboardSection('messages')}
-                          >
-                            <MessageSquare className="size-3.5" />
-                            <span className="hidden lg:inline">Contacter</span>
-                          </Button>
+                            <ContactDialog
+                              defaultRecipientId={rf.tenant.id}
+                              propertyId={rf.leases[0]?.property?.id}
+                             trigger={
+                               <Button size="sm" variant="ghost" className="h-8 gap-1 text-muted-foreground hover:text-foreground">
+                                 <MessageSquare className="size-3.5" />
+                                 <span className="hidden lg:inline">Contacter</span>
+                               </Button>
+                             }
+                           />
                         </div>
                       </div>
                     </div>
@@ -770,7 +772,7 @@ export function EnhancedRentalFiles() {
                 step="1000"
                 placeholder="150000"
                 value={leaseTerms.monthlyRent}
-                onChange={(e) => setLeaseTerms(prev => ({ ...prev, monthlyRent: e.target.value }))}
+                onChange={(e) => { const v = e.target.value.replace(/-/g, ''); if (v === '' || parseFloat(v) >= 0) setLeaseTerms(prev => ({ ...prev, monthlyRent: v })) }}
                 className={termsErrors.monthlyRent ? 'border-red-500' : ''}
               />
               {termsErrors.monthlyRent && (
@@ -789,7 +791,7 @@ export function EnhancedRentalFiles() {
                   step="1000"
                   placeholder="25000"
                   value={leaseTerms.charges}
-                  onChange={(e) => setLeaseTerms(prev => ({ ...prev, charges: e.target.value }))}
+                  onChange={(e) => { const v = e.target.value.replace(/-/g, ''); if (v === '' || parseFloat(v) >= 0) setLeaseTerms(prev => ({ ...prev, charges: v })) }}
                 />
               </div>
               <div className="space-y-2">
@@ -801,7 +803,7 @@ export function EnhancedRentalFiles() {
                   step="10000"
                   placeholder="150000"
                   value={leaseTerms.deposit}
-                  onChange={(e) => setLeaseTerms(prev => ({ ...prev, deposit: e.target.value }))}
+                  onChange={(e) => { const v = e.target.value.replace(/-/g, ''); if (v === '' || parseFloat(v) >= 0) setLeaseTerms(prev => ({ ...prev, deposit: v })) }}
                 />
               </div>
             </div>

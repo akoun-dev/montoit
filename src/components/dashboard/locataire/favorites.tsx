@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Heart, MapPin, Building2, Eye, ArrowRight } from 'lucide-react'
+import { Heart, MapPin, Building2, Eye, ArrowRight, Search, Trash2, BellOff, Bell } from 'lucide-react'
 import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +38,17 @@ interface FavoritesResponse {
   favorites?: FavoriteProperty[]
 }
 
+interface SavedSearch {
+  id: string
+  name: string
+  city: string | null
+  property_type: string | null
+  min_price: number | null
+  max_price: number | null
+  search_query?: string | null
+  is_active: boolean
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.08 } },
@@ -48,12 +59,13 @@ const itemVariants = {
 }
 
 export function Favorites() {
-  const { user, isAuthenticated, setView, setSelectedPropertyId } = useAuthStore()
+  const { user, isAuthenticated, setView, setSelectedPropertyId, setDashboardSection } = useAuthStore()
   const [favorites, setFavorites] = useState<FavoriteProperty[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const limit = 12
   const [error, setError] = useState<string | null>(null)
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
 
   const fetchFavorites = useCallback(async () => {
     if (!isAuthenticated) {
@@ -79,6 +91,29 @@ export function Favorites() {
   useEffect(() => {
     fetchFavorites()
   }, [fetchFavorites])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    authFetch<{ data: SavedSearch[] }>('/api/search-alerts').then((result) => setSavedSearches(result.data ?? [])).catch(() => {})
+  }, [isAuthenticated])
+
+  const updateSavedSearch = async (search: SavedSearch) => {
+    try {
+      await authFetch(`/api/search-alerts/${search.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !search.is_active }),
+      })
+      setSavedSearches((previous) => previous.map((item) => item.id === search.id ? { ...item, is_active: !item.is_active } : item))
+    } catch (err) { setError(err instanceof Error ? err.message : 'Impossible de modifier la recherche') }
+  }
+
+  const deleteSavedSearch = async (id: string) => {
+    try {
+      await authFetch(`/api/search-alerts/${id}`, { method: 'DELETE' })
+      setSavedSearches((previous) => previous.filter((item) => item.id !== id))
+    } catch (err) { setError(err instanceof Error ? err.message : 'Impossible de supprimer la recherche') }
+  }
 
   const paginatedFavorites = useMemo(() => {
     const start = (page - 1) * limit
@@ -161,6 +196,37 @@ export function Favorites() {
             </Badge>
           </div>
         )}
+      </motion.div>
+
+      <motion.div variants={itemVariants}>
+        <Card className="border-border">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <Search className="size-4 text-brand-500" />
+                <h2 className="font-semibold text-foreground">Recherches enregistrées</h2>
+              </div>
+              <Badge variant="secondary">{savedSearches.length}</Badge>
+            </div>
+            {savedSearches.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune recherche sauvegardée. Enregistrez vos critères depuis la recherche de biens.</p>
+            ) : (
+              <div className="space-y-2">
+                {savedSearches.map((search) => (
+                  <div key={search.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{search.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{[search.city, search.property_type, search.min_price != null ? `min ${search.min_price.toLocaleString('fr-FR')}` : null, search.max_price != null ? `max ${search.max_price.toLocaleString('fr-FR')}` : null].filter(Boolean).join(' · ') || 'Tous les critères'}</p>
+                    </div>
+                     <Button variant="outline" size="sm" onClick={() => { sessionStorage.setItem('montoit-search-criteria', JSON.stringify({ search: search.search_query || '', city: search.city || '', propertyType: search.property_type || 'ALL', minPrice: search.min_price == null ? '' : String(search.min_price), maxPrice: search.max_price == null ? '' : String(search.max_price) })); setDashboardSection('search-properties') }}>Restaurer</Button>
+                     <Button variant="ghost" size="icon" onClick={() => updateSavedSearch(search)} title={search.is_active ? 'Désactiver' : 'Activer'}>{search.is_active ? <Bell className="size-4 text-brand-500" /> : <BellOff className="size-4 text-muted-foreground" />}</Button>
+                    <Button variant="ghost" size="icon" onClick={() => deleteSavedSearch(search.id)} title="Supprimer"><Trash2 className="size-4 text-red-500" /></Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </motion.div>
 
       {favorites.length === 0 ? (

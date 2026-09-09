@@ -504,7 +504,7 @@ export function AgenceSettings() {
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">Taux de commission</label>
                     <Input type="number" step="0.5" value={commission.rate}
-                      onChange={(e) => setCommission({ ...commission, rate: e.target.value })}
+                      onChange={(e) => { const v = e.target.value.replace(/-/g, ''); if (v === '' || parseFloat(v) >= 0) setCommission({ ...commission, rate: v }) }}
                       className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1.5">

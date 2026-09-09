@@ -58,6 +58,7 @@ interface ApplicationItem {
     type: string
     name: string
     status: string
+    url: string
     createdAt: string
   }>
 }
@@ -71,17 +72,6 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   ACCEPTED: { label: 'Accepté', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200', icon: AlertCircle },
   EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
-}
-
-const docTypeLabels: Record<string, string> = {
-  ID_CARD: 'Carte d\'identité',
-  PASSPORT: 'Passeport',
-  PAY_SLIP: 'Bulletin de salaire',
-  EMPLOYMENT_CONTRACT: 'Contrat de travail',
-  BANK_STATEMENT: 'Relevé bancaire',
-  GUARANTOR_ID: 'Pièce garant',
-  PROOF_OF_ADDRESS: 'Justificatif de domicile',
-  OTHER: 'Autre',
 }
 
 const docStatusConfig: Record<string, { label: string; color: string }> = {
@@ -177,7 +167,6 @@ export function ApplicationDetail({  applicationId, onBack
   const config = statusConfig[application.status] || statusConfig.DRAFT
   const StatusIcon = config.icon
   const property = application.linkedProperty
-  const dp = application.documentProgress
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
@@ -381,52 +370,34 @@ export function ApplicationDetail({  applicationId, onBack
         </Card>
       )}
 
-      {/* Documents */}
-      {application.documents.length > 0 && (
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <FileText className="size-4" /> Documents
-              </CardTitle>
-              {dp.total > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {dp.validated}/{dp.total} validé{dp.validated > 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {dp.total > 0 && (
-              <div className="mb-4 h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all"
-                  style={{ width: `${(dp.validated / dp.total) * 100}%` }}
-                />
-              </div>
-            )}
+      {/* Submitted rental file, always visible in read-only mode */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="size-4 text-brand-500" /> Dossier locatif soumis
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">Consultation en lecture seule après soumission.</p>
+        </CardHeader>
+        <CardContent>
+          {application.documents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune pièce disponible pour cette candidature.</p>
+          ) : (
             <div className="space-y-2">
               {application.documents.map((doc) => {
                 const docStatus = docStatusConfig[doc.status] || docStatusConfig.PENDING
                 return (
-                  <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg bg-muted">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <FileText className="size-4 text-muted-foreground shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{doc.name || docTypeLabels[doc.type] || doc.type}</p>
-                        <p className="text-xs text-muted-foreground">{docTypeLabels[doc.type] || doc.type}</p>
-                      </div>
-                    </div>
-                    <Badge className={`shrink-0 text-[10px] ${docStatus.color}`}>
-                      {docStatus.label}
-                    </Badge>
+                  <div key={doc.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                    <FileText className="size-4 text-brand-500 shrink-0" />
+                    <span className="text-sm font-medium flex-1 truncate">{doc.name}</span>
+                    <Badge variant="outline" className={docStatus.color}>{docStatus.label}</Badge>
+                    {doc.url && <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline">Consulter</a>}
                   </div>
                 )
               })}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* Rejection reason */}
       {application.rejectionReason && (

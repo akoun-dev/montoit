@@ -329,9 +329,10 @@ function FilterSidebar({
           <div className="relative flex-1">
             <Input
               type="number"
+              min="0"
               placeholder="Min"
               value={priceMin}
-              onChange={(e) => setPriceMin(e.target.value)}
+              onChange={(e) => setPriceMin(e.target.value.replace(/-/g, ''))}
               className="h-9 bg-card border-border text-xs rounded-md pr-8"
             />
             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">Min</span>
@@ -340,9 +341,10 @@ function FilterSidebar({
           <div className="relative flex-1">
             <Input
               type="number"
+              min="0"
               placeholder="Max"
               value={priceMax}
-              onChange={(e) => setPriceMax(e.target.value)}
+              onChange={(e) => setPriceMax(e.target.value.replace(/-/g, ''))}
               className="h-9 bg-card border-border text-xs rounded-md pr-8"
             />
             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">Max</span>
@@ -357,9 +359,10 @@ function FilterSidebar({
           <div className="relative flex-1">
             <Input
               type="number"
+              min="0"
               placeholder="Min"
               value={surfaceMin}
-              onChange={(e) => setSurfaceMin(e.target.value)}
+              onChange={(e) => setSurfaceMin(e.target.value.replace(/-/g, ''))}
               className="h-9 text-xs pl-2.5 pr-7 rounded-md border-border bg-card [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">Min</span>
@@ -367,9 +370,10 @@ function FilterSidebar({
           <div className="relative flex-1">
             <Input
               type="number"
+              min="0"
               placeholder="Max"
               value={surfaceMax}
-              onChange={(e) => setSurfaceMax(e.target.value)}
+              onChange={(e) => setSurfaceMax(e.target.value.replace(/-/g, ''))}
               className="h-9 text-xs pl-2.5 pr-7 rounded-md border-border bg-card [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">Max</span>

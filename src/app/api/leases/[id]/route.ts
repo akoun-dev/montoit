@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import crypto from 'crypto'
 import { notify, notifyLeaseActivated, notifyNewLease } from '@/lib/notify'
+import { validateNonNegativeNumber } from '@/lib/validators'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -173,7 +174,12 @@ export async function DELETE(
       return applyCookies(resp)
     }
 
-    await supabase.from('leases').delete().eq('id', id)
+    const { error: deleteError } = await supabase.from('leases').delete().eq('id', id)
+    if (deleteError) {
+      console.error('Lease DELETE database error:', deleteError)
+      const resp = NextResponse.json({ error: 'Impossible de supprimer le bail' }, { status: 500 })
+      return applyCookies(resp)
+    }
 
     const resp = NextResponse.json({ success: true })
     return applyCookies(resp)
@@ -411,9 +417,15 @@ export async function PATCH(
       }
 
       const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
-      if (body.monthlyRent !== undefined) updateData.monthly_rent = parseFloat(body.monthlyRent)
-      if (body.charges !== undefined) updateData.charges = parseFloat(body.charges)
-      if (body.deposit !== undefined) updateData.deposit = parseFloat(body.deposit)
+      for (const [value, label] of [[body.monthlyRent, 'Le loyer'], [body.charges, 'Les charges'], [body.deposit, 'Le dépôt']] as const) {
+        if (value !== undefined && value !== null && value !== '') {
+          const result = validateNonNegativeNumber(value, label)
+          if (!result.valid) return applyCookies(NextResponse.json({ error: result.error }, { status: 400 }))
+        }
+      }
+      if (body.monthlyRent !== undefined) updateData.monthly_rent = Number(String(body.monthlyRent).replace(',', '.'))
+      if (body.charges !== undefined) updateData.charges = Number(String(body.charges).replace(',', '.'))
+      if (body.deposit !== undefined) updateData.deposit = Number(String(body.deposit).replace(',', '.'))
       if (body.startDate !== undefined) updateData.start_date = new Date(body.startDate).toISOString()
       if (body.endDate !== undefined) updateData.end_date = new Date(body.endDate).toISOString()
       if (body.specialConditions !== undefined) updateData.special_conditions = body.specialConditions

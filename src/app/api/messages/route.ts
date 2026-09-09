@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { canMessageParticipant } from '@/lib/messaging-authorization'
 import { notify } from '@/lib/notify'
 import { uploadAttachments, getAttachmentsForMessages, type AttachmentInput, type AttachmentOutput } from '@/lib/message-attachments'
 
@@ -185,6 +186,10 @@ export async function POST(req: NextRequest) {
 
       if (!recipient) {
         return NextResponse.json({ error: 'Destinataire introuvable' }, { status: 404 })
+      }
+
+      if (!(await canMessageParticipant(admin, userId, recipientId, propertyId))) {
+        return NextResponse.json({ error: 'Ce contact n’est pas autorisé dans ce contexte.' }, { status: 403 })
       }
 
       const { data: existingConvs } = await admin

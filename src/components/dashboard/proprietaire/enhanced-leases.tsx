@@ -1111,8 +1111,9 @@ export function EnhancedLeases() {
                           <Input
                             id="monthlyRent"
                             type="number"
+                            min="0"
                             value={leaseForm.monthlyRent}
-                            onChange={(e) => setLeaseForm((p) => ({ ...p, monthlyRent: e.target.value }))}
+                            onChange={(e) => setLeaseForm((p) => ({ ...p, monthlyRent: e.target.value.replace(/-/g, '') }))}
                             placeholder="150000"
                           />
                         </div>
@@ -1121,8 +1122,9 @@ export function EnhancedLeases() {
                           <Input
                             id="charges"
                             type="number"
+                            min="0"
                             value={leaseForm.charges}
-                            onChange={(e) => setLeaseForm((p) => ({ ...p, charges: e.target.value }))}
+                            onChange={(e) => setLeaseForm((p) => ({ ...p, charges: e.target.value.replace(/-/g, '') }))}
                             placeholder="25000"
                           />
                         </div>
@@ -1131,8 +1133,9 @@ export function EnhancedLeases() {
                           <Input
                             id="deposit"
                             type="number"
+                            min="0"
                             value={leaseForm.deposit}
-                            onChange={(e) => setLeaseForm((p) => ({ ...p, deposit: e.target.value }))}
+                            onChange={(e) => setLeaseForm((p) => ({ ...p, deposit: e.target.value.replace(/-/g, '') }))}
                             placeholder="300000"
                           />
                         </div>
@@ -1869,18 +1872,20 @@ export function EnhancedLeases() {
                 <Label htmlFor="modRent">Loyer mensuel (FCFA)</Label>
                 <Input
                   id="modRent"
-                  type="number"
+                            type="number"
+                            min="0"
                   value={modifyForm.monthlyRent}
-                  onChange={(e) => setModifyForm((p) => ({ ...p, monthlyRent: e.target.value }))}
+                            onChange={(e) => setModifyForm((p) => ({ ...p, monthlyRent: e.target.value.replace(/-/g, '') }))}
                 />
               </div>
               <div>
                 <Label htmlFor="modCharges">Charges (FCFA)</Label>
                 <Input
                   id="modCharges"
-                  type="number"
+                            type="number"
+                            min="0"
                   value={modifyForm.charges}
-                  onChange={(e) => setModifyForm((p) => ({ ...p, charges: e.target.value }))}
+                            onChange={(e) => setModifyForm((p) => ({ ...p, charges: e.target.value.replace(/-/g, '') }))}
                 />
               </div>
             </div>
@@ -1889,8 +1894,9 @@ export function EnhancedLeases() {
               <Input
                 id="modDeposit"
                 type="number"
+                min="0"
                 value={modifyForm.deposit}
-                onChange={(e) => setModifyForm((p) => ({ ...p, deposit: e.target.value }))}
+                onChange={(e) => setModifyForm((p) => ({ ...p, deposit: e.target.value.replace(/-/g, '') }))}
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2022,8 +2028,9 @@ export function EnhancedLeases() {
               <Label className="text-xs font-medium text-foreground">Nouveau loyer mensuel (optionnel)</Label>
               <Input
                 type="number"
+                min="0"
                 value={renewMonthlyRent}
-                onChange={(e) => setRenewMonthlyRent(e.target.value)}
+                onChange={(e) => setRenewMonthlyRent(e.target.value.replace(/-/g, ''))}
                 placeholder={renewLease ? String(renewLease.monthlyRent) : ''}
               />
               {renewLease && (

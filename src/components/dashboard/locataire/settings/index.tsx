@@ -45,7 +45,7 @@ const itemVariants = {
 // ── Main Settings Component ─────────────────────────────────────────────────
 
 export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: string; onTabConsumed?: () => void }) {
-  const { user, setDashboardSection, updateUser, switchRole } = useAuthStore()
+  const { user, setDashboardSection, updateUser, switchRole, logout } = useAuthStore()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [scoring, setScoring] = useState<ScoringData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -124,6 +124,8 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const [revokingSessions, setRevokingSessions] = useState(false)
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   // Notification preferences state
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences | null>(null)
@@ -288,6 +290,23 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
       setRevokingSessions(false)
     }
   }, [])
+
+  const handleDeleteAccount = useCallback(async () => {
+    setDeletingAccount(true)
+    try {
+      await authFetch('/api/user/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      })
+      setDeleteAccountOpen(false)
+      await logout()
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Impossible de supprimer le compte')
+    } finally {
+      setDeletingAccount(false)
+    }
+  }, [logout])
 
   // Toggle notification preference
   const handleToggleNotif = useCallback(async (key: keyof NotificationPreferences, value: boolean) => {
@@ -791,6 +810,21 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
                 </button>
               )}
             </div>
+          </CardContent>
+
+          {/* ── Rental file shortcut ──────────── */}
+          <CardContent className="pt-0">
+            <button
+              onClick={() => {
+                const effectiveRole = user?.activeRole || user?.role
+                setDashboardSection(effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE' ? 'owner-file' : 'rental-file')
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-brand-200 bg-brand-50 hover:bg-brand-100 text-brand-700 text-sm font-semibold transition-all"
+            >
+              <FileCheck className="size-4" />
+              {scoring?.breakdown.roleSpecific.hasFile ? 'Consulter mon dossier locatif' : 'Créer mon dossier locatif'}
+              <ArrowRight className="size-4 ml-0.5 opacity-70" />
+            </button>
           </CardContent>
 
           {/* ── Role Switch Button at bottom of profile card ──────────── */}
@@ -1313,6 +1347,14 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
               </CardContent>
             </Card>
 
+            <Card className="border-red-200 bg-red-50/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold text-red-700 flex items-center gap-2"><Trash2 className="size-4" /> Supprimer mon compte</CardTitle>
+                <CardDescription>Votre accès sera désactivé et vos données personnelles seront anonymisées. Les éléments nécessaires à l’historique légal des baux seront conservés.</CardDescription>
+              </CardHeader>
+              <CardContent><Button variant="destructive" onClick={() => setDeleteAccountOpen(true)}>Demander la suppression</Button></CardContent>
+            </Card>
+
           </motion.div>
         )}
 
@@ -1380,6 +1422,8 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
                   const effectiveRole = user?.activeRole || user?.role
                   setDashboardSection(effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE' ? 'owner-file' : 'rental-file')
                 }}
+                redoLabel={scoring.breakdown.roleSpecific.hasFile ? 'Consulter mon dossier locatif' : undefined}
+                onRedo={() => setDashboardSection('rental-file')}
               />
             </div>
 
@@ -1861,6 +1905,16 @@ export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: st
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Dialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Confirmer la suppression du compte</DialogTitle><DialogDescription>Cette action désactivera définitivement votre accès et anonymisera vos informations personnelles.</DialogDescription></DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteAccountOpen(false)} disabled={deletingAccount}>Annuler</Button>
+            <Button variant="destructive" onClick={handleDeleteAccount} disabled={deletingAccount}>{deletingAccount ? 'Suppression...' : 'Confirmer la suppression'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

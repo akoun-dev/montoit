@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notify'
+import { canMessageParticipant } from '@/lib/messaging-authorization'
 
 export async function POST(req: NextRequest) {
   try {
@@ -65,6 +66,10 @@ export async function POST(req: NextRequest) {
 
     if (!recipient.is_active) {
       return NextResponse.json({ error: 'Ce compte n\'est plus actif' }, { status: 400 })
+    }
+
+    if (!contactTc && !(await canMessageParticipant(admin, userId, actualRecipientId, propertyId))) {
+      return NextResponse.json({ error: 'Ce contact n’est plus autorisé pour ce bien ou cette candidature.' }, { status: 403 })
     }
 
     const { data: existingConvs } = await admin

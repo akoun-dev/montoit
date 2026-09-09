@@ -104,10 +104,12 @@ export async function GET(
 
     const steps = [
       { status: 'SUBMITTED', label: 'Soumis' },
+      { status: 'TC_REVIEW', label: 'En vérification' },
+      { status: 'VALIDATED', label: 'Validé' },
       { status: 'ACCEPTED', label: 'Accepté' },
     ]
 
-    const statusOrder = ['SUBMITTED', 'ACCEPTED']
+    const statusOrder = ['SUBMITTED', 'TC_REVIEW', 'VALIDATED', 'ACCEPTED']
     const currentIndex = statusOrder.indexOf(application.status)
     const isRejected = application.status === 'REJECTED'
     const isExpired = application.status === 'EXPIRED'
@@ -166,6 +168,8 @@ export async function GET(
       data: {
         id: application.id,
         status: application.status,
+        propertyId: application.property_id,
+        rentalFileId: application.rental_file_id,
         monthlyIncome: application.monthly_income,
         employer: application.employer,
         employmentType: application.employment_type,
@@ -192,6 +196,7 @@ export async function GET(
           type: d.type,
           name: d.name,
           status: d.status,
+          url: d.url,
           tcComment: d.tc_comment,
           createdAt: d.created_at,
         })),

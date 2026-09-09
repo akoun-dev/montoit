@@ -36,7 +36,7 @@ export async function GET(
 
     const { data: property, error: propError } = await supabase
       .from('properties')
-      .select('id, owner_id')
+      .select('id, owner_id, status')
       .eq('id', propertyId)
       .single()
 
@@ -44,11 +44,27 @@ export async function GET(
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
     }
 
-    const { data: documents, error: docsError } = await supabase
+    const { data: user } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+    const role = user?.active_role || user?.role
+    const isOwner = property.owner_id === userId && OWNER_ROLES.includes(role || '')
+    if (!isOwner && property.status !== 'ACTIVE') {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    }
+
+    if (!isOwner && role !== 'LOCATAIRE') {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    }
+
+    let documentsQuery = supabase
       .from('property_documents')
       .select('*')
       .eq('property_id', propertyId)
-      .order('created_at', { ascending: false })
+    if (!isOwner) documentsQuery = documentsQuery.eq('is_published', true)
+    const { data: documents, error: docsError } = await documentsQuery.order('created_at', { ascending: false })
 
     const mapped = (documents || []).map((d: any) => ({
       id: d.id,

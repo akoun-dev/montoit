@@ -174,6 +174,26 @@ export async function GET(req: NextRequest) {
         }
       })
 
+      const { data: properties } = await supabase.from('properties').select('id, title, city').eq('owner_id', userId)
+      const propertyIds = (properties ?? []).map((property) => property.id)
+      if (propertyIds.length > 0) {
+        const { data: applications } = await supabase
+          .from('applications')
+          .select('tenant_id, property_id')
+          .in('property_id', propertyIds)
+          .in('status', ['SUBMITTED', 'TC_REVIEW', 'VALIDATED', 'ACCEPTED'])
+        const tenantIds = [...new Set((applications ?? []).map((application: any) => application.tenant_id).filter(Boolean))]
+        const { data: applicants } = tenantIds.length ? await supabase.from('users').select('id, first_name, last_name, avatar_url, phone, email, role').in('id', tenantIds) : { data: [] as any[] }
+        const propertyMap = new Map((properties ?? []).map((property) => [property.id, property]))
+        for (const tenant of applicants ?? []) {
+          if (!tenantMap.has(tenant.id)) tenantMap.set(tenant.id, { id: tenant.id, firstName: tenant.first_name, lastName: tenant.last_name, avatarUrl: tenant.avatar_url, phone: tenant.phone, email: tenant.email, role: tenant.role, properties: [] })
+          for (const application of (applications ?? []) as any[]) if (application.tenant_id === tenant.id) {
+            const property = propertyMap.get(application.property_id)
+            if (property && !tenantMap.get(tenant.id)!.properties.some((item) => item.id === property.id)) tenantMap.get(tenant.id)!.properties.push({ id: property.id, title: property.title, city: property.city, leaseId: '' })
+          }
+        }
+      }
+
       const resp = NextResponse.json({
         tenants: Array.from(tenantMap.values()),
       })

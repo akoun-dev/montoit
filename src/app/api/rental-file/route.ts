@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getRentalFileCompleteness, REQUIRED_RENTAL_FILE_DOCUMENT_TYPES } from '@/lib/rental-file-completeness'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
 
@@ -160,30 +161,20 @@ export async function POST(req: NextRequest) {
 
     // Server-side document validation : vérifier que les documents obligatoires sont présents avant soumission
     if (submit) {
-      const { data: draftForDocs } = await admin
+      const { data: fileForDocs } = await admin
         .from('rental_files')
-        .select('id')
+        .select('id, status')
         .eq('tenant_id', userId)
-        .eq('status', 'DRAFT')
+        .in('status', ['DRAFT', 'REJECTED', 'EXPIRED'])
+        .order('updated_at', { ascending: false })
         .maybeSingle()
 
-      const draftId = draftForDocs?.id
-      if (draftId) {
-        const { data: existingDocs } = await admin
-          .from('rental_file_documents')
-          .select('type')
-          .eq('rental_file_id', draftId)
-
-        const uploadedTypes = new Set((existingDocs ?? []).map((d: any) => d.type))
-        const requiredTypes = ['ID_CARD']
-        const hasAllRequired = requiredTypes.every(t => uploadedTypes.has(t))
-
-        if (!hasAllRequired) {
-          return NextResponse.json(
-            { error: 'Veuillez télécharger tous les documents obligatoires avant de soumettre' },
-            { status: 400 }
-          )
-        }
+      if (!fileForDocs) {
+        return NextResponse.json({ error: 'Aucun dossier modifiable à soumettre', missingDocuments: [...REQUIRED_RENTAL_FILE_DOCUMENT_TYPES] }, { status: 400 })
+      }
+      const completeness = await getRentalFileCompleteness(admin, fileForDocs.id)
+      if (!completeness.complete) {
+        return NextResponse.json({ error: 'Veuillez télécharger tous les documents obligatoires avant de soumettre', missingDocuments: completeness.missingTypes }, { status: 400 })
       }
     }
 
@@ -300,7 +291,7 @@ export async function POST(req: NextRequest) {
             .from('rental_files')
             .select('*')
             .eq('tenant_id', userId)
-            .in('status', ['SUBMITTED', 'TC_REVIEW', 'EXPIRED'])
+            .in('status', ['EXPIRED'])
             .order('updated_at', { ascending: false })
             .limit(1)
             .maybeSingle()
@@ -433,7 +424,7 @@ export async function POST(req: NextRequest) {
           .from('rental_files')
           .select('*')
           .eq('tenant_id', userId)
-          .not('status', 'eq', 'VALIDATED')
+        .in('status', ['REJECTED', 'EXPIRED'])
           .order('updated_at', { ascending: false })
           .limit(1)
           .maybeSingle()
@@ -610,6 +601,12 @@ async function enrichRentalFiles(admin: ReturnType<typeof getSupabaseAdminClient
     reviewedAt: f.reviewed_at,
     createdAt: f.created_at,
     updatedAt: f.updated_at,
+    isComplete: REQUIRED_RENTAL_FILE_DOCUMENT_TYPES.every((requiredType) =>
+      (docMap.get(f.id) ?? []).some((document: any) => document.type === requiredType),
+    ),
+    missingTypes: REQUIRED_RENTAL_FILE_DOCUMENT_TYPES.filter((requiredType) =>
+      !(docMap.get(f.id) ?? []).some((document: any) => document.type === requiredType),
+    ),
     tenantId: f.tenant_id,
     reviewedById: f.reviewed_by_id,
     documents: (() => {

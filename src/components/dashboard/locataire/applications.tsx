@@ -64,6 +64,8 @@ interface ApplicationsResponse {
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   DRAFT: { label: 'Brouillon', color: 'bg-muted text-muted-foreground', icon: FileText },
   SUBMITTED: { label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock },
+  TC_REVIEW: { label: 'En vérification', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: Clock },
+  VALIDATED: { label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   ACCEPTED: { label: 'Accepté', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200', icon: AlertCircle },
   EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
@@ -417,7 +419,16 @@ export function Applications({ onDetail }: ApplicationsProps) {
                       </div>
 
                       {/* Chevron */}
-                      <ChevronRight className="size-5 text-neutral-300 shrink-0 self-center" />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0 self-center text-brand-600"
+                        onClick={(event) => { event.stopPropagation(); onDetail(app.id) }}
+                      >
+                        Voir le détail du dossier
+                        <ChevronRight className="size-4 ml-1" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

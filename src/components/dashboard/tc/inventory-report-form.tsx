@@ -624,8 +624,8 @@ export function InventoryReportForm() {
                               placeholder="—"
                               value={grid[rowIdx]?.[colIdx]?.keyCount ?? ''}
                               onChange={(e) => {
-                                const val = e.target.value
-                                setKeyCount(rowIdx, colIdx, val === '' ? null : parseInt(val, 10))
+                                const val = e.target.value.replace(/-/g, '')
+                                setKeyCount(rowIdx, colIdx, val === '' ? null : Math.max(0, parseInt(val, 10) || 0))
                               }}
                               className="w-14 sm:w-16 h-8 text-center text-sm mx-auto"
                             />
@@ -748,8 +748,8 @@ export function InventoryReportForm() {
                             placeholder="—"
                             value={grid[rowIdx]?.[colIdx]?.keyCount ?? ''}
                             onChange={(e) => {
-                              const val = e.target.value
-                              setKeyCount(rowIdx, colIdx, val === '' ? null : parseInt(val, 10))
+                              const val = e.target.value.replace(/-/g, '')
+                              setKeyCount(rowIdx, colIdx, val === '' ? null : Math.max(0, parseInt(val, 10) || 0))
                             }}
                             className="w-16 h-9 text-center text-sm"
                           />

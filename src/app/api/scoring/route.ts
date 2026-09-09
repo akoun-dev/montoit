@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { findCurrentCompleteValidatedRentalFile } from '@/lib/rental-file-completeness'
 
 export async function GET(req: NextRequest) {
   try {
@@ -75,14 +76,7 @@ export async function GET(req: NextRequest) {
       roleSpecificAction = 'owner-file'
       roleSpecificActionLabel = anyOwnerFile ? 'Voir mon dossier' : 'Commencer la vérification'
     } else {
-      const { data: approvedRentalFile } = await supabase
-        .from('rental_files')
-        .select('id, status')
-        .eq('tenant_id', userId)
-        .in('status', ['VALIDATED', 'ACCEPTED'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const { file: approvedRentalFile } = await findCurrentCompleteValidatedRentalFile(supabase, userId)
 
       const { data: anyRentalFile } = await supabase
         .from('rental_files')

@@ -862,7 +862,7 @@ export function ProprietaireMandats() {
                   max="100"
                   step="0.5"
                   value={formCommissionRate}
-                  onChange={(e) => setFormCommissionRate(e.target.value)}
+                  onChange={(e) => { const v = e.target.value.replace(/-/g, ''); if (v === '' || parseFloat(v) >= 0) setFormCommissionRate(v) }}
                 />
               </div>
               {formCommissionType === 'FIXED' && (
@@ -874,7 +874,7 @@ export function ProprietaireMandats() {
                     placeholder="ex: 50000"
                     min="0"
                     value={formFixedCommission}
-                    onChange={(e) => setFormFixedCommission(e.target.value)}
+                    onChange={(e) => { const v = e.target.value.replace(/-/g, ''); if (v === '' || parseFloat(v) >= 0) setFormFixedCommission(v) }}
                   />
                 </div>
               )}

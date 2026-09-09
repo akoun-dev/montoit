@@ -278,6 +278,7 @@ export interface Database {
           created_at: string
           updated_at: string
           property_id: string
+          is_published: boolean
         }
         Insert: {
           id?: string
@@ -289,6 +290,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           property_id: string
+          is_published?: boolean
         }
         Update: Partial<Database['public']['Tables']['property_documents']['Insert']>
         Relationships: []

@@ -46,6 +46,8 @@ export interface RentalFileItem {
   reviewedAt: string | null
   createdAt: string
   updatedAt: string
+  isComplete?: boolean
+  missingTypes?: string[]
   documents: RentalFileDoc[]
   leases: Array<{
     id: string
@@ -129,7 +131,8 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
       const result = await authFetch<RentalFileResponse>('/api/rental-file')
       if (thisFetch !== fetchCountRef.current) return // stale response
       const files = result.data ?? []
-      const file = files.find((f) => f.status === 'DRAFT')
+      const file = files.find((f) => f.status === 'VALIDATED' && f.isComplete)
+        || files.find((f) => f.status === 'DRAFT')
         || files.find((f) => f.status === 'REJECTED')
         || files.find((f) => f.status === 'TC_REVIEW')
         || files[0]
@@ -404,7 +407,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
   }
 
   // Read-only only when validated
-  const isReadOnly = !!(existingFile && (existingFile.status === 'VALIDATED' || existingFile.status === 'SUBMITTED'))
+  const isReadOnly = !!(existingFile && ['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(existingFile.status))
   const existingStatus = existingFile ? statusConfig[existingFile.status] : null
   const requiredDocs = documentRequirements
 
@@ -470,12 +473,12 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
             )}
 
             {/* Re-submit button for rejected/expired/tc_review */}
-            {existingFile.status !== 'DRAFT' && existingFile.status !== 'SUBMITTED' && existingFile.status !== 'VALIDATED' && (
+            {['REJECTED', 'EXPIRED', 'TC_REVIEW'].includes(existingFile.status) && (
               <Button
                 size="sm"
                 className="mt-3 bg-brand-500 hover:bg-brand-600 text-white gap-1.5"
                 onClick={handleSubmit}
-                disabled={submitting || !hasAllRequiredDocs}
+                disabled={submitting || !hasAllRequiredDocs || existingFile.status === 'TC_REVIEW'}
               >
                 {submitting ? (
                   <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />

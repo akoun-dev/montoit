@@ -23,7 +23,7 @@ interface Recipient {
   phone: string | null
   email: string | null
   avatarUrl: string | null
-  type: 'PROPRIETAIRE' | 'AGENCE'
+  type: 'PROPRIETAIRE' | 'AGENCE' | 'LOCATAIRE'
   properties: Array<{ id: string; title: string; city: string }>
 }
 
@@ -58,7 +58,7 @@ function getRoleBadge(role: string) {
   }
 }
 
-function getRoleIcon(type: 'PROPRIETAIRE' | 'AGENCE') {
+function getRoleIcon(type: 'PROPRIETAIRE' | 'AGENCE' | 'LOCATAIRE') {
   return type === 'PROPRIETAIRE'
     ? <Building2 className="size-3" />
     : <UserIcon className="size-3" />
@@ -73,9 +73,10 @@ interface ContactDialogProps {
   onMessageSent?: (conversationId: string) => void
   /** Pre-selected recipient ID (e.g. from lease detail) */
   defaultRecipientId?: string
+  propertyId?: string
 }
 
-export function ContactDialog({ trigger, onMessageSent, defaultRecipientId }: ContactDialogProps) {
+export function ContactDialog({ trigger, onMessageSent, defaultRecipientId, propertyId }: ContactDialogProps) {
   const { user, isAuthenticated } = useAuthStore()
   const { toast } = useToast()
 
@@ -86,6 +87,7 @@ export function ContactDialog({ trigger, onMessageSent, defaultRecipientId }: Co
   const [messageText, setMessageText] = useState('')
   const [sending, setSending] = useState(false)
   const [searchValue, setSearchValue] = useState('')
+  const [recipientError, setRecipientError] = useState<string | null>(null)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -106,8 +108,9 @@ export function ContactDialog({ trigger, onMessageSent, defaultRecipientId }: Co
           setSelectedRecipient(defaultRecipient)
         }
       }
-    } catch {
+    } catch (error) {
       setRecipients([])
+      setRecipientError(error instanceof Error ? error.message : 'Impossible de charger les contacts autorisés')
     } finally {
       setLoadingRecipients(false)
     }
@@ -139,9 +142,10 @@ export function ContactDialog({ trigger, onMessageSent, defaultRecipientId }: Co
       const data = await authFetch<SendMessageResponse>('/api/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientId: selectedRecipient.id,
-          content: messageText.trim(),
+          body: JSON.stringify({
+            recipientId: selectedRecipient.id,
+            content: messageText.trim(),
+            propertyId,
         }),
       })
 
@@ -200,7 +204,7 @@ export function ContactDialog({ trigger, onMessageSent, defaultRecipientId }: Co
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Contacter un propriétaire ou une agence</DialogTitle>
+         <DialogTitle>Contacter un utilisateur</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           {/* ─── Recipient selector ──────────────────────────────────────── */}
@@ -225,7 +229,7 @@ export function ContactDialog({ trigger, onMessageSent, defaultRecipientId }: Co
                     {getRoleIcon(selectedRecipient.type)}
                     <span className="ml-0.5">{getRoleBadge(selectedRecipient.type).label}</span>
                   </Badge>
-                </div>
+      </div>
                 <button
                   onClick={() => setSelectedRecipient(null)}
                   className="shrink-0 p-1 rounded-md hover:bg-muted transition-colors"
@@ -239,7 +243,7 @@ export function ContactDialog({ trigger, onMessageSent, defaultRecipientId }: Co
                 <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
                   <Search className="size-4 shrink-0 opacity-50 mr-2" />
                   <input
-                    placeholder="Rechercher un propriétaire ou une agence..."
+                    placeholder="Rechercher un utilisateur..."
                     value={searchValue}
                     onChange={(e) => handleSearchChange(e.target.value)}
                     className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
@@ -254,7 +258,7 @@ export function ContactDialog({ trigger, onMessageSent, defaultRecipientId }: Co
                       <MessageSquare className="size-6 text-neutral-300 mx-auto mb-1" />
                       <p className="text-sm text-muted-foreground">
                         {recipients.length === 0
-                          ? 'Aucun propriétaire ou agence trouvé. Vous devez avoir un bail actif.'
+                           ? recipientError || 'Aucun contact disponible pour votre compte.'
                           : 'Aucun résultat'}
                       </p>
                     </div>
@@ -303,6 +307,22 @@ export function ContactDialog({ trigger, onMessageSent, defaultRecipientId }: Co
                                 </div>
                               </CommandItem>
                             ))}
+                        </CommandGroup>
+                      )}
+                      {/* Locataires group */}
+                      {recipients.filter((r) => r.type === 'LOCATAIRE').length > 0 && (
+                        <CommandGroup heading="Locataires">
+                          {recipients.filter((r) => r.type === 'LOCATAIRE').map((recipient) => (
+                            <CommandItem key={recipient.id} value={recipient.id} onSelect={() => { setSelectedRecipient(recipient); setSearchValue('') }} className="cursor-pointer">
+                              <Avatar className="size-8 shrink-0">
+                                <AvatarFallback className="bg-amber-100 text-amber-700 text-xs">{recipient.firstName[0]}{recipient.lastName[0]}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{recipient.firstName} {recipient.lastName}</p>
+                                <p className="text-xs text-muted-foreground truncate">{recipient.properties[0]?.title || 'Candidature'}</p>
+                              </div>
+                            </CommandItem>
+                          ))}
                         </CommandGroup>
                       )}
                       {/* Agences group */}

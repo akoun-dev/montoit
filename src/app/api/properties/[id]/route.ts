@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
+import { validateNonNegativeNumber } from '@/lib/validators'
 import {
   BUCKETS,
   uploadFromBase64,
@@ -128,6 +129,12 @@ export async function PATCH(
     }
 
     const updateData: any = {}
+    for (const [value, label] of [[price, 'Le prix'], [area, 'La surface'], [bedrooms, 'Le nombre de chambres'], [bathrooms, 'Le nombre de salles de bain'], [depositMonths, 'Le dépôt'], [advanceMonths, "L'avance"], [agencyFeesMonths, "Les frais d'agence"]] as const) {
+      if (value !== undefined && value !== null && value !== '') {
+        const result = validateNonNegativeNumber(value as string | number, label)
+        if (!result.valid) return NextResponse.json({ error: result.error }, { status: 400 })
+      }
+    }
     if (title !== undefined) updateData.title = String(title).trim()
     if (description !== undefined) updateData.description = String(description).trim()
     if (type !== undefined) updateData.type = type
@@ -400,11 +407,38 @@ export async function DELETE(
 }
 
 async function enrichSingleProperty(admin: ReturnType<typeof getSupabaseAdminClient>, property: any, requestingUserId?: string | null) {
-  const { data: images } = await admin
+  const [{ data: images }, { data: documents }, { data: similarRows }] = await Promise.all([
+    admin
     .from('property_images')
     .select('*')
     .eq('property_id', property.id)
-    .order('order', { ascending: true })
+    .order('order', { ascending: true }),
+    admin
+      .from('property_documents')
+      .select('id, name, type, url, description, expiry_date, created_at, is_published')
+      .eq('property_id', property.id)
+      .eq('is_published', property.owner_id === requestingUserId || property.status === 'ACTIVE')
+      .order('created_at', { ascending: false }),
+    admin
+      .from('properties')
+      .select('id, title, type, price, area, city, commune, rental_status')
+      .eq('status', 'ACTIVE')
+      .neq('id', property.id)
+      .eq('type', property.type)
+      .ilike('city', `%${property.city || ''}%`)
+      .gte('price', Math.max(0, Number(property.price || 0) * 0.7))
+      .lte('price', Number(property.price || 0) * 1.3)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .limit(6),
+  ])
+
+  const similarIds = (similarRows ?? []).map((row: any) => row.id)
+  const { data: similarImages } = similarIds.length > 0
+    ? await admin.from('property_images').select('property_id, url').in('property_id', similarIds).order('order', { ascending: true })
+    : { data: [] as any[] }
+  const similarImageMap = new Map<string, string>()
+  for (const image of similarImages ?? []) if (!similarImageMap.has(image.property_id)) similarImageMap.set(image.property_id, image.url)
 
   const { data: owner } = await admin
     .from('users')
@@ -461,6 +495,26 @@ async function enrichSingleProperty(admin: ReturnType<typeof getSupabaseAdminCli
       order: img.order,
       createdAt: img.created_at,
       propertyId: img.property_id,
+    })),
+    documents: (documents ?? []).map((document: any) => ({
+      id: document.id,
+      name: document.name,
+      type: document.type,
+      url: document.url,
+      description: document.description,
+      expiryDate: document.expiry_date,
+      createdAt: document.created_at,
+    })),
+    similarProperties: (similarRows ?? []).map((similar: any) => ({
+      id: similar.id,
+      title: similar.title,
+      type: similar.type,
+      price: similar.price,
+      area: similar.area,
+      city: similar.city,
+      commune: similar.commune,
+      rentalStatus: similar.rental_status,
+      image: similarImageMap.get(similar.id) ?? null,
     })),
     owner: owner ? {
       id: owner.id,

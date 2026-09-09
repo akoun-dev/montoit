@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
+import { findCurrentCompleteValidatedRentalFile } from '@/lib/rental-file-completeness'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -67,33 +68,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Vous avez déjà candidaté pour ce bien' }, { status: 409 })
     }
 
-    // Find or create a rental_file draft
-    const { data: draftRentalFile } = await supabase
-      .from('rental_files')
-      .select('*')
-      .eq('tenant_id', userId)
-      .eq('status', 'DRAFT')
-      .maybeSingle()
-
-    let rentalFile: any
-    if (draftRentalFile) {
-      rentalFile = draftRentalFile
-    } else {
-      const { data: created } = await supabase
-        .from('rental_files')
-        .insert({
-          id: generateId(),
-          tenant_id: userId,
-          status: 'DRAFT',
-        } as any)
-        .select()
-        .single()
-      rentalFile = created
+    const { file: rentalFile, completeness } = await findCurrentCompleteValidatedRentalFile(supabase, userId)
+    if (!rentalFile) {
+      return NextResponse.json({
+        error: 'Votre dossier locataire est incomplet ou non validé. Veuillez déposer les documents requis avant de candidater.',
+        missingDocuments: completeness.missingTypes,
+      }, { status: 400 })
     }
-
-    // Keep rental_file as DRAFT — the tenant must explicitly submit it
-    // from their dashboard after uploading documents. The application itself
-    // is still created as SUBMITTED so the owner is notified.
 
     // Create application record
     const appId = generateId()
@@ -137,24 +118,14 @@ export async function POST(req: NextRequest) {
       .eq('property_id', propertyId)
       .order('order', { ascending: true })
 
-    // Notify the property owner ONLY if the tenant's rental file is validated
-    const { data: validatedRentalFile } = await supabase
-      .from('rental_files')
-      .select('id')
-      .eq('tenant_id', userId)
-      .in('status', ['VALIDATED', 'ACCEPTED'])
-      .maybeSingle()
-
-    if (validatedRentalFile) {
-      await notify({
-        userId: property.owner_id,
-        type: 'DOSSIER_UPDATE',
-        title: 'Nouvelle candidature',
-        message: `Un locataire a soumis une candidature pour votre bien "${propertyInfo?.title || ''}".`,
-        actionUrl: 'candidatures',
-        entityId: appId,
-      })
-    }
+    await notify({
+      userId: property.owner_id,
+      type: 'DOSSIER_UPDATE',
+      title: 'Nouvelle candidature',
+      message: `Un locataire a soumis une candidature pour votre bien "${propertyInfo?.title || ''}".`,
+      actionUrl: 'candidatures',
+      entityId: appId,
+    })
 
     const resp = NextResponse.json({
       data: {
@@ -392,9 +363,10 @@ export async function GET(req: NextRequest) {
           type: d.type,
           name: d.name,
           status: d.status,
+          url: d.url,
           createdAt: d.created_at,
         })),
-        leases: (leasesMap[app.id] || []).map((l: any) => ({
+        leases: (leasesMap[app.rental_file_id] || []).map((l: any) => ({
           id: l.id,
           status: l.status,
           startDate: l.start_date,

@@ -15,6 +15,7 @@ import {
   CalendarDays,
   Clock,
   MessageSquare,
+  Save,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -41,6 +42,7 @@ import { useFavorites } from '@/lib/use-favorites'
 import { authFetch } from '@/lib/auth-fetch'
 import { apiFetch } from '@/lib/capacitor'
 import { toast } from 'sonner'
+import { validateNumberRange } from '@/lib/validators'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PaginationControls } from '@/components/ui/pagination-controls'
 
@@ -145,7 +147,26 @@ export function SearchProperties() {
   const [results, setResults] = useState<PropertyItem[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem('montoit-search-criteria')
+    if (!raw) return
+    try {
+      const criteria = JSON.parse(raw)
+      setSearch(criteria.search || '')
+      setCity(criteria.city || '')
+      setPropertyType(criteria.propertyType || 'ALL')
+      setMinPrice(criteria.minPrice || '')
+      setMaxPrice(criteria.maxPrice || '')
+      sessionStorage.removeItem('montoit-search-criteria')
+    } catch {
+      sessionStorage.removeItem('montoit-search-criteria')
+    }
+  }, [])
   const [error, setError] = useState<string | null>(null)
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [savedSearchName, setSavedSearchName] = useState('')
+  const [savingSearch, setSavingSearch] = useState(false)
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -176,6 +197,11 @@ export function SearchProperties() {
   const { isFavorite, toggleFavorite } = useFavorites(propertyIds)
 
   const handleSearch = useCallback(async () => {
+    const range = validateNumberRange(minPrice, maxPrice, 'Le budget')
+    if (!range.valid) {
+      setError(range.error || 'Critères invalides')
+      return
+    }
     setLoading(true)
     setError(null)
     setSearched(true)
@@ -200,6 +226,25 @@ export function SearchProperties() {
       setLoading(false)
     }
   }, [search, city, minPrice, maxPrice, propertyType])
+
+  const handleSaveSearch = async () => {
+    if (!savedSearchName.trim()) return
+    setSavingSearch(true)
+    try {
+      await authFetch('/api/search-alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: savedSearchName, city, propertyType, minPrice, maxPrice, searchQuery: search }),
+      })
+      toast.success('Recherche enregistrée')
+      setSaveDialogOpen(false)
+      setSavedSearchName('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Impossible d’enregistrer la recherche')
+    } finally {
+      setSavingSearch(false)
+    }
+  }
 
   const handleViewProperty = (propertyId: string) => {
     setSelectedPropertyId(propertyId)
@@ -349,15 +394,23 @@ export function SearchProperties() {
                 placeholder="Budget min"
                 className="h-10"
                 type="number"
+                min="0"
                 value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/-/g, '')
+                  if (v === '' || parseFloat(v) >= 0) setMinPrice(v)
+                }}
               />
               <Input
                 placeholder="Budget max"
                 className="h-10"
                 type="number"
+                min="0"
                 value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/-/g, '')
+                  if (v === '' || parseFloat(v) >= 0) setMaxPrice(v)
+                }}
               />
             </div>
             <Button
@@ -377,6 +430,11 @@ export function SearchProperties() {
                 </>
               )}
             </Button>
+            {isAuthenticated && searched && (
+              <Button type="button" variant="outline" onClick={() => setSaveDialogOpen(true)} className="w-full h-10 gap-2">
+                <Save className="size-4" /> Enregistrer la recherche
+              </Button>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -579,6 +637,22 @@ export function SearchProperties() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enregistrer la recherche</DialogTitle>
+            <DialogDescription>Vous serez informé lorsqu’un bien correspondra à ces critères.</DialogDescription>
+          </DialogHeader>
+          <Input autoFocus placeholder="Ex. Appartements à Cocody" value={savedSearchName} onChange={(event) => setSavedSearchName(event.target.value)} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>Annuler</Button>
+            <Button onClick={handleSaveSearch} disabled={savingSearch || !savedSearchName.trim()} className="bg-brand-500 text-white hover:bg-brand-600">
+              {savingSearch ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Visit Request Dialog */}
       <Dialog open={visitDialog.open} onOpenChange={(open) => !open && closeVisitDialog()}>

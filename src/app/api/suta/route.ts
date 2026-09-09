@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { checkRateLimit } from '@/lib/rate-limiter'
 
+export const runtime = 'nodejs'
+
 const SUTA_SYSTEM_PROMPT = `Tu es SUTA, l'assistant IA de la plateforme Mon Toit (ANSUT), la plateforme de location immobilière en Côte d'Ivoire. Tu es chaleureux, professionnel et toujours prêt à aider.
 
 Tu réponds aux questions concernant les fonctionnalités de la plateforme Mon Toit pour les 4 rôles principaux :
@@ -85,10 +87,12 @@ interface AzureResponse {
 }
 
 async function callAzureOpenAI(messages: Array<{ role: string; content: string }>): Promise<AzureResponse> {
-  const endpoint = process.env.VITE_AZURE_OPENAI_ENDPOINT
-  const apiKey = process.env.VITE_AZURE_OPENAI_API_KEY
-  const deployment = process.env.VITE_AZURE_OPENAI_DEPLOYMENT_NAME
-  const apiVersion = process.env.VITE_AZURE_OPENAI_API_VERSION || '2024-10-21'
+  // These variables intentionally do not use the NEXT_PUBLIC/VITE prefixes:
+  // this request must remain server-side so the Azure key is never bundled.
+  const endpoint = process.env.AZURE_OPENAI_ENDPOINT
+  const apiKey = process.env.AZURE_OPENAI_API_KEY
+  const deployment = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'gpt-5.6-luna'
+  const apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2025-04-01-preview'
 
   if (!endpoint || !apiKey || !deployment) {
     throw new Error('Azure OpenAI non configuré. Vérifiez les variables d\'environnement.')
@@ -104,8 +108,9 @@ async function callAzureOpenAI(messages: Array<{ role: string; content: string }
     },
     body: JSON.stringify({
       messages,
-      max_tokens: 1024,
-      temperature: 0.7,
+      // GPT-5 deployments use completion tokens and manage reasoning/output
+      // sampling themselves, so temperature is deliberately omitted.
+      max_completion_tokens: 1024,
     }),
   })
 

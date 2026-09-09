@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { validateNonNegativeNumber, validateNumberRange } from '@/lib/validators'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
 import {
@@ -44,6 +45,18 @@ export async function GET(req: NextRequest) {
     const all = searchParams.get('all')
     const pending = searchParams.get('pending')
     const mine = searchParams.get('mine')
+
+    const priceRange = validateNumberRange(minPrice ?? '', maxPrice ?? '', 'Le prix')
+    const numericFilters = [
+      [minPrice, 'Le prix minimum'], [maxPrice, 'Le prix maximum'], [minBedrooms, 'Le nombre de pièces'],
+    ] as const
+    if (!priceRange.valid) return NextResponse.json({ error: priceRange.error }, { status: 400 })
+    for (const [value, label] of numericFilters) {
+      if (value != null && value !== '') {
+        const result = validateNonNegativeNumber(value, label)
+        if (!result.valid) return NextResponse.json({ error: result.error }, { status: 400 })
+      }
+    }
 
     const requestedLimit = limitParam ? Number.parseInt(limitParam, 10) : 12
     const limit = Number.isFinite(requestedLimit)
@@ -264,6 +277,13 @@ export async function POST(req: NextRequest) {
 
     const isDraft = draft === true
     const status = isDraft ? 'DRAFT' : 'PENDING_VERIFICATION'
+
+    for (const [value, label] of [[price, 'Le prix'], [area, 'La surface'], [bedrooms, 'Le nombre de chambres'], [bathrooms, 'Le nombre de salles de bain'], [depositMonths, 'Le dépôt'], [advanceMonths, "L'avance"], [agencyFeesMonths, "Les frais d'agence"]] as const) {
+      if (value !== undefined && value !== null && value !== '') {
+        const result = validateNonNegativeNumber(value as string | number, label)
+        if (!result.valid) return NextResponse.json({ error: result.error }, { status: 400 })
+      }
+    }
 
     if (!isDraft) {
       if (!title || typeof title !== 'string' || !title.trim()) {

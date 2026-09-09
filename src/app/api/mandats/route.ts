@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { validateNonNegativeNumber } from '@/lib/validators'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
@@ -96,6 +97,10 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       )
+    }
+    const commissionValidation = validateNonNegativeNumber(commissionRate, 'Le taux de commission')
+    if (!commissionValidation.valid || Number(commissionRate) > 100) {
+      return applyCookies(NextResponse.json({ error: commissionValidation.error || 'Le taux de commission doit être compris entre 0 et 100.' }, { status: 400 }))
     }
 
     const validTypes = ['GESTION_COMPLETE', 'GESTION_LOCATION', 'MANDAT_SIMPLE']

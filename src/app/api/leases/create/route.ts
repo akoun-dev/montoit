@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import crypto from 'crypto'
 import { notify } from '@/lib/notify'
+import { validateNonNegativeNumber } from '@/lib/validators'
 import { generateAndUploadLeasePdf } from '@/lib/generate-and-upload-lease-pdf'
 
 function generateId() {
@@ -135,6 +136,12 @@ export async function POST(req: NextRequest) {
     // OTP is now sent via CRYPTONEO email — not generated locally
 
     const leaseId = generateId()
+    for (const [value, label] of [[monthlyRent, 'Le loyer'], [charges, 'Les charges'], [deposit, 'Le dépôt']] as const) {
+      const result = validateNonNegativeNumber(value || '', label)
+      if (!result.valid || (value && !Number.isFinite(Number(String(value).replace(',', '.'))))) {
+        return applyCookies(NextResponse.json({ error: result.error || `${label} doit être un nombre valide.` }, { status: 400 }))
+      }
+    }
 
     const { data: lease, error: leaseError } = await supabase
       .from('leases')

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { validateNonNegativeNumber } from '@/lib/validators'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 import { generateAndUploadLeasePdf } from '@/lib/generate-and-upload-lease-pdf'
@@ -114,6 +115,10 @@ export async function POST(
     }
 
     if (action === 'accept') {
+      for (const [value, label] of [[monthlyRent, 'Le loyer'], [charges, 'Les charges'], [deposit, 'Le dépôt']] as const) {
+        const result = validateNonNegativeNumber(value ?? '', label)
+        if (!result.valid) return NextResponse.json({ error: result.error }, { status: 400 })
+      }
       // Validate required lease terms
       if (!monthlyRent || monthlyRent <= 0) {
         return NextResponse.json(

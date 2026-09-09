@@ -13,6 +13,8 @@ export async function GET(req: NextRequest) {
     }
 
     const supabase = getSupabaseAdminClient()
+    const { searchParams } = new URL(req.url)
+    const search = searchParams.get('search')?.trim() || ''
 
     const { data: profile } = await supabase
       .from('users')
@@ -22,12 +24,53 @@ export async function GET(req: NextRequest) {
 
     const effectiveRole = profile?.active_role || profile?.role
     if (effectiveRole !== 'LOCATAIRE') {
-      const resp = NextResponse.json({ error: 'Accès réservé aux locataires' }, { status: 403 })
-      return applyCookies(resp)
-    }
+      if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
+        const resp = NextResponse.json({ error: 'Accès réservé aux utilisateurs autorisés' }, { status: 403 })
+        return applyCookies(resp)
+      }
 
-    const { searchParams } = new URL(req.url)
-    const search = searchParams.get('search')?.trim() || ''
+      const { data: properties } = await supabase.from('properties').select('id, title, city').eq('owner_id', userId)
+      const propertyIds = (properties ?? []).map((property) => property.id)
+      const { data: applications } = propertyIds.length > 0
+        ? await supabase
+            .from('applications')
+            .select('tenant_id, property_id')
+            .in('property_id', propertyIds)
+            .in('status', ['SUBMITTED', 'TC_REVIEW', 'VALIDATED', 'ACCEPTED'])
+        : { data: [] as any[] }
+      const tenantIds = [...new Set((applications ?? []).map((application: any) => application.tenant_id).filter(Boolean))]
+      const { data: tenants } = tenantIds.length > 0
+        ? await supabase.from('users').select('id, first_name, last_name, role, company_name, phone, email, avatar_url').in('id', tenantIds)
+        : { data: [] as any[] }
+      const propertyMap = new Map((properties ?? []).map((property) => [property.id, property]))
+      const tenantMap = new Map((tenants ?? []).map((tenant: any) => [tenant.id, {
+        id: tenant.id,
+        firstName: tenant.first_name,
+        lastName: tenant.last_name,
+        role: tenant.role,
+        companyName: tenant.company_name ?? null,
+        phone: tenant.phone ?? null,
+        email: tenant.email ?? null,
+        avatarUrl: tenant.avatar_url ?? null,
+        type: 'LOCATAIRE' as const,
+        properties: [] as Array<{ id: string; title: string; city: string }>,
+      }]))
+      for (const application of applications ?? []) {
+        const tenant = tenantMap.get((application as any).tenant_id)
+        const property = propertyMap.get((application as any).property_id)
+        if (tenant && property && !tenant.properties.some((item) => item.id === property.id)) {
+          tenant.properties.push({ id: property.id, title: property.title, city: property.city })
+        }
+      }
+      const filtered = Array.from(tenantMap.values()).filter((recipient) => {
+        if (!search) return true
+        const query = search.toLowerCase()
+        return `${recipient.firstName} ${recipient.lastName}`.toLowerCase().includes(query)
+          || recipient.properties.some((property) => property.title.toLowerCase().includes(query))
+      })
+      const response = NextResponse.json({ recipients: filtered })
+      return applyCookies(response)
+    }
 
     const { data: leases } = await supabase
       .from('leases')

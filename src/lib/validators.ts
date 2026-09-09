@@ -73,6 +73,25 @@ export function isValidPhoneCI(value: string): boolean {
   return validatePhoneCI(value).valid
 }
 
+export function validateNonNegativeNumber(value: string | number, label = 'La valeur'): ValidationResult {
+  if (value === '' || value === null || value === undefined) return ok
+  const number = typeof value === 'number' ? value : Number(String(value).replace(',', '.'))
+  if (!Number.isFinite(number)) return { valid: false, error: `${label} doit être un nombre valide.` }
+  if (number < 0) return { valid: false, error: `${label} doit être positif ou nul.` }
+  return ok
+}
+
+export function validateNumberRange(min: string | number, max: string | number, label = 'La valeur'): ValidationResult {
+  const minResult = validateNonNegativeNumber(min, `${label} minimum`)
+  if (!minResult.valid) return minResult
+  const maxResult = validateNonNegativeNumber(max, `${label} maximum`)
+  if (!maxResult.valid) return maxResult
+  const normalizedMin = typeof min === 'string' ? min.replace(',', '.') : min
+  const normalizedMax = typeof max === 'string' ? max.replace(',', '.') : max
+  if (min !== '' && max !== '' && Number(normalizedMin) > Number(normalizedMax)) return { valid: false, error: `${label} minimum ne peut pas dépasser le maximum.` }
+  return ok
+}
+
 // ── Nom / Prénom ──────────────────────────────────────────────────────────
 
 const NAME_REGEX = /^[a-zA-ZÀ-ÖØ-öø-ÿ' -]{2,60}$/
