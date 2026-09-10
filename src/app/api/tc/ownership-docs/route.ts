@@ -160,6 +160,8 @@ export async function PATCH(req: NextRequest) {
         continue
       }
 
+      const isAgencyDoc = doc.type === 'AGREMENT' || doc.type === 'RCCM'
+
       let newStatus: string
       let auditAction: string
       let notificationTitle: string
@@ -167,11 +169,11 @@ export async function PATCH(req: NextRequest) {
       if (action === 'APPROVE') {
         newStatus = 'VALIDATED'
         auditAction = 'OWNERSHIP_DOC_APPROVED'
-        notificationTitle = 'Document de propriété validé'
+        notificationTitle = isAgencyDoc ? 'Document agence validé' : 'Document de propriété validé'
       } else if (action === 'REJECT') {
         newStatus = 'REJECTED'
         auditAction = 'OWNERSHIP_DOC_REJECTED'
-        notificationTitle = 'Document de propriété rejeté'
+        notificationTitle = isAgencyDoc ? 'Document agence rejeté' : 'Document de propriété rejeté'
       } else {
         newStatus = 'PENDING'
         auditAction = 'OWNERSHIP_DOC_INFO_REQUESTED'
@@ -189,11 +191,18 @@ export async function PATCH(req: NextRequest) {
         .select('*, owner:users!owner_id(id, first_name, last_name, email)')
         .single() as any)
 
-      await (supabase as any)
-        .from('validation_slas')
-        .update({ completed_at: new Date().toISOString(), is_overdue: false })
-        .eq('entity_type', 'OWNER_PROFILE')
-        .eq('entity_id', docId)
+      // Only AGREMENT/RCCM map to a validation_slas entity_type (AGENCY,
+      // keyed by the agency's own user id) — property-title document types
+      // have no dedicated SLA entity_type in the enum, so there is nothing
+      // to complete for those.
+      if (isAgencyDoc && action !== 'REQUEST_INFO') {
+        await (supabase as any)
+          .from('validation_slas')
+          .update({ completed_at: new Date().toISOString(), is_overdue: false })
+          .eq('entity_type', 'AGENCY')
+          .eq('entity_id', doc.owner_id)
+          .is('completed_at', null)
+      }
 
       await (supabase.from('audit_logs') as any).insert({
         action: auditAction,
@@ -214,7 +223,7 @@ export async function PATCH(req: NextRequest) {
         type: 'DOSSIER_UPDATE',
         title: notificationTitle,
         message: notificationMessage,
-        actionUrl: 'owner-file',
+        actionUrl: isAgencyDoc ? 'settings' : 'owner-file',
         entityId: docId,
       })
 
