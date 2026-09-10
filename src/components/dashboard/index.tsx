@@ -76,6 +76,7 @@ import { Disputes } from './admin/disputes'
 import { Reports } from './admin/reports'
 import { AdminSettings } from './admin/settings'
 import { AdminModeration } from './admin/moderation'
+import { AdminReviewsModeration } from './admin/reviews-moderation'
 import { AdminSignalements } from './admin/signalements'
 import { AdminTrustAgents } from './admin/trust-agents'
 import { AdminSystem } from './admin/system'
@@ -268,6 +269,7 @@ function AdminDashboard({ section }: { section: string }) {
     case 'users': return <AdminUsers />
     case 'properties-moderation': return <PropertiesModeration />
     case 'moderation': return <AdminModeration />
+    case 'reviews-moderation': return <AdminReviewsModeration />
     case 'tc-management': return <TcManagement />
     case 'trust-agents': return <AdminTrustAgents />
     case 'signalements': return <AdminSignalements />

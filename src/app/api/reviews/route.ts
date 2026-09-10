@@ -42,10 +42,11 @@ export async function GET(req: NextRequest) {
             .range((page - 1) * limit, page * limit - 1)
         : { data: [] as any[], error: null },
       (direction === 'all' || direction === 'received')
-        ? supabase
+        ? (supabase as any)
             .from('ratings')
             .select('*')
             .eq('to_user_id', userId)
+            .neq('status', 'HIDDEN')
             .order('created_at', { ascending: false })
             .range((page - 1) * limit, page * limit - 1)
         : { data: [] as any[], error: null },
@@ -53,14 +54,16 @@ export async function GET(req: NextRequest) {
         .from('ratings')
         .select('id', { count: 'exact', head: true })
         .eq('from_user_id', userId),
-      supabase
+      (supabase as any)
         .from('ratings')
         .select('id', { count: 'exact', head: true })
-        .eq('to_user_id', userId),
-      supabase
+        .eq('to_user_id', userId)
+        .neq('status', 'HIDDEN'),
+      (supabase as any)
         .from('ratings')
         .select('score')
-        .eq('to_user_id', userId),
+        .eq('to_user_id', userId)
+        .neq('status', 'HIDDEN'),
     ])
 
     const ratingsGiven = givenRaw.data || []

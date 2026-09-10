@@ -47,6 +47,7 @@ export function AgenceVisits() {
   const [error, setError] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [sendingReminders, setSendingReminders] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -62,6 +63,23 @@ export function AgenceVisits() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  const handleSendReminders = useCallback(async () => {
+    setSendingReminders(true)
+    try {
+      const res = await authFetch<{ remindedCount: number }>('/api/visits/remind', { method: 'POST' })
+      if (res.remindedCount > 0) {
+        toast.success(`${res.remindedCount} rappel${res.remindedCount > 1 ? 's' : ''} envoyé${res.remindedCount > 1 ? 's' : ''}`)
+      } else {
+        toast.info('Aucune visite à venir à rappeler')
+      }
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) return
+      toast.error('Erreur lors de l\'envoi des rappels')
+    } finally {
+      setSendingReminders(false)
+    }
+  }, [])
 
   // Realtime subscription
   useRealtimeVisits({
@@ -160,8 +178,8 @@ export function AgenceVisits() {
               {tab.label}
             </button>
           ))}
-          <Button variant="outline" size="sm" className="gap-1 ml-auto" onClick={() => toast.info('Rappels envoyés')}>
-            <Bell className="size-3" /> Envoyer rappels
+          <Button variant="outline" size="sm" className="gap-1 ml-auto" onClick={handleSendReminders} disabled={sendingReminders}>
+            <Bell className="size-3" /> {sendingReminders ? 'Envoi...' : 'Envoyer rappels'}
           </Button>
         </div>
       </motion.div>
