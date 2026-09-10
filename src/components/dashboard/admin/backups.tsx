@@ -38,6 +38,9 @@ export function AdminBackups() {
   const [restoreDialog, setRestoreDialog] = useState<{ open: boolean; backup: Backup | null }>({ open: false, backup: null })
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; backup: Backup | null }>({ open: false, backup: null })
   const [triggering, setTriggering] = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   const fetchBackups = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -63,13 +66,60 @@ export function AdminBackups() {
     }, [fetchBackups]),
   })
 
-  const handleTriggerBackup = () => {
+  const handleTriggerBackup = async () => {
     setTriggering(true)
-    setTimeout(() => {
-      fetchBackups()
-      toast.success('Sauvegarde manuelle lancée')
+    try {
+      await authFetch('/api/admin/backups', { method: 'POST' })
+      await fetchBackups()
+      toast.success('Sauvegarde terminée')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Échec de la sauvegarde')
+    } finally {
       setTriggering(false)
-    }, 1500)
+    }
+  }
+
+  const handleDownload = async (backup: Backup) => {
+    setDownloadingId(backup.id)
+    try {
+      const { url } = await authFetch<{ url: string }>(`/api/admin/backups/${backup.id}/download`)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Échec du téléchargement')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
+  const handleRestore = async () => {
+    const backup = restoreDialog.backup
+    if (!backup) return
+    setRestoring(true)
+    try {
+      await authFetch(`/api/admin/backups/${backup.id}/restore`, { method: 'POST' })
+      toast.success('Restauration terminée')
+      setRestoreDialog({ open: false, backup: null })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Échec de la restauration')
+    } finally {
+      setRestoring(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    const backup = deleteDialog.backup
+    if (!backup) return
+    setDeleting(true)
+    try {
+      await authFetch(`/api/admin/backups/${backup.id}`, { method: 'DELETE' })
+      await fetchBackups()
+      toast.success('Sauvegarde supprimée')
+      setDeleteDialog({ open: false, backup: null })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Échec de la suppression')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const statusConfig: Record<string, { label: string; className: string; icon: typeof CheckCircle }> = {
@@ -148,10 +198,10 @@ export function AdminBackups() {
                       </td>
                       <td className="py-3 px-3">
                         <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" className="size-7" title="Télécharger" onClick={() => toast.info('Téléchargement en cours...')}>
+                          <Button size="icon" variant="ghost" className="size-7" title="Télécharger" disabled={backup.status !== 'completed' || downloadingId === backup.id} onClick={() => handleDownload(backup)}>
                             <Download className="size-3.5" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="size-7 text-teal-600" title="Restaurer" onClick={() => setRestoreDialog({ open: true, backup })}>
+                          <Button size="icon" variant="ghost" className="size-7 text-teal-600" title="Restaurer" disabled={backup.status !== 'completed'} onClick={() => setRestoreDialog({ open: true, backup })}>
                             <RotateCcw className="size-3.5" />
                           </Button>
                           <Button size="icon" variant="ghost" className="size-7 text-red-600" title="Supprimer" onClick={() => setDeleteDialog({ open: true, backup })}>
@@ -175,16 +225,13 @@ export function AdminBackups() {
             <DialogTitle>Restaurer la sauvegarde</DialogTitle>
             <DialogDescription>
               Voulez-vous restaurer la sauvegarde <strong>{restoreDialog.backup?.name}</strong> ?
-              Cette action remplacera toutes les données actuelles.
+              Les données de la sauvegarde seront fusionnées avec les données actuelles (les enregistrements existants seront écrasés par leur version sauvegardée).
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRestoreDialog({ ...restoreDialog, open: false })}>Annuler</Button>
-            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={() => {
-              toast.success('Restauration lancée')
-              setRestoreDialog({ ...restoreDialog, open: false })
-            }}>
-              Confirmer la restauration
+            <Button variant="outline" onClick={() => setRestoreDialog({ ...restoreDialog, open: false })} disabled={restoring}>Annuler</Button>
+            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleRestore} disabled={restoring}>
+              {restoring ? 'Restauration...' : 'Confirmer la restauration'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -200,12 +247,9 @@ export function AdminBackups() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog({ ...deleteDialog, open: false })}>Annuler</Button>
-            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={() => {
-              toast.success('Sauvegarde supprimée')
-              setDeleteDialog({ ...deleteDialog, open: false })
-            }}>
-              Supprimer
+            <Button variant="outline" onClick={() => setDeleteDialog({ ...deleteDialog, open: false })} disabled={deleting}>Annuler</Button>
+            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Suppression...' : 'Supprimer'}
             </Button>
           </DialogFooter>
         </DialogContent>

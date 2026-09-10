@@ -2,10 +2,34 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 
-async function requireAdmin(req: NextRequest): Promise<{ userId: string } | NextResponse> {
+// Curated list of business tables included in a logical backup.
+// Deliberately excludes identity/auth tables (users, sessions, otp_codes, ...)
+// so a backup export never carries password hashes or other credentials.
+export const BACKUP_TABLES = [
+  'properties',
+  'leases',
+  'payments',
+  'applications',
+  'rental_files',
+  'mandats',
+  'commissions',
+  'maintenance_requests',
+  'disputes',
+  'signalements',
+] as const
+
+interface Backup {
+  id: string
+  name: string
+  date: string
+  size: string
+  status: 'completed' | 'in_progress' | 'failed'
+}
+
+async function requireAdmin(req: NextRequest) {
   const auth = await resolveRequestUser(req)
   if (!auth.userId) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    return { error: NextResponse.json({ error: 'Non authentifié' }, { status: 401 }) }
   }
   const supabase = getSupabaseAdminClient()
   const { data: user } = await supabase
@@ -14,19 +38,40 @@ async function requireAdmin(req: NextRequest): Promise<{ userId: string } | Next
     .eq('id', auth.userId)
     .single()
   if (!user || user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
+    return { error: NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 }) }
   }
-  return { userId: auth.userId }
+  return { userId: auth.userId, applyCookies: auth.applyCookies }
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`
+  const units = ['Ko', 'Mo', 'Go']
+  let value = bytes / 1024
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+  return `${value.toFixed(1)} ${units[unitIndex]}`
+}
+
+function toBackupDto(row: any): Backup {
+  return {
+    id: row.id,
+    name: row.file_name,
+    date: row.created_at,
+    size: row.size || '—',
+    status: row.status === 'running' ? 'in_progress' : row.status,
+  }
 }
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireAdmin(req)
-    if (auth instanceof NextResponse) return auth
+    if (auth.error) return auth.error
 
     const supabase = getSupabaseAdminClient()
-
-    const { data: _backups, error }: { data: any[]; error: any } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from('backups')
       .select('*')
       .order('created_at', { ascending: false })
@@ -36,29 +81,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    const backupList: any[] = (_backups ?? []) as any[]
-
-    // Stats
-    const completed = backupList.filter((b: any) => b.status === 'completed').length
-    const failed = backupList.filter((b: any) => b.status === 'failed').length
-    const latest = backupList[0] || null
+    const rows = data ?? []
+    const backups = rows.map(toBackupDto)
 
     return NextResponse.json({
-      data: backupList.map((b: any) => ({
-        id: b.id,
-        fileName: b.file_name,
-        size: b.size,
-        status: b.status,
-        type: b.type || 'manual',
-        createdAt: b.created_at,
-        completedAt: b.completed_at,
-      })),
+      backups,
       stats: {
-        total: (_backups ?? []).length,
-        completed,
-        failed,
-        latestSize: latest?.size || '—',
-        latestDate: latest?.created_at || null,
+        totalBackups: rows.length,
+        lastBackupSize: backups[0]?.size || '—',
+        failedCount: backups.filter((b) => b.status === 'failed').length,
       },
     })
   } catch (err: any) {
@@ -69,52 +100,66 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const auth = await requireAdmin(req)
-    if (auth instanceof NextResponse) return auth
+    if (auth.error) return auth.error
 
     const supabase = getSupabaseAdminClient()
-
-    // Create a backup record
-    const id = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    const id = crypto.randomUUID()
     const now = new Date().toISOString()
+    const fileName = `backup-${now.slice(0, 10)}-${id.slice(0, 8)}.json`
 
-    const { data, error }: { data: any; error: any } = await (supabase as any)
-      .from('backups')
-      .insert({
-        id,
-        file_name: `backup-${now.slice(0, 10)}.sql`,
-        status: 'running',
-        size: null,
-        created_at: now,
-        completed_at: null,
-      })
-      .select()
-      .single()
+    const { error: insertError } = await (supabase as any).from('backups').insert({
+      id,
+      file_name: fileName,
+      status: 'running',
+      type: 'manual',
+      created_by: auth.userId,
+      created_at: now,
+    })
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // Simulate backup completion (in real scenario, this would be async)
-    setTimeout(async () => {
-      await (supabase as any)
+    try {
+      const snapshot: Record<string, any[]> = {}
+      for (const table of BACKUP_TABLES) {
+        const { data, error } = await supabase.from(table).select('*')
+        if (error) throw new Error(`Export de ${table} échoué: ${error.message}`)
+        snapshot[table] = data ?? []
+      }
+
+      const payload = JSON.stringify({ createdAt: now, tables: snapshot })
+      const storagePath = `${id}.json`
+      const { error: uploadError } = await supabase.storage
+        .from('backups')
+        .upload(storagePath, payload, { contentType: 'application/json', upsert: true })
+
+      if (uploadError) throw new Error(`Téléversement échoué: ${uploadError.message}`)
+
+      const sizeBytes = new TextEncoder().encode(payload).length
+      const completedAt = new Date().toISOString()
+      const { data: completed, error: updateError } = await (supabase as any)
         .from('backups')
         .update({
           status: 'completed',
-          size: `${(Math.random() * 100 + 10).toFixed(1)} MB`,
-          completed_at: new Date().toISOString(),
+          size: formatSize(sizeBytes),
+          storage_path: storagePath,
+          completed_at: completedAt,
         })
         .eq('id', id)
-    }, 2000)
+        .select()
+        .single()
 
-    return NextResponse.json({
-      data: {
-        id: data.id,
-        fileName: data.file_name,
-        status: 'running',
-        createdAt: data.created_at,
-      },
-      message: 'Sauvegarde démarrée',
-    })
+      if (updateError) throw new Error(updateError.message)
+
+      return NextResponse.json({ backup: toBackupDto(completed), message: 'Sauvegarde terminée' })
+    } catch (execError: any) {
+      await (supabase as any)
+        .from('backups')
+        .update({ status: 'failed', error_message: execError.message, completed_at: new Date().toISOString() })
+        .eq('id', id)
+      return NextResponse.json({ error: execError.message || 'Échec de la sauvegarde' }, { status: 500 })
+    }
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

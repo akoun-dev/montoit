@@ -80,7 +80,6 @@ import { AdminSignalements } from './admin/signalements'
 import { AdminTrustAgents } from './admin/trust-agents'
 import { AdminSystem } from './admin/system'
 import { AdminSecurity } from './admin/security'
-import { AdminConfig } from './admin/config'
 import { AdminBackups } from './admin/backups'
 import { AdminNotifications } from './admin/notifications'
 import { AgenceOverview } from './agence/overview'
@@ -277,7 +276,6 @@ function AdminDashboard({ section }: { section: string }) {
     case 'reports': return <Reports />
     case 'system': return <AdminSystem />
     case 'security': return <AdminSecurity />
-    case 'config': return <AdminConfig />
     case 'backups': return <AdminBackups />
     case 'settings': return <AdminSettings />
     default: return <AdminOverview />

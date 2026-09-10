@@ -253,7 +253,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           title: 'CONFIGURATION',
           items: [
-            { id: 'config', label: 'Configuration', icon: Settings },
+            { id: 'settings', label: 'Configuration', icon: Settings },
             { id: 'backups', label: 'Sauvegardes', icon: Database },
           ],
         },
