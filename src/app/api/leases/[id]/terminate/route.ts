@@ -176,6 +176,23 @@ export async function PATCH(
         actionUrl: 'my-leases',
         entityId: id,
       })] : []),
+      // Invite both parties to rate each other now that the lease has ended.
+      notify({
+        userId: lease.tenant_id,
+        type: 'REVIEW',
+        title: 'Votre avis compte',
+        message: `Votre location pour "${property?.title || ''}" est terminée. Laissez un avis sur votre expérience avec le propriétaire.`,
+        actionUrl: 'reviews',
+        entityId: id,
+      }),
+      notify({
+        userId: lease.owner_id,
+        type: 'REVIEW',
+        title: 'Votre avis compte',
+        message: `Le bail pour "${property?.title || ''}" est terminé. Laissez un avis sur votre expérience avec le locataire.`,
+        actionUrl: 'reviews',
+        entityId: id,
+      }),
     ])
 
     const tenant = userMap.get(lease.tenant_id)
