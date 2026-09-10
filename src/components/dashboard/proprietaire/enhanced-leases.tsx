@@ -43,6 +43,7 @@ import { apiFetch } from '@/lib/capacitor'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { SignaturePad } from '@/components/ui/signature-pad'
+import { OwnerDepositRefundCard } from '../shared/deposit-refund-card'
 import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -1671,6 +1672,11 @@ export function EnhancedLeases() {
                   <p className="text-sm font-semibold">{new Date(detailLease.endDate).toLocaleDateString('fr-FR')}</p>
                 </div>
               </div>
+
+              {/* Deposit refund (terminated leases only) */}
+              {detailLease.status === 'TERMINATED' && (
+                <OwnerDepositRefundCard leaseId={detailLease.id} />
+              )}
 
               {/* Special conditions */}
               {detailLease.specialConditions && (

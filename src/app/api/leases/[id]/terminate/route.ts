@@ -85,6 +85,34 @@ export async function PATCH(
 
     await supabase.from('properties').update({ rental_status: 'disponible', updated_at: new Date().toISOString() }).eq('id', lease.property_id)
 
+    // Open the deposit refund decision, if a deposit was actually paid for this lease.
+    const { data: depositPayment } = await (supabase as any)
+      .from('payments')
+      .select('amount')
+      .eq('lease_id', id)
+      .eq('reference', `CAUTION-${id.slice(0, 8)}`)
+      .eq('status', 'PAID')
+      .maybeSingle()
+
+    let depositRefundOpened = false
+    if (depositPayment?.amount > 0) {
+      const { data: existingRefund } = await (supabase as any)
+        .from('deposit_refunds')
+        .select('id')
+        .eq('lease_id', id)
+        .maybeSingle()
+
+      if (!existingRefund) {
+        await (supabase as any).from('deposit_refunds').insert({
+          id: generateId(),
+          lease_id: id,
+          deposit_amount: depositPayment.amount,
+          status: 'PENDING',
+        })
+        depositRefundOpened = true
+      }
+    }
+
     const { data: property } = await supabase
       .from('properties')
       .select('id, title, address, city')
@@ -140,6 +168,14 @@ export async function PATCH(
         actionUrl: 'my-leases',
         entityId: id,
       }),
+      ...(depositRefundOpened ? [notify({
+        userId: lease.owner_id,
+        type: 'LEASE_UPDATE',
+        title: 'Restitution de caution à traiter',
+        message: `Le bail pour "${property?.title || ''}" est résilié. Merci de décider du montant à restituer au locataire.`,
+        actionUrl: 'my-leases',
+        entityId: id,
+      })] : []),
     ])
 
     const tenant = userMap.get(lease.tenant_id)

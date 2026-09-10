@@ -23,6 +23,7 @@ import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { apiFetch } from '@/lib/capacitor'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { TenantDepositRefundCard } from '../shared/deposit-refund-card'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface LeaseItem {
@@ -737,6 +738,13 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
             )}
             {generatingReceipt ? 'Génération...' : 'Télécharger le reçu de caution'}
           </Button>
+        </div>
+      )}
+
+      {/* ─── Deposit refund status ───────────────────────────────────────── */}
+      {lease.status === 'TERMINATED' && (
+        <div className="pt-2">
+          <TenantDepositRefundCard leaseId={lease.id} />
         </div>
       )}
 
