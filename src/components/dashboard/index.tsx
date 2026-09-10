@@ -76,11 +76,11 @@ import { Disputes } from './admin/disputes'
 import { Reports } from './admin/reports'
 import { AdminSettings } from './admin/settings'
 import { AdminModeration } from './admin/moderation'
+import { AdminReviewsModeration } from './admin/reviews-moderation'
 import { AdminSignalements } from './admin/signalements'
 import { AdminTrustAgents } from './admin/trust-agents'
 import { AdminSystem } from './admin/system'
 import { AdminSecurity } from './admin/security'
-import { AdminConfig } from './admin/config'
 import { AdminBackups } from './admin/backups'
 import { AdminNotifications } from './admin/notifications'
 import { AgenceOverview } from './agence/overview'
@@ -269,6 +269,7 @@ function AdminDashboard({ section }: { section: string }) {
     case 'users': return <AdminUsers />
     case 'properties-moderation': return <PropertiesModeration />
     case 'moderation': return <AdminModeration />
+    case 'reviews-moderation': return <AdminReviewsModeration />
     case 'tc-management': return <TcManagement />
     case 'trust-agents': return <AdminTrustAgents />
     case 'signalements': return <AdminSignalements />
@@ -277,7 +278,6 @@ function AdminDashboard({ section }: { section: string }) {
     case 'reports': return <Reports />
     case 'system': return <AdminSystem />
     case 'security': return <AdminSecurity />
-    case 'config': return <AdminConfig />
     case 'backups': return <AdminBackups />
     case 'settings': return <AdminSettings />
     default: return <AdminOverview />

@@ -24,22 +24,23 @@ export async function GET(req: NextRequest) {
 
     const leaseIds = leases.map((l) => l.id)
 
-    const { data: ratings } = await admin
+    const { data: ratings } = await (admin as any)
       .from('ratings')
       .select('id, from_user_id, score, comment, created_at')
       .in('lease_id', leaseIds)
+      .neq('status', 'HIDDEN')
       .order('created_at', { ascending: false })
 
     if (!ratings || ratings.length === 0) {
       return NextResponse.json({ reviews: [], avgRating: 0, totalReviews: 0 })
     }
 
-    const fromUserIds = [...new Set(ratings.map((r) => r.from_user_id))]
+    const fromUserIds = [...new Set(ratings.map((r: any) => r.from_user_id as string))]
 
     const { data: fromUsers } = await admin
       .from('users')
       .select('id, first_name, last_name, avatar_url')
-      .in('id', fromUserIds)
+      .in('id', fromUserIds as string[])
 
     const userMap = new Map(fromUsers?.map((u) => [u.id, u]))
 

@@ -73,6 +73,7 @@ export async function GET(req: NextRequest) {
     const allPayments = (paymentsRes.data || []).map((p: any) => ({
       id: p.id,
       amount: p.amount,
+      amountPaid: p.amount_paid || 0,
       status: p.status,
       dueDate: p.due_date,
       paidAt: p.paid_at,
@@ -154,6 +155,9 @@ export async function GET(req: NextRequest) {
       const collected = monthPayments
         .filter(p => p.status === 'PAID')
         .reduce((sum, p) => sum + p.amount, 0)
+        + monthPayments
+        .filter(p => p.status === 'PARTIAL')
+        .reduce((sum, p) => sum + (p.amountPaid || 0), 0)
       const pending = monthPayments
         .filter(p => p.status === 'PENDING')
         .reduce((sum, p) => sum + p.amount, 0)
@@ -162,7 +166,7 @@ export async function GET(req: NextRequest) {
         .reduce((sum, p) => sum + p.amount, 0)
       const partial = monthPayments
         .filter(p => p.status === 'PARTIAL')
-        .reduce((sum, p) => sum + p.amount, 0)
+        .reduce((sum, p) => sum + (p.amount - (p.amountPaid || 0)), 0)
 
       monthlyRevenueHistory.push({
         month: monthLabel,
@@ -185,7 +189,11 @@ export async function GET(req: NextRequest) {
       const status = payment.status as keyof typeof paymentStatusBreakdown
       if (paymentStatusBreakdown[status]) {
         paymentStatusBreakdown[status].count += 1
-        paymentStatusBreakdown[status].amount += payment.amount
+        // PARTIAL represents money still owed, consistent with PENDING/LATE,
+        // not the payment's full original amount (part of it is already in).
+        paymentStatusBreakdown[status].amount += status === 'PARTIAL'
+          ? (payment.amount - (payment.amountPaid || 0))
+          : payment.amount
       }
     }
 
@@ -224,9 +232,15 @@ export async function GET(req: NextRequest) {
       const collected = propertyPayments
         .filter(p => p.status === 'PAID')
         .reduce((sum, p) => sum + p.amount, 0)
+        + propertyPayments
+        .filter(p => p.status === 'PARTIAL')
+        .reduce((sum, p) => sum + (p.amountPaid || 0), 0)
       const pending = propertyPayments
-        .filter(p => p.status === 'PENDING' || p.status === 'PARTIAL')
+        .filter(p => p.status === 'PENDING')
         .reduce((sum, p) => sum + p.amount, 0)
+        + propertyPayments
+        .filter(p => p.status === 'PARTIAL')
+        .reduce((sum, p) => sum + (p.amount - (p.amountPaid || 0)), 0)
       const late = propertyPayments
         .filter(p => p.status === 'LATE')
         .reduce((sum, p) => sum + p.amount, 0)
@@ -282,9 +296,15 @@ export async function GET(req: NextRequest) {
     const totalCollected = allPayments
       .filter(p => p.status === 'PAID')
       .reduce((sum, p) => sum + p.amount, 0)
+      + allPayments
+      .filter(p => p.status === 'PARTIAL')
+      .reduce((sum, p) => sum + (p.amountPaid || 0), 0)
     const totalPendingAmount = allPayments
-      .filter(p => p.status === 'PENDING' || p.status === 'PARTIAL')
+      .filter(p => p.status === 'PENDING')
       .reduce((sum, p) => sum + p.amount, 0)
+      + allPayments
+      .filter(p => p.status === 'PARTIAL')
+      .reduce((sum, p) => sum + (p.amount - (p.amountPaid || 0)), 0)
     const totalLateAmount = allPayments
       .filter(p => p.status === 'LATE')
       .reduce((sum, p) => sum + p.amount, 0)
@@ -293,6 +313,7 @@ export async function GET(req: NextRequest) {
     const recentPayments = allPayments.slice(0, 20).map(p => ({
       id: p.id,
       amount: p.amount,
+      amountPaid: p.amountPaid,
       status: p.status,
       dueDate: p.dueDate,
       paidAt: p.paidAt,

@@ -199,11 +199,16 @@ export async function GET(req: NextRequest) {
     let appPropMap = new Map<string, any>()
     let appOwnerMap = new Map<string, any>()
 
+    let rentalFileMap = new Map<string, any>()
+
     if (rentalFileIds.length > 0) {
-      const [docResult, leaseResult] = await Promise.all([
+      const [docResult, leaseResult, rentalFileResult] = await Promise.all([
         supabase.from('rental_file_documents').select('*').in('rental_file_id', rentalFileIds).order('created_at', { ascending: false }),
         supabase.from('leases').select('*, property:properties!property_id(*)').in('rental_file_id', rentalFileIds),
+        supabase.from('rental_files').select('id, monthly_income, employer, employment_type, guarantor_name, guarantor_phone, guarantor_relation, rejection_reason, tc_comment, reviewed_at, valid_until, reviewed_by_id').in('id', rentalFileIds),
       ])
+
+      rentalFileMap = new Map((rentalFileResult.data ?? []).map((f: any) => [f.id, f]))
 
       const docsData = (docResult.data ?? []) as any[]
       for (const doc of docsData) {
@@ -283,7 +288,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      const reviewedByIds = [...new Set((applications ?? []).map((a: any) => a.reviewed_by_id).filter(Boolean))]
+      const reviewedByIds = [...new Set(Array.from(rentalFileMap.values()).map((f: any) => f.reviewed_by_id).filter(Boolean))]
       if (reviewedByIds.length > 0) {
         const reviewersResult = await supabase
           .from('users')
@@ -333,20 +338,21 @@ export async function GET(req: NextRequest) {
       const totalDocs = docs.length
       const validatedDocs = docs.filter((d: any) => d.status === 'VALIDATED').length
       const rejectedDocs = docs.filter((d: any) => d.status === 'REJECTED').length
+      const rentalFile = rentalFileMap.get(app.rental_file_id)
 
       return {
         id: app.id,
         status: app.status,
-        monthlyIncome: app.monthly_income,
-        employer: app.employer,
-        employmentType: app.employment_type,
-        guarantorName: app.guarantor_name,
-        guarantorPhone: app.guarantor_phone,
-        guarantorRelation: app.guarantor_relation,
-        rejectionReason: app.rejection_reason,
-        tcComment: app.tc_comment,
-        reviewedAt: app.reviewed_at,
-        validUntil: app.valid_until,
+        monthlyIncome: app.monthly_income ?? rentalFile?.monthly_income,
+        employer: rentalFile?.employer,
+        employmentType: app.employment_type ?? rentalFile?.employment_type,
+        guarantorName: rentalFile?.guarantor_name,
+        guarantorPhone: rentalFile?.guarantor_phone,
+        guarantorRelation: rentalFile?.guarantor_relation,
+        rejectionReason: rentalFile?.rejection_reason,
+        tcComment: rentalFile?.tc_comment,
+        reviewedAt: rentalFile?.reviewed_at,
+        validUntil: rentalFile?.valid_until,
         createdAt: app.created_at,
         updatedAt: app.updated_at,
         statusTimeline,
@@ -357,7 +363,7 @@ export async function GET(req: NextRequest) {
           rejected: rejectedDocs,
           pending: totalDocs - validatedDocs - rejectedDocs,
         },
-        reviewedBy: reviewedByMap[app.reviewed_by_id] || null,
+        reviewedBy: reviewedByMap[rentalFile?.reviewed_by_id] || null,
         documents: docs.map((d: any) => ({
           id: d.id,
           type: d.type,

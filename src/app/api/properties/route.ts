@@ -112,15 +112,17 @@ export async function GET(req: NextRequest) {
 
       if (activeMandats && activeMandats.length > 0) {
         const mandatPropIds = activeMandats.map((m: any) => `'${m.property_id}'`).join(',')
-        countQuery = countQuery.or(`status.eq.ACTIVE,id.in.(${mandatPropIds})`)
-        dataQuery = dataQuery.or(`status.eq.ACTIVE,id.in.(${mandatPropIds})`)
+        countQuery = countQuery.or(`status.eq.ACTIVE,id.in.(${mandatPropIds})`).eq('rental_status', 'disponible')
+        dataQuery = dataQuery.or(`status.eq.ACTIVE,id.in.(${mandatPropIds})`).eq('rental_status', 'disponible')
       } else {
-        countQuery = countQuery.eq('status', 'ACTIVE')
-        dataQuery = dataQuery.eq('status', 'ACTIVE')
+        countQuery = countQuery.eq('status', 'ACTIVE').eq('rental_status', 'disponible')
+        dataQuery = dataQuery.eq('status', 'ACTIVE').eq('rental_status', 'disponible')
       }
     } else {
-      countQuery = countQuery.eq('status', 'ACTIVE')
-      dataQuery = dataQuery.eq('status', 'ACTIVE')
+      // Public discovery: a property already rented must not appear as available,
+      // even though it stays `status = ACTIVE` until the owner republishes it.
+      countQuery = countQuery.eq('status', 'ACTIVE').eq('rental_status', 'disponible')
+      dataQuery = dataQuery.eq('status', 'ACTIVE').eq('rental_status', 'disponible')
     }
 
     // Apply filters to both queries

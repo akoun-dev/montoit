@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ChevronLeft, ChevronRight,
   Search, Heart, UserCheck, CreditCard, Bell, Wrench, UserCircle, Home, MapPin, Scale, FolderOpen, Lock,
   Award, Fingerprint, ShieldAlert, GraduationCap, Megaphone, Flag, Activity, Database, RefreshCw,
-  PlusCircle
+  PlusCircle, Star
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -231,6 +231,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           items: [
             { id: 'users', label: 'Utilisateurs', icon: Users },
             { id: 'moderation', label: 'Modération contenu', icon: ClipboardCheck },
+            { id: 'reviews-moderation', label: 'Modération des avis', icon: Star },
             { id: 'trust-agents', label: 'Tiers de Confiance', icon: Shield },
           ],
         },
@@ -253,7 +254,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           title: 'CONFIGURATION',
           items: [
-            { id: 'config', label: 'Configuration', icon: Settings },
+            { id: 'settings', label: 'Configuration', icon: Settings },
             { id: 'backups', label: 'Sauvegardes', icon: Database },
           ],
         },

@@ -91,6 +91,12 @@ export async function GET(req: NextRequest) {
       docByFile.get(doc.owner_file_id)!.push(doc)
     }
 
+    const docPropertyIds = [...new Set((documentsResult.data ?? []).map((d: any) => d.property_id).filter(Boolean))]
+    const { data: docProperties } = docPropertyIds.length > 0
+      ? await (supabase.from('properties') as any).select('id, title').in('id', docPropertyIds)
+      : { data: [] as any[] }
+    const docPropertyMap = new Map<string, any>((docProperties ?? []).map((p: any) => [p.id, p]))
+
     const files = filesRaw.map((f: any) => {
       const owner = ownerMap.get(f.owner_id)
       const documents = (docByFile.get(f.id) ?? []).map((d: any) => ({
@@ -102,6 +108,8 @@ export async function GET(req: NextRequest) {
         status: d.status,
         tcComment: d.tc_comment,
         createdAt: d.created_at,
+        propertyId: d.property_id,
+        property: docPropertyMap.get(d.property_id) ? { id: docPropertyMap.get(d.property_id).id, title: docPropertyMap.get(d.property_id).title } : null,
       }))
 
       return {
@@ -239,6 +247,12 @@ export async function PATCH(req: NextRequest) {
         .eq('id', fileId)
         .select()
         .single() as any)
+
+      await (supabase as any)
+        .from('validation_slas')
+        .update({ completed_at: new Date().toISOString(), is_overdue: false })
+        .eq('entity_type', 'OWNER_PROFILE')
+        .eq('entity_id', fileId)
 
       await (supabase.from('audit_logs') as any).insert({
         action: auditAction,

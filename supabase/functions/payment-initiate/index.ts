@@ -17,6 +17,7 @@ interface InitiatePaymentBody {
   paymentId: string
   method: PaymentOperator
   phoneNumber?: string
+  amount?: number
 }
 
 const VALID_METHODS: PaymentOperator[] = ['ORANGE_MONEY', 'MTN_MOMO', 'MOOV_MONEY', 'WAVE']
@@ -75,7 +76,7 @@ serve(async (req) => {
       .single()
 
     const body: InitiatePaymentBody = await req.json()
-    const { paymentId, method, phoneNumber } = body
+    const { paymentId, method, phoneNumber, amount: requestedAmount } = body
 
     if (!paymentId || !method) {
       return new Response(JSON.stringify({ error: 'Champs requis manquants: paymentId, method' }), {
@@ -126,7 +127,7 @@ serve(async (req) => {
 
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
-      .select('id, amount, status')
+      .select('id, amount, amount_paid, status')
       .eq('id', paymentId)
       .eq('tenant_id', userId)
       .maybeSingle()
@@ -138,8 +139,17 @@ serve(async (req) => {
       })
     }
 
-    if (payment.status !== 'PENDING' && payment.status !== 'LATE') {
+    if (!['PENDING', 'LATE', 'PARTIAL'].includes(payment.status)) {
       return new Response(JSON.stringify({ error: `Ce paiement ne peut pas être initié. Statut actuel: ${payment.status}` }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const remaining = payment.amount - (payment.amount_paid || 0)
+    const attemptAmount = requestedAmount ?? remaining
+    if (!(attemptAmount > 0) || attemptAmount > remaining + 0.01) {
+      return new Response(JSON.stringify({ error: `Montant invalide. Il reste ${remaining.toLocaleString('fr-FR')} FCFA à payer.` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -155,7 +165,7 @@ serve(async (req) => {
     const paiementResult = await initiatePaiement({
       operator: method,
       recipientNumber: tenantPhone,
-      amount: payment.amount,
+      amount: attemptAmount,
       idFromClient: partnerTransactionId,
       recipientEmail: profile?.email || '',
       recipientFirstName: profile?.first_name || '',
@@ -197,10 +207,20 @@ serve(async (req) => {
       .select()
       .single()
 
+    await supabase.from('payment_attempts').insert({
+      id: crypto.randomUUID(),
+      payment_id: paymentId,
+      amount: attemptAmount,
+      method,
+      operator_transaction_id: operatorTransactionId,
+      partner_transaction_id: partnerTransactionId,
+      status: 'PROCESSING',
+    })
+
     const methodLabel = getOperatorLabel(method)
 
     // Notify tenant that payment is processing
-    const formattedAmount = updatedPayment.amount?.toLocaleString('fr-FR') || '---'
+    const formattedAmount = attemptAmount.toLocaleString('fr-FR')
     await notify(supabase, {
       userId: userId,
       type: 'PAYMENT_ALERT',
@@ -217,7 +237,8 @@ serve(async (req) => {
         method: updatedPayment.method,
         partnerTransactionId,
         operatorTransactionId,
-        amount: updatedPayment.amount,
+        amount: attemptAmount,
+        remainingBeforePayment: remaining,
         operator: methodLabel,
         redirectUrl,
         message: 'Paiement initié avec succès. Vous recevrez une notification sur votre téléphone.',

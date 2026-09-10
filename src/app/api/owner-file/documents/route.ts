@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     // Récupérer les documents associés
     const { data: documents } = await (supabase as any)
       .from('owner_file_documents')
-      .select('id, name, type, url, status')
+      .select('id, name, type, url, status, property_id')
       .in('owner_file_id', ownerFileIds)
 
     const mappedDocs = documents?.map(doc => ({
@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
       type: doc.type || 'OTHER',
       url: doc.url,
       status: doc.status,
+      propertyId: doc.property_id,
     })) || []
 
     const resp = NextResponse.json({ documents: mappedDocs })
@@ -90,16 +91,31 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseAdminClient()
 
     const body = await req.json()
-    const { ownerFileId, type, name, content, url: externalUrl } = body as {
+    const { ownerFileId, type, name, content, url: externalUrl, propertyId } = body as {
       ownerFileId: string
       type: string
       name: string
       content?: string
       url?: string
+      propertyId?: string
     }
 
     if (!ownerFileId || !type || !name) {
       return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
+    }
+
+    // Un titre de propriété peut être rattaché à un bien précis, pour que sa
+    // validation TC ne couvre pas silencieusement tous les biens du propriétaire.
+    if (type === 'PROPERTY_TITLE' && propertyId) {
+      const { data: targetProperty } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('id', propertyId)
+        .eq('owner_id', userId)
+        .maybeSingle()
+      if (!targetProperty) {
+        return NextResponse.json({ error: 'Bien introuvable ou non rattaché à votre compte' }, { status: 404 })
+      }
     }
 
     const { data: ownerFile, error: fileError } = await supabase
@@ -138,12 +154,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Type de document invalide' }, { status: 400 })
     }
 
-    const { data: existingDoc } = await (supabase
-      .from('owner_file_documents')
+    // Un titre de propriété est rattaché à un bien précis, chaque bien peut
+    // donc avoir le sien ; les autres types de documents restent uniques
+    // par dossier propriétaire.
+    let existingDocQuery = (supabase
+      .from('owner_file_documents') as any)
       .select('id, url')
       .eq('owner_file_id', ownerFileId)
       .eq('type', type)
-      .maybeSingle() as any)
+    existingDocQuery = type === 'PROPERTY_TITLE'
+      ? (propertyId ? existingDocQuery.eq('property_id', propertyId) : existingDocQuery.is('property_id', null))
+      : existingDocQuery
+    const { data: existingDoc } = await (existingDocQuery.maybeSingle() as any)
 
     let url = existingDoc?.url || ''
     if (content) {
@@ -177,7 +199,7 @@ export async function POST(req: NextRequest) {
     } else {
       const { data: created, error: insertError } = await (supabase
         .from('owner_file_documents')
-        .insert({ id: generateId(), owner_file_id: ownerFileId, type, name, url, status: 'PENDING' } as any)
+        .insert({ id: generateId(), owner_file_id: ownerFileId, type, name, url, status: 'PENDING', property_id: type === 'PROPERTY_TITLE' ? (propertyId ?? null) : null } as any)
         .select()
         .single() as any)
       if (insertError || !created) {
@@ -212,6 +234,7 @@ export async function POST(req: NextRequest) {
       url: document.url,
       status: document.status,
       tcComment: document.tc_comment,
+      propertyId: document.property_id,
       createdAt: document.created_at,
       updatedAt: document.updated_at,
     }

@@ -58,10 +58,26 @@ async function syncProcessingPaymentWithIntouch(supabase: ReturnType<typeof getS
       lastStatusCheckResult: statusPayload,
     }
 
+    // Same attempt lookup as the webhook handler: payment.amount is the
+    // TOTAL due, not necessarily this in-flight attempt's amount, since a
+    // partial payment can be settled over several attempts.
+    const { data: attempt } = await (supabase as any)
+      .from('payment_attempts')
+      .select('*')
+      .eq('operator_transaction_id', payment.operator_transaction_id)
+      .eq('payment_id', payment.id)
+      .eq('status', 'PROCESSING')
+      .maybeSingle()
+    const attemptAmount = attempt?.amount ?? Math.max(payment.amount - (payment.amount_paid || 0), 0)
+
     if (isSuccess) {
-      const updatedFields = {
-        status: 'PAID',
-        paid_at: payment.paid_at || new Date().toISOString(),
+      const newAmountPaidRaw = (payment.amount_paid || 0) + attemptAmount
+      const isFullyPaid = newAmountPaidRaw >= payment.amount - 0.01
+      const newAmountPaid = isFullyPaid ? payment.amount : newAmountPaidRaw
+
+      const updatedFields: Record<string, unknown> = {
+        status: isFullyPaid ? 'PAID' : 'PARTIAL',
+        amount_paid: newAmountPaid,
         reference: String(
           statusPayload.transactionId ||
           statusPayload.id ||
@@ -71,11 +87,16 @@ async function syncProcessingPaymentWithIntouch(supabase: ReturnType<typeof getS
         ),
         payment_operator_data: mergedOperatorData,
       }
+      if (isFullyPaid) updatedFields.paid_at = payment.paid_at || new Date().toISOString()
 
-      await supabase
+      await (supabase as any)
         .from('payments')
         .update(updatedFields)
         .eq('id', payment.id)
+
+      if (attempt) {
+        await (supabase as any).from('payment_attempts').update({ status: 'SUCCESS', completed_at: new Date().toISOString() }).eq('id', attempt.id)
+      }
 
       return {
         ...payment,
@@ -84,7 +105,7 @@ async function syncProcessingPaymentWithIntouch(supabase: ReturnType<typeof getS
     }
 
     const updatedFields = {
-      status: 'PENDING',
+      status: (payment.amount_paid || 0) > 0 ? 'PARTIAL' : 'PENDING',
       method: null,
       operator_transaction_id: null,
       operator_phone_number: null,
@@ -95,6 +116,11 @@ async function syncProcessingPaymentWithIntouch(supabase: ReturnType<typeof getS
       .from('payments')
       .update(updatedFields)
       .eq('id', payment.id)
+
+    if (attempt) {
+      const failureReason = String(statusPayload.error_message || statusPayload.message || normalizedStatus)
+      await (supabase as any).from('payment_attempts').update({ status: 'FAILED', failure_reason: failureReason, completed_at: new Date().toISOString() }).eq('id', attempt.id)
+    }
 
     return {
       ...payment,

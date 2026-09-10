@@ -103,6 +103,28 @@ export async function POST(req: NextRequest) {
       .select('*, lease:lease_id(id, start_date, end_date, monthly_rent, property:property_id(id, title, address, city, images:property_images(url, "order")), owner:owner_id(id, first_name, last_name))')
       .single() as any)
 
+    if (insertError?.code === '23505') {
+      // Concurrent request already created the payment for this lease + due date.
+      const { data: concurrent } = await (supabase
+        .from('payments')
+        .select('*, lease:lease_id(id, start_date, end_date, monthly_rent, property:property_id(id, title, address, city, images:property_images(url, "order")), owner:owner_id(id, first_name, last_name))')
+        .eq('lease_id', activeLease.id)
+        .eq('due_date', nextDue)
+        .is('reference', null)
+        .maybeSingle() as any)
+
+      if (concurrent) {
+        const mapped = snakeToCamel(concurrent)
+        if (mapped.lease?.property?.images) {
+          const sorted = [...mapped.lease.property.images].sort(
+            (a: any, b: any) => (a.order || 0) - (b.order || 0)
+          )
+          mapped.lease.property.images = sorted.length > 0 ? [sorted[0]] : []
+        }
+        return applyCookies(NextResponse.json({ data: mapped, message: 'Un paiement existe déjà pour cette échéance' }))
+      }
+    }
+
     if (insertError || !newPayment) {
       console.error('Advance payment insert error:', insertError)
       return applyCookies(NextResponse.json({ error: 'Erreur lors de la création du paiement' }, { status: 500 }))

@@ -24,6 +24,12 @@ interface OwnerFileDoc {
   status: string
   tcComment: string | null
   createdAt: string
+  propertyId?: string | null
+}
+
+interface OwnerPropertyOption {
+  id: string
+  title: string
 }
 
 interface OwnerFileItem {
@@ -80,6 +86,7 @@ export function OwnerFileForm() {
   const [submitting, setSubmitting] = useState(false)
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null)
   const [deleteDocConfirmId, setDeleteDocConfirmId] = useState<string | null>(null)
+  const [ownerProperties, setOwnerProperties] = useState<OwnerPropertyOption[]>([])
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const ownerFileIdRef = useRef<string | null>(null)
@@ -113,6 +120,16 @@ export function OwnerFileForm() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchOwnerFile() }, [fetchOwnerFile])
+
+  // Le titre de propriété se déclare par bien : on ne propose un sélecteur
+  // que si le propriétaire a plusieurs biens (sinon, un seul emplacement
+  // suffit et le document reste rattaché au dossier, sans bien précis).
+  useEffect(() => {
+    if (!isAuthenticated) return
+    authFetch<{ properties: OwnerPropertyOption[] }>('/api/properties?mine=true&limit=100')
+      .then((res) => setOwnerProperties((res.properties ?? []).map((p) => ({ id: p.id, title: p.title }))))
+      .catch(() => {})
+  }, [isAuthenticated])
 
   // Realtime — refresh when owner files or documents change
   useRealtimeOwnerFiles({
@@ -242,7 +259,9 @@ export function OwnerFileForm() {
   }
 
   // ─── File upload handler ──────────────────────────────────────────────
-  const handleFileUpload = async (docType: string, file: File) => {
+  // rowKey identifies the UI row (docType, or `${docType}:${propertyId}` for
+  // a per-property title) — used only to track loading/input-ref state.
+  const handleFileUpload = async (docType: string, file: File, rowKey: string, propertyId?: string) => {
     if (file.size > MAX_FILE_SIZE) {
       toast.error('Le fichier ne doit pas dépasser 5 Mo')
       return
@@ -254,7 +273,7 @@ export function OwnerFileForm() {
       return
     }
 
-    setUploadingDocType(docType)
+    setUploadingDocType(rowKey)
 
     try {
       const { uploadUrl, publicUrl } = await authFetch<{
@@ -284,6 +303,7 @@ export function OwnerFileForm() {
           type: docType,
           name: file.name,
           url: publicUrl,
+          propertyId,
         }),
       })
 
@@ -466,104 +486,115 @@ export function OwnerFileForm() {
             </div>
 
             <div className="space-y-3">
-              {ownerDocumentRequirements.map((doc) => {
-                const existingDoc = existingFile?.documents?.find((d) => d.type === doc.type)
-                const isUploading = uploadingDocType === doc.type
+              {ownerDocumentRequirements.flatMap((doc) => {
+                // Un titre de propriété se rattache à un bien précis dès que le
+                // propriétaire en a plusieurs : un emplacement par bien plutôt
+                // qu'un unique document couvrant silencieusement tout le portefeuille.
+                const perPropertyRows = doc.type === 'PROPERTY_TITLE' && ownerProperties.length > 1
+                  ? ownerProperties.map((p) => ({ rowKey: `${doc.type}:${p.id}`, propertyId: p.id, propertyLabel: p.title }))
+                  : [{ rowKey: doc.type, propertyId: undefined as string | undefined, propertyLabel: undefined as string | undefined }]
 
-                return (
-                  <div key={doc.type} className={`rounded-xl border-2 p-4 transition-colors ${
-                    existingDoc ? 'border-emerald-200 bg-emerald-50/50' : doc.required ? 'border-red-100' : 'border-border'
-                  }`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {existingDoc ? (
-                            <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                          ) : (
-                            <FileText className={`size-4 shrink-0 ${doc.required ? 'text-red-400' : 'text-muted-foreground'}`} />
-                          )}
-                          <span className="text-sm font-medium text-foreground">{doc.label}</span>
-                          {doc.required && !existingDoc && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-50 text-red-600 border-red-200">
-                              Obligatoire
-                            </Badge>
-                          )}
-                          {!doc.required && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-border">
-                              Facultatif
-                            </Badge>
+                return perPropertyRows.map(({ rowKey, propertyId, propertyLabel }) => {
+                  const existingDoc = existingFile?.documents?.find((d) => d.type === doc.type && (propertyId ? d.propertyId === propertyId : !d.propertyId))
+                  const isUploading = uploadingDocType === rowKey
+
+                  return (
+                    <div key={rowKey} className={`rounded-xl border-2 p-4 transition-colors ${
+                      existingDoc ? 'border-emerald-200 bg-emerald-50/50' : doc.required ? 'border-red-100' : 'border-border'
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            {existingDoc ? (
+                              <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                            ) : (
+                              <FileText className={`size-4 shrink-0 ${doc.required ? 'text-red-400' : 'text-muted-foreground'}`} />
+                            )}
+                            <span className="text-sm font-medium text-foreground">
+                              {propertyLabel ? `${doc.label} — ${propertyLabel}` : doc.label}
+                            </span>
+                            {doc.required && !existingDoc && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-50 text-red-600 border-red-200">
+                                Obligatoire
+                              </Badge>
+                            )}
+                            {!doc.required && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-border">
+                                Facultatif
+                              </Badge>
+                            )}
+                            {existingDoc && (
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
+                                existingDoc.status === 'VALIDATED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : existingDoc.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}>
+                                {existingDoc.status === 'VALIDATED' ? 'Validé' : existingDoc.status === 'REJECTED' ? 'Rejeté' : 'En attente'}
+                              </Badge>
+                            )}
+                          </div>
+                          {doc.description && !propertyLabel && (
+                            <p className="text-xs text-muted-foreground mt-1 ml-6">{doc.description}</p>
                           )}
                           {existingDoc && (
-                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
-                              existingDoc.status === 'VALIDATED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : existingDoc.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}>
-                              {existingDoc.status === 'VALIDATED' ? 'Validé' : existingDoc.status === 'REJECTED' ? 'Rejeté' : 'En attente'}
-                            </Badge>
+                            <div className="flex items-center gap-2 mt-2 ml-6">
+                              <span className="text-xs text-muted-foreground truncate">{existingDoc.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                • Ajouté le {new Date(existingDoc.createdAt).toLocaleDateString('fr-FR')}
+                              </span>
+                            </div>
+                          )}
+                          {existingDoc?.tcComment && (
+                            <p className="text-xs text-amber-600 mt-1 ml-6">Commentaire TC : {existingDoc.tcComment}</p>
                           )}
                         </div>
-                        {doc.description && (
-                          <p className="text-xs text-muted-foreground mt-1 ml-6">{doc.description}</p>
-                        )}
-                        {existingDoc && (
-                          <div className="flex items-center gap-2 mt-2 ml-6">
-                            <span className="text-xs text-muted-foreground truncate">{existingDoc.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              • Ajouté le {new Date(existingDoc.createdAt).toLocaleDateString('fr-FR')}
-                            </span>
-                          </div>
-                        )}
-                        {existingDoc?.tcComment && (
-                          <p className="text-xs text-amber-600 mt-1 ml-6">Commentaire TC : {existingDoc.tcComment}</p>
-                        )}
-                      </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {!isReadOnly && existingDoc && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="size-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleDeleteDocument(existingDoc.id)}
-                            title="Supprimer"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        )}
-                        {!isReadOnly && (
-                          <Button
-                            variant={existingDoc ? "outline" : "default"}
-                            size="sm"
-                            className={`gap-1.5 ${!existingDoc ? 'bg-brand-500 hover:bg-brand-600 text-white' : ''}`}
-                            disabled={isUploading}
-                            onClick={() => fileInputRefs.current[doc.type]?.click()}
-                          >
-                            {isUploading ? (
-                              <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                            ) : existingDoc ? (
-                              <Eye className="size-3.5" />
-                            ) : (
-                              <Upload className="size-3.5" />
-                            )}
-                            {isUploading ? 'Envoi...' : existingDoc ? 'Remplacer' : 'Télécharger'}
-                          </Button>
-                        )}
-                        <input
-                          ref={(el) => { fileInputRefs.current[doc.type] = el }}
-                          type="file"
-                          className="hidden"
-                          accept={doc.accept}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) handleFileUpload(doc.type, file)
-                            e.target.value = ''
-                          }}
-                        />
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {!isReadOnly && existingDoc && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="size-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleDeleteDocument(existingDoc.id)}
+                              title="Supprimer"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          )}
+                          {!isReadOnly && (
+                            <Button
+                              variant={existingDoc ? "outline" : "default"}
+                              size="sm"
+                              className={`gap-1.5 ${!existingDoc ? 'bg-brand-500 hover:bg-brand-600 text-white' : ''}`}
+                              disabled={isUploading}
+                              onClick={() => fileInputRefs.current[rowKey]?.click()}
+                            >
+                              {isUploading ? (
+                                <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              ) : existingDoc ? (
+                                <Eye className="size-3.5" />
+                              ) : (
+                                <Upload className="size-3.5" />
+                              )}
+                              {isUploading ? 'Envoi...' : existingDoc ? 'Remplacer' : 'Télécharger'}
+                            </Button>
+                          )}
+                          <input
+                            ref={(el) => { fileInputRefs.current[rowKey] = el }}
+                            type="file"
+                            className="hidden"
+                            accept={doc.accept}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleFileUpload(doc.type, file, rowKey, propertyId)
+                              e.target.value = ''
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
+                  )
+                })
               })}
             </div>
 

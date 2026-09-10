@@ -25,12 +25,13 @@ export async function GET(req: NextRequest) {
     }
 
     const [receivedRaw, givenRaw, completedRaw] = await Promise.all([
-      supabase
+      (supabase as any)
         .from('ratings')
         .select('id, score, comment, created_at, to_user_id, from_user_id, lease_id')
         .eq('to_user_id', userId)
+        .neq('status', 'HIDDEN')
         .order('created_at', { ascending: false }),
-      supabase
+      (supabase as any)
         .from('ratings')
         .select('id, score, comment, created_at, to_user_id, from_user_id, lease_id')
         .eq('from_user_id', userId)
@@ -47,11 +48,11 @@ export async function GET(req: NextRequest) {
     const givenList = givenRaw.data || []
     const completedLeases = completedRaw.data || []
 
-    const receivedUserIds = [...new Set(receivedList.map(r => r.from_user_id).filter(Boolean))]
-    const givenUserIds = [...new Set(givenList.map(r => r.to_user_id).filter(Boolean))]
+    const receivedUserIds = [...new Set(receivedList.map((r: any) => r.from_user_id as string).filter(Boolean))]
+    const givenUserIds = [...new Set(givenList.map((r: any) => r.to_user_id as string).filter(Boolean))]
     const leaseIds = [...new Set([
-      ...receivedList.map(r => r.lease_id),
-      ...givenList.map(r => r.lease_id),
+      ...receivedList.map((r: any) => r.lease_id as string),
+      ...givenList.map((r: any) => r.lease_id as string),
       ...completedLeases.map(l => l.id),
     ].filter(Boolean))]
 
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
 
     const [{ data: users }, { data: leaseProps }, { data: leaseTenants }, { data: ratingsForLease }] = await Promise.all([
       allUserIds.length > 0
-        ? supabase.from('users').select('id, first_name, last_name, avatar_url').in('id', allUserIds)
+        ? supabase.from('users').select('id, first_name, last_name, avatar_url').in('id', allUserIds as string[])
         : { data: [] as any[] },
       propertyIds.length > 0
         ? supabase.from('properties').select('id, title, address, city').in('id', propertyIds)

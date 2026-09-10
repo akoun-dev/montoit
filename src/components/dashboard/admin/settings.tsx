@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Settings, Shield, Bell, Globe, Save, Loader2 } from 'lucide-react'
+import { Settings, Shield, Bell, Globe, Save, Loader2, ToggleLeft, FileText, Mail, MessageSquare } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,12 +37,76 @@ interface AdminSlaSettings {
   autoValidationThreshold: number
 }
 
+interface AdminPlatformSettings {
+  name: string
+  url: string
+  currency: string
+  timezone: string
+}
+
+interface AdminFeatureFlags {
+  virtualTours: boolean
+  kycVerification: boolean
+  autoValidation: boolean
+  maintenanceRequests: boolean
+  fraudDetection: boolean
+  messaging: boolean
+}
+
+interface AdminRgpdSettings {
+  cookieConsent: boolean
+  rightToErasure: boolean
+  dataExport: boolean
+  autoRetention: boolean
+  accessLog: boolean
+  privacyUrl: string
+  termsUrl: string
+}
+
+interface AdminAlertTypes {
+  newUsers: boolean
+  criticalSignalements: boolean
+  overduePayments: boolean
+  systemErrors: boolean
+}
+
+const FEATURE_LABELS: Record<keyof AdminFeatureFlags, { label: string; desc: string }> = {
+  virtualTours: { label: 'Visites virtuelles', desc: 'Permettre les visites 3D des biens' },
+  kycVerification: { label: 'Vérification KYC', desc: 'Activer la vérification biométrique NeoFace' },
+  autoValidation: { label: 'Validation automatique', desc: 'Approuver automatiquement les dossiers complets' },
+  maintenanceRequests: { label: "Demandes d'entretien", desc: 'Permettre aux locataires de soumettre des demandes' },
+  fraudDetection: { label: 'Détection de fraude', desc: 'Système automatique de détection' },
+  messaging: { label: 'Messagerie', desc: 'Système de messagerie entre utilisateurs' },
+}
+
+const ALERT_LABELS: Record<keyof AdminAlertTypes, { label: string; desc: string }> = {
+  newUsers: { label: 'Nouveaux utilisateurs', desc: 'Notification à chaque inscription' },
+  criticalSignalements: { label: 'Signalements critiques', desc: 'Alertes pour les signalements urgents' },
+  overduePayments: { label: 'Paiements en retard', desc: 'Notification des loyers impayés' },
+  systemErrors: { label: 'Erreurs système', desc: "Alertes en cas d'erreur technique" },
+}
+
 export function AdminSettings() {
   const { isAuthenticated } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<'securite' | 'notifications' | 'sla'>('securite')
+  const [activeTab, setActiveTab] = useState<'general' | 'features' | 'securite' | 'notifications' | 'sla' | 'rgpd'>('general')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [testingChannel, setTestingChannel] = useState<'email' | 'sms' | null>(null)
 
+  const [platform, setPlatform] = useState<AdminPlatformSettings>({
+    name: 'Mon Toit',
+    url: 'https://montoit.ci',
+    currency: 'FCFA',
+    timezone: 'Africa/Abidjan',
+  })
+  const [features, setFeatures] = useState<AdminFeatureFlags>({
+    virtualTours: true,
+    kycVerification: true,
+    autoValidation: false,
+    maintenanceRequests: true,
+    fraudDetection: true,
+    messaging: true,
+  })
   const [security, setSecurity] = useState<AdminSecuritySettings>({
     otpRequired: true,
     otpExpiryMinutes: 5,
@@ -55,12 +119,27 @@ export function AdminSettings() {
     smsEnabled: false,
     pushEnabled: true,
   })
+  const [alertTypes, setAlertTypes] = useState<AdminAlertTypes>({
+    newUsers: true,
+    criticalSignalements: true,
+    overduePayments: true,
+    systemErrors: true,
+  })
   const [sla, setSla] = useState<AdminSlaSettings>({
     tcValidationHours: 48,
     ownerResponseHours: 24,
     signalementHours: 72,
     autoValidationEnabled: true,
     autoValidationThreshold: 70,
+  })
+  const [rgpd, setRgpd] = useState<AdminRgpdSettings>({
+    cookieConsent: true,
+    rightToErasure: true,
+    dataExport: true,
+    autoRetention: true,
+    accessLog: true,
+    privacyUrl: 'https://montoit.ci/privacy',
+    termsUrl: 'https://montoit.ci/terms',
   })
 
   const fetchSettings = useCallback(async () => {
@@ -70,10 +149,18 @@ export function AdminSettings() {
         security: AdminSecuritySettings
         notifications: AdminNotificationSettings
         sla: AdminSlaSettings
+        platform: AdminPlatformSettings
+        features: AdminFeatureFlags
+        rgpd: AdminRgpdSettings
+        alertTypes: AdminAlertTypes
       }>('/api/admin/settings')
       if (data.security) setSecurity(data.security)
       if (data.notifications) setNotifications(data.notifications)
       if (data.sla) setSla(data.sla)
+      if (data.platform) setPlatform(data.platform)
+      if (data.features) setFeatures(data.features)
+      if (data.rgpd) setRgpd(data.rgpd)
+      if (data.alertTypes) setAlertTypes(data.alertTypes)
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
       console.error('Failed to fetch admin settings:', err)
@@ -100,6 +187,23 @@ export function AdminSettings() {
     }
   }
 
+  const handleTestChannel = async (channel: 'email' | 'sms') => {
+    setTestingChannel(channel)
+    try {
+      const result = await authFetch<{ success: boolean; message: string }>('/api/admin/settings/test-channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel }),
+      })
+      if (result.success) toast.success(result.message || 'Test envoyé avec succès')
+      else toast.error(result.message || "Échec de l'envoi du test")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Échec de l'envoi du test")
+    } finally {
+      setTestingChannel(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -114,23 +218,26 @@ export function AdminSettings() {
   }
 
   const tabs = [
+    { id: 'general' as const, label: 'Général', icon: Globe },
+    { id: 'features' as const, label: 'Fonctionnalités', icon: ToggleLeft },
     { id: 'securite' as const, label: 'Sécurité', icon: Shield },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell },
-    { id: 'sla' as const, label: 'SLA & Délais', icon: Globe },
+    { id: 'sla' as const, label: 'SLA & Délais', icon: FileText },
+    { id: 'rgpd' as const, label: 'RGPD', icon: Shield },
   ]
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
         <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-          <Settings className="size-5 sm:size-6 text-brand-500" /> Paramètres
+          <Settings className="size-5 sm:size-6 text-brand-500" /> Configuration
         </h1>
-        <p className="text-muted-foreground mt-1">Configuration de la plateforme Mon Toit</p>
+        <p className="text-muted-foreground mt-1">Paramètres de la plateforme Mon Toit</p>
       </motion.div>
 
       {/* Tab Navigation */}
       <motion.div variants={itemVariants}>
-        <div className="flex gap-1 p-1 bg-muted rounded-xl">
+        <div className="flex gap-1 p-1 bg-muted rounded-xl overflow-x-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -138,7 +245,7 @@ export function AdminSettings() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 justify-center whitespace-nowrap ${
                   isActive
                     ? 'bg-card text-brand-600 shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -154,6 +261,74 @@ export function AdminSettings() {
 
       {/* Tab Content */}
       <AnimatePresence mode="wait">
+        {/* ── GÉNÉRAL TAB ───────────────────────────────────────────────── */}
+        {activeTab === 'general' && (
+          <motion.div key="general" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="space-y-6">
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Globe className="size-4 text-brand-500" />
+                  Paramètres généraux
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nom de la plateforme</Label>
+                  <Input value={platform.name} onChange={(e) => setPlatform({ ...platform, name: e.target.value })} className="max-w-sm" />
+                </div>
+                <div className="space-y-2">
+                  <Label>URL de la plateforme</Label>
+                  <Input value={platform.url} onChange={(e) => setPlatform({ ...platform, url: e.target.value })} className="max-w-sm" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Devise</Label>
+                  <Input value={platform.currency} onChange={(e) => setPlatform({ ...platform, currency: e.target.value })} className="w-32" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fuseau horaire</Label>
+                  <Input value={platform.timezone} onChange={(e) => setPlatform({ ...platform, timezone: e.target.value })} className="max-w-sm" />
+                </div>
+              </CardContent>
+            </Card>
+            <div className="flex justify-end">
+              <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2" onClick={() => handleSave('platform', platform)} disabled={saving}>
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Sauvegarder
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── FONCTIONNALITÉS TAB ──────────────────────────────────────── */}
+        {activeTab === 'features' && (
+          <motion.div key="features" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="space-y-6">
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <ToggleLeft className="size-4 text-brand-500" />
+                  Feature flags
+                </CardTitle>
+                <CardDescription>Activer ou désactiver des fonctionnalités de la plateforme</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(Object.keys(FEATURE_LABELS) as Array<keyof AdminFeatureFlags>).map((key) => (
+                  <div key={key} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{FEATURE_LABELS[key].label}</p>
+                      <p className="text-xs text-muted-foreground">{FEATURE_LABELS[key].desc}</p>
+                    </div>
+                    <Switch checked={features[key]} onCheckedChange={(v) => setFeatures({ ...features, [key]: v })} />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            <div className="flex justify-end">
+              <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2" onClick={() => handleSave('features', features)} disabled={saving}>
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Sauvegarder
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
         {/* ── SÉCURITÉ TAB ──────────────────────────────────────────────── */}
         {activeTab === 'securite' && (
           <motion.div
@@ -205,6 +380,20 @@ export function AdminSettings() {
                   <Switch
                     checked={security.sessionPersistent}
                     onCheckedChange={(v) => setSecurity({ ...security, sessionPersistent: v })}
+                  />
+                </div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Tentatives de connexion max</p>
+                    <p className="text-xs text-muted-foreground">Nombre d'échecs avant verrouillage temporaire du compte</p>
+                  </div>
+                  <Input
+                    type="number"
+                    value={security.maxLoginAttempts}
+                    onChange={(e) => setSecurity({ ...security, maxLoginAttempts: Math.max(1, parseInt(e.target.value.replace(/-/g, '')) || 5) })}
+                    className="w-20 h-9 text-sm"
+                    min={1}
+                    max={20}
                   />
                 </div>
               </CardContent>
@@ -275,10 +464,52 @@ export function AdminSettings() {
               </CardContent>
             </Card>
 
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Bell className="size-4 text-brand-500" />
+                  Types d'alertes
+                </CardTitle>
+                <CardDescription>Choisir les événements qui déclenchent une alerte admin</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(Object.keys(ALERT_LABELS) as Array<keyof AdminAlertTypes>).map((key) => (
+                  <div key={key} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{ALERT_LABELS[key].label}</p>
+                      <p className="text-xs text-muted-foreground">{ALERT_LABELS[key].desc}</p>
+                    </div>
+                    <Switch checked={alertTypes[key]} onCheckedChange={(v) => setAlertTypes({ ...alertTypes, [key]: v })} />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Mail className="size-4 text-brand-500" />
+                  Test des canaux
+                </CardTitle>
+                <CardDescription>Envoyer un message de test réel via ANSUT (email/SMS) à votre propre compte</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                <Button variant="outline" className="gap-2" onClick={() => handleTestChannel('email')} disabled={testingChannel !== null}>
+                  {testingChannel === 'email' ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />} Tester l'email
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={() => handleTestChannel('sms')} disabled={testingChannel !== null}>
+                  {testingChannel === 'sms' ? <Loader2 className="size-4 animate-spin" /> : <MessageSquare className="size-4" />} Tester le SMS
+                </Button>
+              </CardContent>
+            </Card>
+
             <div className="flex justify-end">
               <Button
                 className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
-                onClick={() => handleSave('notifications', notifications)}
+                onClick={async () => {
+                  await handleSave('notifications', notifications)
+                  await handleSave('alertTypes', alertTypes)
+                }}
                 disabled={saving}
               >
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
@@ -387,6 +618,50 @@ export function AdminSettings() {
               >
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                 Sauvegarder
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── RGPD TAB ──────────────────────────────────────────────────── */}
+        {activeTab === 'rgpd' && (
+          <motion.div key="rgpd" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="space-y-6">
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Shield className="size-4 text-brand-500" />
+                  Conformité RGPD
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {([
+                  ['cookieConsent', 'Consentement cookies', 'Bannière de consentement obligatoire'],
+                  ['rightToErasure', "Droit à l'oubli", 'Permettre la suppression complète des données'],
+                  ['dataExport', 'Export de données', "Permettre l'export des données personnelles"],
+                  ['autoRetention', 'Rétention des données', 'Suppression automatique après 36 mois'],
+                  ['accessLog', 'Journal des accès', 'Enregistrer tous les accès aux données personnelles'],
+                ] as Array<[keyof AdminRgpdSettings, string, string]>).map(([key, label, desc]) => (
+                  <div key={key} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{label}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
+                    </div>
+                    <Switch checked={rgpd[key] as boolean} onCheckedChange={(v) => setRgpd({ ...rgpd, [key]: v })} />
+                  </div>
+                ))}
+                <div className="space-y-2">
+                  <Label>Politique de confidentialité (URL)</Label>
+                  <Input value={rgpd.privacyUrl} onChange={(e) => setRgpd({ ...rgpd, privacyUrl: e.target.value })} className="max-w-sm" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Conditions d&apos;utilisation (URL)</Label>
+                  <Input value={rgpd.termsUrl} onChange={(e) => setRgpd({ ...rgpd, termsUrl: e.target.value })} className="max-w-sm" />
+                </div>
+              </CardContent>
+            </Card>
+            <div className="flex justify-end">
+              <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2" onClick={() => handleSave('rgpd', rgpd)} disabled={saving}>
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Sauvegarder
               </Button>
             </div>
           </motion.div>

@@ -7,6 +7,10 @@ const SETTING_KEYS = {
   NOTIFICATIONS: 'admin_notifications',
   SLA: 'admin_sla',
   IP_RULES: 'admin_ip_rules',
+  PLATFORM: 'admin_platform',
+  FEATURES: 'admin_features',
+  RGPD: 'admin_rgpd',
+  ALERT_TYPES: 'admin_alert_types',
 } as const
 
 interface AdminSecuritySettings {
@@ -36,6 +40,39 @@ interface AdminIpRules {
   blacklist: string[]
 }
 
+interface AdminPlatformSettings {
+  name: string
+  url: string
+  currency: string
+  timezone: string
+}
+
+interface AdminFeatureFlags {
+  virtualTours: boolean
+  kycVerification: boolean
+  autoValidation: boolean
+  maintenanceRequests: boolean
+  fraudDetection: boolean
+  messaging: boolean
+}
+
+interface AdminRgpdSettings {
+  cookieConsent: boolean
+  rightToErasure: boolean
+  dataExport: boolean
+  autoRetention: boolean
+  accessLog: boolean
+  privacyUrl: string
+  termsUrl: string
+}
+
+interface AdminAlertTypes {
+  newUsers: boolean
+  criticalSignalements: boolean
+  overduePayments: boolean
+  systemErrors: boolean
+}
+
 const DEFAULT_SECURITY: AdminSecuritySettings = {
   otpRequired: true,
   otpExpiryMinutes: 5,
@@ -63,12 +100,49 @@ const DEFAULT_IP_RULES: AdminIpRules = {
   blacklist: [],
 }
 
+const DEFAULT_PLATFORM: AdminPlatformSettings = {
+  name: 'Mon Toit',
+  url: 'https://montoit.ci',
+  currency: 'FCFA',
+  timezone: 'Africa/Abidjan',
+}
+
+const DEFAULT_FEATURES: AdminFeatureFlags = {
+  virtualTours: true,
+  kycVerification: true,
+  autoValidation: false,
+  maintenanceRequests: true,
+  fraudDetection: true,
+  messaging: true,
+}
+
+const DEFAULT_RGPD: AdminRgpdSettings = {
+  cookieConsent: true,
+  rightToErasure: true,
+  dataExport: true,
+  autoRetention: true,
+  accessLog: true,
+  privacyUrl: 'https://montoit.ci/privacy',
+  termsUrl: 'https://montoit.ci/terms',
+}
+
+const DEFAULT_ALERT_TYPES: AdminAlertTypes = {
+  newUsers: true,
+  criticalSignalements: true,
+  overduePayments: true,
+  systemErrors: true,
+}
+
 function getDefaults(key: string) {
   switch (key) {
     case SETTING_KEYS.SECURITY: return DEFAULT_SECURITY
     case SETTING_KEYS.NOTIFICATIONS: return DEFAULT_NOTIFICATIONS
     case SETTING_KEYS.SLA: return DEFAULT_SLA
     case SETTING_KEYS.IP_RULES: return DEFAULT_IP_RULES
+    case SETTING_KEYS.PLATFORM: return DEFAULT_PLATFORM
+    case SETTING_KEYS.FEATURES: return DEFAULT_FEATURES
+    case SETTING_KEYS.RGPD: return DEFAULT_RGPD
+    case SETTING_KEYS.ALERT_TYPES: return DEFAULT_ALERT_TYPES
     default: return {}
   }
 }
@@ -115,11 +189,24 @@ export async function GET(req: NextRequest) {
       return applyCookies(resp)
     }
 
-    const [securitySetting, notificationSetting, slaSetting, ipRulesSetting] = await Promise.all([
+    const [
+      securitySetting,
+      notificationSetting,
+      slaSetting,
+      ipRulesSetting,
+      platformSetting,
+      featuresSetting,
+      rgpdSetting,
+      alertTypesSetting,
+    ] = await Promise.all([
       getSetting(admin, SETTING_KEYS.SECURITY),
       getSetting(admin, SETTING_KEYS.NOTIFICATIONS),
       getSetting(admin, SETTING_KEYS.SLA),
       getSetting(admin, SETTING_KEYS.IP_RULES),
+      getSetting(admin, SETTING_KEYS.PLATFORM),
+      getSetting(admin, SETTING_KEYS.FEATURES),
+      getSetting(admin, SETTING_KEYS.RGPD),
+      getSetting(admin, SETTING_KEYS.ALERT_TYPES),
     ])
 
     const security: AdminSecuritySettings = {
@@ -138,8 +225,24 @@ export async function GET(req: NextRequest) {
       ...DEFAULT_IP_RULES,
       ...(ipRulesSetting ? JSON.parse(ipRulesSetting.value) : {}),
     }
+    const platform: AdminPlatformSettings = {
+      ...DEFAULT_PLATFORM,
+      ...(platformSetting ? JSON.parse(platformSetting.value) : {}),
+    }
+    const features: AdminFeatureFlags = {
+      ...DEFAULT_FEATURES,
+      ...(featuresSetting ? JSON.parse(featuresSetting.value) : {}),
+    }
+    const rgpd: AdminRgpdSettings = {
+      ...DEFAULT_RGPD,
+      ...(rgpdSetting ? JSON.parse(rgpdSetting.value) : {}),
+    }
+    const alertTypes: AdminAlertTypes = {
+      ...DEFAULT_ALERT_TYPES,
+      ...(alertTypesSetting ? JSON.parse(alertTypesSetting.value) : {}),
+    }
 
-    const resp = NextResponse.json({ security, notifications, sla, ipRules })
+    const resp = NextResponse.json({ security, notifications, sla, ipRules, platform, features, rgpd, alertTypes })
     return applyCookies(resp)
   } catch (error) {
     console.error('Admin settings GET error:', error)
@@ -175,6 +278,10 @@ export async function PUT(req: NextRequest) {
       case 'notifications': key = SETTING_KEYS.NOTIFICATIONS; break
       case 'sla': key = SETTING_KEYS.SLA; break
       case 'ipRules': key = SETTING_KEYS.IP_RULES; break
+      case 'platform': key = SETTING_KEYS.PLATFORM; break
+      case 'features': key = SETTING_KEYS.FEATURES; break
+      case 'rgpd': key = SETTING_KEYS.RGPD; break
+      case 'alertTypes': key = SETTING_KEYS.ALERT_TYPES; break
       default:
         return NextResponse.json({ error: 'Section invalide' }, { status: 400 })
     }

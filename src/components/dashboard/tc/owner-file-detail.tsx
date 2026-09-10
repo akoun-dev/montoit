@@ -32,6 +32,7 @@ interface OwnerDoc {
   status: string
   tcComment: string | null
   createdAt: string
+  property?: { id: string; title: string } | null
 }
 
 interface OwnerFile {
@@ -436,7 +437,10 @@ export function OwnerFileDetail() {
                         <FileText className="size-5 text-brand-500 shrink-0" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
-                          <p className="text-xs text-muted-foreground">{typeLabels[doc.type] || doc.type}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {typeLabels[doc.type] || doc.type}
+                            {doc.property && ` — ${doc.property.title}`}
+                          </p>
                         </div>
                       </button>
                       <div className="flex items-center gap-2 shrink-0">

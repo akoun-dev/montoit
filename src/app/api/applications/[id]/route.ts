@@ -41,11 +41,19 @@ export async function GET(
       return NextResponse.json({ error: 'Candidature introuvable' }, { status: 404 })
     }
 
+    // employer/guarantor/rejection_reason/tc_comment/reviewed_at/reviewed_by_id/valid_until
+    // live on the linked rental_files dossier, not on the applications row itself.
+    const { data: rentalFile } = await supabase
+      .from('rental_files')
+      .select('monthly_income, employer, employment_type, guarantor_name, guarantor_phone, guarantor_relation, rejection_reason, tc_comment, reviewed_at, valid_until, reviewed_by_id')
+      .eq('id', application.rental_file_id)
+      .maybeSingle()
+
     const [docResult, leaseResult, reviewerResult] = await Promise.all([
       supabase.from('rental_file_documents').select('*').eq('rental_file_id', application.rental_file_id).order('created_at', { ascending: false }),
       supabase.from('leases').select('*, property:properties!property_id(*)').eq('rental_file_id', application.rental_file_id),
-      application.reviewed_by_id
-        ? supabase.from('users').select('id, first_name, last_name').eq('id', application.reviewed_by_id).single()
+      rentalFile?.reviewed_by_id
+        ? supabase.from('users').select('id, first_name, last_name').eq('id', rentalFile.reviewed_by_id).single()
         : Promise.resolve({ data: null, error: null }),
     ])
 
@@ -170,16 +178,16 @@ export async function GET(
         status: application.status,
         propertyId: application.property_id,
         rentalFileId: application.rental_file_id,
-        monthlyIncome: application.monthly_income,
-        employer: application.employer,
-        employmentType: application.employment_type,
-        guarantorName: application.guarantor_name,
-        guarantorPhone: application.guarantor_phone,
-        guarantorRelation: application.guarantor_relation,
-        rejectionReason: application.rejection_reason,
-        tcComment: application.tc_comment,
-        reviewedAt: application.reviewed_at,
-        validUntil: application.valid_until,
+        monthlyIncome: application.monthly_income ?? rentalFile?.monthly_income,
+        employer: rentalFile?.employer,
+        employmentType: application.employment_type ?? rentalFile?.employment_type,
+        guarantorName: rentalFile?.guarantor_name,
+        guarantorPhone: rentalFile?.guarantor_phone,
+        guarantorRelation: rentalFile?.guarantor_relation,
+        rejectionReason: rentalFile?.rejection_reason,
+        tcComment: rentalFile?.tc_comment,
+        reviewedAt: rentalFile?.reviewed_at,
+        validUntil: rentalFile?.valid_until,
         createdAt: application.created_at,
         updatedAt: application.updated_at,
         statusTimeline,

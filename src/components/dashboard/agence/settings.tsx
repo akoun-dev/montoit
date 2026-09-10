@@ -21,7 +21,7 @@ const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 }
 
 export function AgenceSettings() {
   const { user, updateUser } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<'profil' | 'commissions' | 'notifications' | 'security'>('profil')
+  const [activeTab, setActiveTab] = useState<'profil' | 'documents' | 'commissions' | 'notifications' | 'security'>('profil')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [notifLoading, setNotifLoading] = useState(false)
@@ -188,6 +188,65 @@ export function AgenceSettings() {
     } catch {}
   }, [])
 
+  // ── Legal documents (AGREMENT / RCCM) ────────────────────────────────────
+  interface LegalDocument {
+    id: string
+    type: 'AGREMENT' | 'RCCM'
+    name: string
+    url: string
+    status: string
+    tcComment: string | null
+    createdAt: string
+  }
+  const [legalDocs, setLegalDocs] = useState<LegalDocument[]>([])
+  const [legalDocsLoading, setLegalDocsLoading] = useState(false)
+  const [uploadingDocType, setUploadingDocType] = useState<'AGREMENT' | 'RCCM' | null>(null)
+
+  const fetchLegalDocuments = useCallback(async () => {
+    setLegalDocsLoading(true)
+    try {
+      const data = await authFetch<{ documents: LegalDocument[] }>('/api/agence/legal-documents')
+      setLegalDocs(data.documents || [])
+    } catch {
+      setLegalDocs([])
+    } finally {
+      setLegalDocsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'documents') {
+      fetchLegalDocuments()
+    }
+  }, [activeTab, fetchLegalDocuments])
+
+  const handleLegalDocUpload = async (type: 'AGREMENT' | 'RCCM', file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Le fichier ne doit pas dépasser 5 Mo')
+      return
+    }
+    setUploadingDocType(type)
+    try {
+      const content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      await authFetch('/api/agence/legal-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, name: file.name, content }),
+      })
+      toast.success('Document téléchargé avec succès')
+      fetchLegalDocuments()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors du téléchargement')
+    } finally {
+      setUploadingDocType(null)
+    }
+  }
+
   // Fetch notification preferences when tab changes
   useEffect(() => {
     if (activeTab === 'notifications' && user) {
@@ -288,6 +347,7 @@ export function AgenceSettings() {
 
   const tabs = [
     { id: 'profil' as const, label: 'Profil', icon: Building2 },
+    { id: 'documents' as const, label: 'Documents', icon: FileText },
     { id: 'commissions' as const, label: 'Commissions', icon: CreditCard },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell },
     { id: 'security' as const, label: 'Sécurité', icon: Lock },
@@ -477,6 +537,88 @@ export function AgenceSettings() {
                   <p className="text-sm font-medium">État des lieux</p>
                   <p className="text-[10px] text-muted-foreground">Dernière mise à jour : 20/03/2025</p>
                 </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* ── DOCUMENTS TAB (AGREMENT / RCCM) ─────────────────────────────── */}
+        {activeTab === 'documents' && (
+          <motion.div
+            key="documents"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-4"
+          >
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="text-base">Documents légaux</CardTitle>
+                <CardDescription>
+                  Déposez votre agrément et votre RCCM pour la validation de votre agence par un Tiers de Confiance
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {legalDocsLoading ? (
+                  <div className="space-y-2">
+                    {[1, 2].map((i) => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}
+                  </div>
+                ) : (
+                  (['AGREMENT', 'RCCM'] as const).map((type) => {
+                    const doc = legalDocs.find((d) => d.type === type)
+                    const isUploading = uploadingDocType === type
+                    const statusBadge = doc && (
+                      doc.status === 'VALIDATED' ? { label: 'Validé', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' } :
+                      doc.status === 'REJECTED' ? { label: 'Rejeté', className: 'bg-red-50 text-red-700 border-red-200' } :
+                      { label: 'En attente', className: 'bg-amber-50 text-amber-700 border-amber-200' }
+                    )
+                    return (
+                      <div key={type} className="rounded-lg border border-border p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="size-4 text-brand-500 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{type === 'AGREMENT' ? "Agrément" : 'RCCM'}</p>
+                              {doc ? (
+                                <p className="text-xs text-muted-foreground truncate">{doc.name}</p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">Aucun document soumis</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {statusBadge && (
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusBadge.className}`}>{statusBadge.label}</Badge>
+                            )}
+                            <Button
+                              size="sm"
+                              variant={doc ? 'outline' : 'default'}
+                              disabled={isUploading}
+                              onClick={() => document.getElementById(`legal-doc-input-${type}`)?.click()}
+                            >
+                              {isUploading ? <Loader2 className="size-3.5 animate-spin" /> : doc ? 'Remplacer' : 'Télécharger'}
+                            </Button>
+                            <input
+                              id={`legal-doc-input-${type}`}
+                              type="file"
+                              className="hidden"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) handleLegalDocUpload(type, file)
+                                e.target.value = ''
+                              }}
+                            />
+                          </div>
+                        </div>
+                        {doc?.tcComment && (
+                          <p className="text-xs text-amber-600 mt-2">Commentaire TC : {doc.tcComment}</p>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
               </CardContent>
             </Card>
           </motion.div>

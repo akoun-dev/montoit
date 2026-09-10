@@ -134,21 +134,31 @@ export async function POST(request: NextRequest) {
 
     const { data: user } = await ((supabase as any)
       .from('users')
-      .select('id')
+      .select('id, role')
       .eq('id', targetUserId)
       .single() as any)
     if (!user) {
       return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
     }
 
+    // Une certification AGENCY identifie sa cible via user_id (les agences
+    // sont de simples `users` avec role='AGENCE', il n'existe pas de table
+    // agences dédiée) : elle ne peut donc être délivrée qu'à un tel compte.
+    if (type === 'AGENCY' && user.role !== 'AGENCE') {
+      return NextResponse.json({ error: 'La certification agence ne peut être délivrée qu\'à un compte agence' }, { status: 400 })
+    }
+
     if (type === 'PROPERTY' && propertyId) {
       const { data: property } = await ((supabase as any)
         .from('properties')
-        .select('id')
+        .select('id, owner_id')
         .eq('id', propertyId)
         .single() as any)
       if (!property) {
         return NextResponse.json({ error: 'Bien immobilier introuvable' }, { status: 404 })
+      }
+      if (property.owner_id !== targetUserId) {
+        return NextResponse.json({ error: 'Ce bien n\'appartient pas à l\'utilisateur certifié' }, { status: 400 })
       }
     }
 
