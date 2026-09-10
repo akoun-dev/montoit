@@ -92,7 +92,7 @@ const steps = [
 const statusConfig: Record<string, { label: string; color: string }> = {
   DRAFT: { label: 'Brouillon', color: 'bg-muted text-muted-foreground' },
   SUBMITTED: { label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  TC_REVIEW: { label: 'En examen TC', color: 'bg-brand-50 text-brand-600 border-brand-200' },
+  TC_REVIEW: { label: 'Complément requis', color: 'bg-orange-50 text-orange-700 border-orange-200' },
   VALIDATED: { label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200' },
   EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border' },
@@ -406,8 +406,9 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
     )
   }
 
-  // Read-only only when validated
-  const isReadOnly = !!(existingFile && ['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(existingFile.status))
+  // TC_REVIEW means the TC requested additional documents (REQUEST_INFO) —
+  // the tenant must be able to edit and resubmit, so it is not read-only.
+  const isReadOnly = !!(existingFile && ['SUBMITTED', 'VALIDATED'].includes(existingFile.status))
   const existingStatus = existingFile ? statusConfig[existingFile.status] : null
   const requiredDocs = documentRequirements
 
@@ -478,7 +479,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                 size="sm"
                 className="mt-3 bg-brand-500 hover:bg-brand-600 text-white gap-1.5"
                 onClick={handleSubmit}
-                disabled={submitting || !hasAllRequiredDocs || existingFile.status === 'TC_REVIEW'}
+                disabled={submitting || !hasAllRequiredDocs}
               >
                 {submitting ? (
                   <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
