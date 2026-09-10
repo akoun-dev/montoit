@@ -475,17 +475,19 @@ export async function PATCH(req: NextRequest) {
         .select()
         .single() as any)
 
-      // Sync status to applications table (sauf APPROVE : le TC valide le dossier,
-      // c'est le propriétaire qui accepte ou rejette la candidature)
-      if (action !== 'APPROVE') {
-        try {
-          await (supabase as any)
-            .from('applications')
-            .update({ status: newStatus } as any)
-            .eq('rental_file_id', fileId)
-        } catch (syncErr) {
-          console.error(`Failed to sync application status for file ${fileId}:`, syncErr)
-        }
+      // Sync status to applications table so the tenant's candidature timeline
+      // (SUBMITTED → TC_REVIEW → VALIDATED → ACCEPTED) reflects the TC decision.
+      // A candidature already ACCEPTED/REJECTED by the owner is left untouched:
+      // the owner's decision is final and must not be overwritten by a later
+      // TC action on the same underlying rental file.
+      try {
+        await (supabase as any)
+          .from('applications')
+          .update({ status: newStatus } as any)
+          .eq('rental_file_id', fileId)
+          .not('status', 'in', '("ACCEPTED","REJECTED")')
+      } catch (syncErr) {
+        console.error(`Failed to sync application status for file ${fileId}:`, syncErr)
       }
 
       await (supabase as any)
