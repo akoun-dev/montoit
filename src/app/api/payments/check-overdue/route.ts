@@ -12,13 +12,27 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabaseAdminClient()
 
-    // Tout utilisateur authentifié peut déclencher la vérification des impayés
-    // (c'est une tâche non-sensible qui marque les paiements en retard)
+    // Réservé à l'admin et au tiers de confiance : cette route déclenche des
+    // notifications de masse et duplique la tâche planifiée
+    // check-overdue-payments (Edge Function, protégée par CRON_SECRET).
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+    if (!profile || !['ADMIN', 'TIERS_CONFIANCE'].includes(profile.role)) {
+      return applyCookies(NextResponse.json({ error: 'Accès refusé' }, { status: 403 }))
+    }
 
-    // Find all PENDING payments past their due date
+    // Bascule atomique PENDING → LATE : seules les lignes réellement transitionnées
+    // par CET appel sont retournées, ce qui évite les notifications en double si
+    // cette route et la tâche planifiée s'exécutent en même temps.
     const now = new Date().toISOString()
-    const { data: overduePayments, error: fetchError } = await supabase
+    const { data: overduePayments, error: updateError } = await supabase
       .from('payments')
+      .update({ status: 'LATE' })
+      .eq('status', 'PENDING')
+      .lt('due_date', now)
       .select(`
         id,
         amount,
@@ -31,12 +45,10 @@ export async function POST(req: NextRequest) {
           property:property_id(title)
         )
       `)
-      .eq('status', 'PENDING')
-      .lt('due_date', now)
 
-    if (fetchError) {
-      console.error('[check-overdue] Fetch error:', fetchError)
-      return applyCookies(NextResponse.json({ error: 'Erreur lors de la vérification' }, { status: 500 }))
+    if (updateError) {
+      console.error('[check-overdue] Update error:', updateError)
+      return applyCookies(NextResponse.json({ error: 'Erreur lors de la mise à jour' }, { status: 500 }))
     }
 
     if (!overduePayments || overduePayments.length === 0) {
@@ -45,18 +57,6 @@ export async function POST(req: NextRequest) {
         notified: 0,
         message: 'Aucun paiement en retard détecté',
       }))
-    }
-
-    // Update all matching payments to LATE status
-    const overdueIds = overduePayments.map((p: any) => p.id)
-    const { error: updateError } = await supabase
-      .from('payments')
-      .update({ status: 'LATE' })
-      .in('id', overdueIds)
-
-    if (updateError) {
-      console.error('[check-overdue] Update error:', updateError)
-      return applyCookies(NextResponse.json({ error: 'Erreur lors de la mise à jour' }, { status: 500 }))
     }
 
     // Send notifications for each newly late payment

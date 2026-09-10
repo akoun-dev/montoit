@@ -84,7 +84,10 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
         payment.operator_transaction_id ||
         ''
 
-      await supabase
+      // Conditional update (compare-and-swap on status) so that two
+      // concurrent/retried callbacks for the same payment can't both "win"
+      // and both fire notifications + auto-generate the next period twice.
+      const { data: claimed } = await supabase
         .from('payments')
         .update({
           status: 'PAID',
@@ -93,6 +96,17 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
           payment_operator_data: payload as Record<string, unknown>,
         })
         .eq('id', payment.id)
+        .not('status', 'in', '("PAID","CANCELLED")')
+        .select('id')
+        .maybeSingle()
+
+      if (!claimed) {
+        console.log('Payment callback: payment already claimed by a concurrent callback:', payment.id)
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
 
       console.log('Payment callback: payment marked as PAID:', payment.id)
 
@@ -119,30 +133,33 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
         })
       }
 
-      // Auto-generate next month's payment (skip deposit/advance)
+      // Auto-generate next month's payment (skip deposit/advance/agency fee rows).
+      // Relies on the partial unique index on payments(lease_id, due_date)
+      // WHERE reference IS NULL to stay correct under concurrent/retried
+      // callbacks — a 23505 conflict here just means another callback (or a
+      // retry) already created this period's payment, which is the desired
+      // outcome, so it's swallowed rather than surfaced as an error.
       const isInitialPayment = payment.reference?.startsWith('CAUTION-') || payment.reference?.startsWith('AVANCE-')
-      if (!isInitialPayment && payment.lease_id) {
+      if (!isInitialPayment && payment.lease_id && payment.amount) {
         const nextDue = new Date(payment.due_date)
         nextDue.setMonth(nextDue.getMonth() + 1)
 
-        // Check no existing payment for this period
-        const { data: existing } = await supabase
-          .from('payments')
-          .select('id')
-          .eq('lease_id', payment.lease_id)
-          .eq('due_date', nextDue.toISOString())
-          .in('status', ['PENDING', 'PROCESSING'])
-          .maybeSingle()
+        const { error: nextPaymentError } = await supabase.from('payments').insert({
+          id: crypto.randomUUID(),
+          lease_id: payment.lease_id,
+          tenant_id: payment.tenant_id,
+          amount: payment.amount,
+          status: 'PENDING',
+          due_date: nextDue.toISOString(),
+        })
 
-        if (!existing && payment.amount) {
-          await supabase.from('payments').insert({
-            id: crypto.randomUUID(),
-            lease_id: payment.lease_id,
-            tenant_id: payment.tenant_id,
-            amount: payment.amount,
-            status: 'PENDING',
-            due_date: nextDue.toISOString(),
-          })
+        if (nextPaymentError) {
+          if (nextPaymentError.code === '23505') {
+            console.log('Payment callback: next month payment already exists for lease:', payment.lease_id)
+          } else {
+            console.error('Payment callback: failed to auto-generate next month payment:', nextPaymentError)
+          }
+        } else {
           console.log('Payment callback: auto-generated next month payment for lease:', payment.lease_id)
         }
       }

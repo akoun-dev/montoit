@@ -23,16 +23,20 @@ serve(async (req) => {
 
     const supabase = getSupabaseAdminClient()
 
-    // Find overdue PENDING payments
-    const { data: overdue, error: fetchError } = await supabase
+    // Atomic PENDING → LATE transition: only rows this call actually flips
+    // are returned, so a concurrent run of this same function (or of the
+    // /api/payments/check-overdue route) can never notify twice for the
+    // same payment.
+    const { data: overdue, error: updateError } = await supabase
       .from('payments')
-      .select('id, amount, due_date, tenant_id, lease:lease_id(owner_id)')
+      .update({ status: 'LATE', updated_at: new Date().toISOString() })
       .eq('status', 'PENDING')
       .lt('due_date', new Date().toISOString())
+      .select('id, amount, due_date, tenant_id, lease:lease_id(owner_id)')
 
-    if (fetchError) {
-      console.error('Failed to fetch overdue payments:', fetchError)
-      return new Response(JSON.stringify({ error: 'Fetch failed' }), {
+    if (updateError) {
+      console.error('Failed to update overdue payments:', updateError)
+      return new Response(JSON.stringify({ error: 'Update failed' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -42,20 +46,6 @@ serve(async (req) => {
     if (ids.length === 0) {
       return new Response(JSON.stringify({ notified: 0 }), {
         status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Mark as LATE
-    const { error: updateError } = await supabase
-      .from('payments')
-      .update({ status: 'LATE', updated_at: new Date().toISOString() })
-      .in('id', ids)
-
-    if (updateError) {
-      console.error('Failed to update overdue payments:', updateError)
-      return new Response(JSON.stringify({ error: 'Update failed' }), {
-        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
