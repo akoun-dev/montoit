@@ -87,8 +87,8 @@ export async function GET(req: NextRequest) {
       commissionMandatIds.length > 0
         ? admin.from('mandats').select('id, commission_rate, property_id').in('id', commissionMandatIds)
         : { data: [] as any[] },
-      agentIds.length > 0
-        ? admin.from('assigned_properties').select('*, properties!inner(id, title)').in('agent_id', agentIds)
+      agentIds.length > 0 && allAgencyPropIds.length > 0
+        ? admin.from('agency_agent_properties').select('*, properties!inner(id, title)').in('agent_id', agentIds).in('property_id', allAgencyPropIds)
         : { data: [] as any[] },
       agentIds.length > 0
         ? admin.from('commissions').select('*').in('agent_id', agentIds).eq('status', 'PAID')
