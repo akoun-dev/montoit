@@ -64,6 +64,7 @@ interface CommissionMandat {
 interface RecentPayment {
   id: string
   amount: number
+  amountPaid?: number
   status: string
   dueDate: string
   paidAt: string | null
@@ -694,9 +695,16 @@ export function OwnerFinances() {
                         {property?.title}, {property?.city}
                       </p>
                       <div className="flex flex-wrap items-center justify-between gap-1">
-                        <p className="text-sm font-bold text-foreground">
-                          {formatCurrency(payment.amount)}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-bold text-foreground">
+                            {formatCurrency(payment.amount)}
+                          </p>
+                          {payment.status === 'PARTIAL' && (
+                            <span className="text-[10px] text-cyan-700">
+                              reste {formatCurrency(payment.amount - (payment.amountPaid || 0))}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Calendar className="size-3" />
                           <span>Échéance : {formatDate(payment.dueDate)}</span>

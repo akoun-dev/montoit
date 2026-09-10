@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils'
 interface PaymentItem {
   id: string
   amount: number
+  amountPaid?: number
   status: string
   dueDate: string
   paidAt: string | null
@@ -341,6 +342,11 @@ indiquée.
             <div>
               <p className="text-sm text-muted-foreground">Montant</p>
               <p className="text-2xl sm:text-3xl font-bold text-foreground">{formatCurrency(payment.amount)}</p>
+              {payment.status === 'PARTIAL' && (
+                <p className="text-xs text-cyan-700 mt-0.5">
+                  {formatCurrency(payment.amountPaid || 0)} réglé · reste {formatCurrency(payment.amount - (payment.amountPaid || 0))}
+                </p>
+              )}
             </div>
           </div>
 
@@ -388,18 +394,20 @@ indiquée.
         </CardContent>
       </Card>
 
-      {/* Action area for PENDING / PROCESSING */}
-      {(payment.status === 'PENDING' || payment.status === 'LATE') && (
+      {/* Action area for PENDING / LATE / PARTIAL */}
+      {(payment.status === 'PENDING' || payment.status === 'LATE' || payment.status === 'PARTIAL') && (
         <Card className="border-brand-200 bg-brand-50/50">
           <CardContent className="p-5 sm:p-6 flex flex-col items-center text-center">
             <CreditCard className="size-8 text-brand-500 mb-3" />
             <h3 className="text-lg font-semibold text-foreground mb-1">
-              {payment.status === 'LATE' ? 'Paiement en retard' : 'Paiement en attente'}
+              {payment.status === 'LATE' ? 'Paiement en retard' : payment.status === 'PARTIAL' ? 'Paiement partiel' : 'Paiement en attente'}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
               {payment.status === 'LATE'
                 ? 'Votre paiement est en retard. Veuillez régler dès maintenant.'
-                : 'Votre paiement est en attente. Réglez maintenant via mobile money.'}
+                : payment.status === 'PARTIAL'
+                  ? `Il reste ${formatCurrency(payment.amount - (payment.amountPaid || 0))} à régler pour solder ce paiement.`
+                  : 'Votre paiement est en attente. Réglez maintenant via mobile money.'}
             </p>
             <Button
               size="lg"

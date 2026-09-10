@@ -26,6 +26,7 @@ interface PaymentDialogProps {
   payment: {
     id: string
     amount: number
+    amountPaid?: number
     dueDate: string
     lease: {
       property: { title: string }
@@ -90,6 +91,9 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
   const [selectedOperator, setSelectedOperator] = useState<OperatorInfo | null>(null)
   const [phoneNumber, setPhoneNumber] = useState('')
   const [phoneError, setPhoneError] = useState('')
+  const [payPartial, setPayPartial] = useState(false)
+  const [customAmount, setCustomAmount] = useState('')
+  const [amountError, setAmountError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentReference, setPaymentReference] = useState<string | null>(null)
   const [paymentRedirectUrl, setPaymentRedirectUrl] = useState<string | null>(null)
@@ -108,11 +112,18 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
     }
   }
 
+  const remaining = payment ? Math.max(payment.amount - (payment.amountPaid || 0), 0) : 0
+  const alreadyPaid = payment?.amountPaid || 0
+
   // Reset state when dialog opens/closes
   useEffect(() => {
     if (!open) {
       return
     }
+
+    setPayPartial(false)
+    setCustomAmount(remaining > 0 ? String(remaining) : '')
+    setAmountError('')
 
     authFetch<{ user: { phone: string | null } }>('/api/profile')
       .then(res => {
@@ -126,6 +137,8 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
   }, [open])
 
   const isPhoneValid = phoneNumber.replace(/\s/g, '').length === 10
+  const chosenAmount = payPartial ? Number(customAmount) : remaining
+  const isAmountValid = chosenAmount > 0 && chosenAmount <= remaining + 0.01
 
   const handleSelectOperator = (operator: OperatorInfo) => {
     setSelectedOperator(operator)
@@ -147,6 +160,10 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
 
   const handleConfirmPayment = async () => {
     if (!selectedOperator || !payment || !isPhoneValid) return
+    if (!isAmountValid) {
+      setAmountError(`Le montant doit être compris entre 1 et ${formatCurrency(remaining)}`)
+      return
+    }
 
     const cleanedPhone = phoneNumber.replace(/\s/g, '')
     setIsSubmitting(true)
@@ -159,6 +176,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
           paymentId: payment.id,
           method: selectedOperator.id,
           phoneNumber: `+225${cleanedPhone}`,
+          amount: chosenAmount,
         }),
       })
 
@@ -187,7 +205,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
     pollIntervalRef.current = setInterval(async () => {
       try {
         const result = await authFetch<{ data: { status: string; reference: string | null } }>(`/api/payments/${payment.id}`)
-        if (result.data?.status === 'PAID') {
+        if (result.data?.status === 'PAID' || result.data?.status === 'PARTIAL') {
           clearPolling()
           setPaymentReference(prev => result.data?.reference || prev)
           setStep(4)
@@ -209,7 +227,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
     if (!payment) return
     try {
       const result = await authFetch<{ data: { status: string; reference: string | null } }>(`/api/payments/${payment.id}`)
-      if (result.data?.status === 'PAID') {
+      if (result.data?.status === 'PAID' || result.data?.status === 'PARTIAL') {
         setPaymentReference(result.data.reference || paymentReference)
         setStep(4)
         toast.success('Paiement confirmé !', { icon: <CheckCircle2 className="size-4 text-emerald-500" /> })
@@ -255,7 +273,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
               <DialogHeader>
                 <DialogTitle>Choisir l&apos;opérateur</DialogTitle>
                 <DialogDescription>
-                  Sélectionnez votre opérateur de paiement mobile pour {formatCurrency(payment.amount)}
+                  Sélectionnez votre opérateur de paiement mobile pour {formatCurrency(remaining)}
                 </DialogDescription>
               </DialogHeader>
 
@@ -349,10 +367,43 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
                   </p>
                 </div>
 
-                {/* Amount display */}
-                <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
-                  <span className="text-sm text-muted-foreground">Montant à payer</span>
-                  <span className="text-lg font-bold text-foreground">{formatCurrency(payment.amount)}</span>
+                {/* Amount */}
+                <div className="space-y-2 rounded-lg border bg-muted/50 p-3">
+                  {alreadyPaid > 0 && (
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Déjà réglé</span>
+                      <span>{formatCurrency(alreadyPaid)} / {formatCurrency(payment.amount)}</span>
+                    </div>
+                  )}
+                  {!payPartial ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Montant à payer</span>
+                      <span className="text-lg font-bold text-foreground">{formatCurrency(remaining)}</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <label className="text-sm text-muted-foreground">Montant à payer (FCFA)</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={remaining}
+                        value={customAmount}
+                        onChange={(e) => { setCustomAmount(e.target.value); setAmountError('') }}
+                        className="text-lg font-bold"
+                      />
+                      {amountError && <p className="text-xs text-red-500">{amountError}</p>}
+                      <p className="text-xs text-muted-foreground">Reste dû : {formatCurrency(remaining)}</p>
+                    </div>
+                  )}
+                  {remaining > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => { setPayPartial((v) => !v); setAmountError('') }}
+                      className="text-xs text-brand-600 hover:underline"
+                    >
+                      {payPartial ? 'Payer le montant total' : 'Payer un montant partiel'}
+                    </button>
+                  )}
                 </div>
 
                 {/* Property info */}
@@ -371,7 +422,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
                 </Button>
                 <Button
                   onClick={handleConfirmPayment}
-                  disabled={!isPhoneValid || isSubmitting}
+                  disabled={!isPhoneValid || !isAmountValid || isSubmitting}
                   className="gap-2"
                 >
                   {isSubmitting ? (
@@ -426,7 +477,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
 
                 <div className="rounded-lg border bg-muted/50 px-4 py-2">
                   <p className="text-sm text-muted-foreground">Montant</p>
-                  <p className="text-lg font-bold text-foreground">{formatCurrency(payment.amount)}</p>
+                  <p className="text-lg font-bold text-foreground">{formatCurrency(chosenAmount)}</p>
                 </div>
 
                 {pollTimedOut && (
@@ -507,14 +558,16 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
                     Paiement confirmé !
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Votre paiement de loyer a été effectué avec succès
+                    {chosenAmount < remaining
+                      ? `Votre paiement partiel a été effectué avec succès. Il restera ${formatCurrency(remaining - chosenAmount)} à régler.`
+                      : 'Votre paiement de loyer a été effectué avec succès'}
                   </p>
                 </div>
 
                 <div className="rounded-lg border bg-emerald-50 px-4 py-3 space-y-1 w-full">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Montant</span>
-                    <span className="font-bold text-foreground">{formatCurrency(payment.amount)}</span>
+                    <span className="font-bold text-foreground">{formatCurrency(chosenAmount)}</span>
                   </div>
                   {paymentReference && (
                     <div className="flex justify-between text-sm">

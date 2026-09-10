@@ -30,6 +30,7 @@ import { toast } from 'sonner'
 interface PaymentItem {
   id: string
   amount: number
+  amountPaid?: number
   status: string
   dueDate: string
   paidAt: string | null
@@ -625,6 +626,11 @@ export function Payments({ onDetail }: PaymentsProps) {
                             <p className="text-sm font-bold text-foreground">
                               {formatCurrency(payment.amount)}
                             </p>
+                            {payment.status === 'PARTIAL' && (
+                              <span className="text-[10px] text-cyan-700">
+                                reste {formatCurrency(payment.amount - (payment.amountPaid || 0))}
+                              </span>
+                            )}
                             {methodConfig && (
                               <Badge className={cn('text-[9px] px-1.5 py-0 border-0', methodConfig.color)}>
                                 <Smartphone className="size-2.5 mr-0.5" />
@@ -671,6 +677,16 @@ export function Payments({ onDetail }: PaymentsProps) {
                             >
                               <CreditCard className="size-3" />
                               Payer maintenant
+                            </Button>
+                          )}
+                          {payment.status === 'PARTIAL' && (
+                            <Button
+                              size="sm"
+                              onClick={(e) => handlePay(e, payment)}
+                              className="h-7 text-xs gap-1.5"
+                            >
+                              <CreditCard className="size-3" />
+                              Solder le paiement
                             </Button>
                           )}
                           <ChevronRight className="size-4 text-neutral-300" />

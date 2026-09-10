@@ -66,6 +66,32 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
       })
     }
 
+    // Find the specific attempt this callback refers to — payment.amount is
+    // the TOTAL due, not necessarily this attempt's amount, since a partial
+    // payment can be settled over several attempts. Also doubles as the
+    // idempotency guard: an attempt already resolved means this callback
+    // was already processed (retry/duplicate webhook).
+    let attempt: any = null
+    for (const id of lookupIds) {
+      const { data } = await supabase
+        .from('payment_attempts')
+        .select('*')
+        .eq('operator_transaction_id', id)
+        .eq('payment_id', payment.id)
+        .maybeSingle()
+      if (data) { attempt = data; break }
+    }
+
+    if (attempt && attempt.status !== 'PROCESSING') {
+      console.log('Payment callback: attempt already processed:', attempt.id, attempt.status)
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const attemptAmount = attempt?.amount ?? Math.max(payment.amount - (payment.amount_paid || 0), 0)
+
     const callbackStatus = String(payload.status || '').toUpperCase()
     const isSuccess =
       SUCCESS_STATUSES.includes(callbackStatus) ||
@@ -84,14 +110,20 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
         payment.operator_transaction_id ||
         ''
 
+      const newAmountPaidRaw = (payment.amount_paid || 0) + attemptAmount
+      const isFullyPaid = newAmountPaidRaw >= payment.amount - 0.01
+      const newAmountPaid = isFullyPaid ? payment.amount : newAmountPaidRaw
+      const finalStatus = isFullyPaid ? 'PAID' : 'PARTIAL'
+
       // Conditional update (compare-and-swap on status) so that two
       // concurrent/retried callbacks for the same payment can't both "win"
       // and both fire notifications + auto-generate the next period twice.
       const { data: claimed } = await supabase
         .from('payments')
         .update({
-          status: 'PAID',
-          paid_at: new Date().toISOString(),
+          status: finalStatus,
+          amount_paid: newAmountPaid,
+          ...(isFullyPaid ? { paid_at: new Date().toISOString() } : {}),
           reference: String(reference),
           payment_operator_data: payload as Record<string, unknown>,
         })
@@ -108,15 +140,21 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
         })
       }
 
-      console.log('Payment callback: payment marked as PAID:', payment.id)
+      if (attempt) {
+        await supabase.from('payment_attempts').update({ status: 'SUCCESS', completed_at: new Date().toISOString() }).eq('id', attempt.id)
+      }
+
+      console.log(`Payment callback: payment marked as ${finalStatus}:`, payment.id)
 
       // Notify tenant and owner
-      const formattedAmount = payment.amount?.toLocaleString('fr-FR') || '---'
+      const formattedAttemptAmount = attemptAmount.toLocaleString('fr-FR')
+      const remainingAfter = payment.amount - newAmountPaid
+      const partialSuffix = isFullyPaid ? '' : ` Il reste ${remainingAfter.toLocaleString('fr-FR')} FCFA à régler.`
       await notify(supabase, {
         userId: payment.tenant_id,
         type: 'PAYMENT_ALERT',
-        title: 'Paiement confirmé',
-        message: `Votre paiement de ${formattedAmount} FCFA a été confirmé avec succès. Référence : ${reference}`,
+        title: isFullyPaid ? 'Paiement confirmé' : 'Paiement partiel confirmé',
+        message: `Votre paiement de ${formattedAttemptAmount} FCFA a été confirmé avec succès. Référence : ${reference}.${partialSuffix}`,
         actionUrl: `/dashboard/payments/${payment.id}`,
         entityId: payment.id,
       })
@@ -126,21 +164,22 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
         await notify(supabase, {
           userId: ownerId,
           type: 'PAYMENT_ALERT',
-          title: 'Loyer reçu',
-          message: `Un paiement de ${formattedAmount} FCFA a été reçu. Référence : ${reference}`,
+          title: isFullyPaid ? 'Loyer reçu' : 'Paiement partiel reçu',
+          message: `Un paiement de ${formattedAttemptAmount} FCFA a été reçu. Référence : ${reference}.${partialSuffix}`,
           actionUrl: `/dashboard/finances`,
           entityId: payment.id,
         })
       }
 
-      // Auto-generate next month's payment (skip deposit/advance/agency fee rows).
+      // Auto-generate next month's payment (skip deposit/advance/agency fee rows,
+      // and skip until this payment is fully settled).
       // Relies on the partial unique index on payments(lease_id, due_date)
       // WHERE reference IS NULL to stay correct under concurrent/retried
       // callbacks — a 23505 conflict here just means another callback (or a
       // retry) already created this period's payment, which is the desired
       // outcome, so it's swallowed rather than surfaced as an error.
       const isInitialPayment = payment.reference?.startsWith('CAUTION-') || payment.reference?.startsWith('AVANCE-')
-      if (!isInitialPayment && payment.lease_id && payment.amount) {
+      if (isFullyPaid && !isInitialPayment && payment.lease_id && payment.amount) {
         const nextDue = new Date(payment.due_date)
         nextDue.setMonth(nextDue.getMonth() + 1)
 
@@ -165,21 +204,26 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
       }
     } else if (isFailure) {
       const failureReason = payload.error_message || payload.message || callbackStatus
+      const revertStatus = (payment.amount_paid || 0) > 0 ? 'PARTIAL' : 'PENDING'
 
       await supabase
         .from('payments')
         .update({
-          status: 'PENDING',
+          status: revertStatus,
           method: null,
           operator_transaction_id: null,
           payment_operator_data: payload as Record<string, unknown>,
         })
         .eq('id', payment.id)
 
-      console.log('Payment callback: payment reverted to PENDING:', payment.id, 'Reason:', failureReason)
+      if (attempt) {
+        await supabase.from('payment_attempts').update({ status: 'FAILED', failure_reason: String(failureReason), completed_at: new Date().toISOString() }).eq('id', attempt.id)
+      }
+
+      console.log('Payment callback: payment reverted to', revertStatus, ':', payment.id, 'Reason:', failureReason)
 
       // Notify tenant
-      const formattedAmount = payment.amount?.toLocaleString('fr-FR') || '---'
+      const formattedAmount = attemptAmount.toLocaleString('fr-FR')
       await notify(supabase, {
         userId: payment.tenant_id,
         type: 'PAYMENT_ALERT',
