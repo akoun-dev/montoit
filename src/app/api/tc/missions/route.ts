@@ -1,7 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
-import { notify, notifyMissionAssigned } from '@/lib/notify'
+import { notify } from '@/lib/notify'
+import { sendEmail, sendSms } from '@/lib/ansut-messaging'
+
+const MISSION_TYPE_LABELS: Record<string, string> = {
+  PROPERTY_VERIFICATION: 'Vérification de propriété',
+  INVENTORY_REPORT: 'État des lieux',
+}
+
+// Field agents (verification_agents) have no platform account, so they can't
+// receive an in-app notify() — reach them by email/SMS instead, the same
+// channel used for OTPs elsewhere in the app.
+async function notifyAgentOfMission(agent: { first_name: string; email: string; phone: string | null }, missionType: string, propertyTitle: string, propertyAddress: string, scheduledAt: string) {
+  const typeLabel = MISSION_TYPE_LABELS[missionType] || missionType
+  const when = new Date(scheduledAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
+  const text = `Mon Toit - Bonjour ${agent.first_name}, une mission de ${typeLabel} vous a été assignée pour "${propertyTitle}" (${propertyAddress}), le ${when}.`
+
+  const tasks: Promise<unknown>[] = []
+  if (agent.email) {
+    tasks.push(sendEmail({
+      to: agent.email,
+      subject: `Mon Toit - Nouvelle mission : ${typeLabel}`,
+      content: `<p>${text}</p>`,
+      isHtml: true,
+    }))
+  }
+  if (agent.phone) {
+    tasks.push(sendSms({ to: agent.phone, text }))
+  }
+  await Promise.allSettled(tasks)
+}
 
 async function authorizeTC(request: NextRequest) {
   const { userId, applyCookies } = await resolveRequestUser(request)
@@ -223,8 +252,6 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    await notifyMissionAssigned(userId, type, property?.title || 'Bien immobilier', mission.id)
-
     const { data: missionAgent } = await ((supabase as any)
       .from('verification_agents')
       .select('id, first_name, last_name, email, phone')
@@ -236,6 +263,10 @@ export async function POST(request: NextRequest) {
       .select('id, title, address, city')
       .eq('id', propertyId)
       .single() as any)
+
+    if (missionAgent) {
+      await notifyAgentOfMission(missionAgent, type, missionProperty?.title || 'Bien immobilier', missionProperty?.address || '', mission.scheduled_at)
+    }
 
     const respData = {
       ...mission,

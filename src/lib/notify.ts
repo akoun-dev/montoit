@@ -370,22 +370,6 @@ export async function notifyNewReview(toUserId: string, fromUserName: string, pr
   })
 }
 
-// ─── Mission assigned notification ──────────────────────────────────────────
-
-export async function notifyMissionAssigned(agentTcId: string, missionType: string, propertyTitle: string, missionId: string) {
-  const typeLabels: Record<string, string> = {
-    PROPERTY_VERIFICATION: 'Vérification de propriété',
-    INVENTORY_REPORT: 'État des lieux',
-  }
-  await notify({
-    userId: agentTcId,
-    type: 'MISSION_ASSIGNED',
-    title: 'Nouvelle mission assignée',
-    message: `Vous avez été assigné à une mission de ${typeLabels[missionType] || missionType} pour "${propertyTitle}".`,
-    actionUrl: 'missions',
-    entityId: missionId,
-  })
-}
 
 // ─── Certification notification ─────────────────────────────────────────────
 
