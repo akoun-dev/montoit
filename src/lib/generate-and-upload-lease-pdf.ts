@@ -15,6 +15,14 @@ import { tmpdir } from 'os'
 
 const execFileAsync = promisify(execFile)
 
+async function getBrandLogo(): Promise<Buffer | undefined> {
+  try {
+    return await readFile(join(process.cwd(), 'assets', 'splash.png'))
+  } catch {
+    return undefined
+  }
+}
+
 async function convertDocxToPdf(docxBuffer: Buffer, filename: string): Promise<Buffer | null> {
   try {
     const tmpDir = join(tmpdir(), 'mon-toit-contracts')
@@ -133,6 +141,7 @@ export async function generateAndUploadLeasePdf(
   }))
 
   const contractData: BailContractData = {
+    logoImage: await getBrandLogo(),
     ownerFirstName: propOwner?.first_name || leaseOwner?.first_name || '',
     ownerLastName: propOwner?.last_name || leaseOwner?.last_name || '',
     ownerIdRef: '',

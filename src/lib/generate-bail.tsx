@@ -21,6 +21,8 @@ import {
 // ────────────────────────────────────────────────────────────
 
 export interface BailContractData {
+  logoImage?: Buffer
+
   // Owner info
   ownerFirstName: string
   ownerLastName: string
@@ -193,6 +195,36 @@ function signatureImageRun(dataUrl: string | undefined): ImageRun | null {
   })
 }
 
+const BRAND_ORANGE = 'FF6C2F'
+const BRAND_INK = '2D2D2D'
+
+function brandHeader(logoImage: Buffer | undefined): Table {
+  const logo = logoImage
+    ? new ImageRun({ data: logoImage, transformation: { width: 42, height: 42 }, type: 'png' })
+    : null
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [new TableRow({ children: [
+      new TableCell({
+        width: { size: 18, type: WidthType.PERCENTAGE },
+        shading: { type: ShadingType.SOLID, color: BRAND_ORANGE },
+        borders: { top: { style: BorderStyle.NONE, size: 0 }, bottom: { style: BorderStyle.NONE, size: 0 }, left: { style: BorderStyle.NONE, size: 0 }, right: { style: BorderStyle.NONE, size: 0 } },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: logo ? [logo] : [] })],
+      }),
+      new TableCell({
+        width: { size: 82, type: WidthType.PERCENTAGE },
+        shading: { type: ShadingType.SOLID, color: BRAND_ORANGE },
+        borders: { top: { style: BorderStyle.NONE, size: 0 }, bottom: { style: BorderStyle.NONE, size: 0 }, left: { style: BorderStyle.NONE, size: 0 }, right: { style: BorderStyle.NONE, size: 0 } },
+        children: [
+          new Paragraph({ children: [new TextRun({ text: 'MON TOIT', bold: true, color: 'FFFFFF', size: 30, font: 'Arial' })] }),
+          new Paragraph({ children: [new TextRun({ text: 'PLATEFORME DE LOCATION ANSUT', color: 'FFF1E8', size: 16, font: 'Arial' })] }),
+        ],
+      }),
+    ] })],
+  })
+}
+
 // ────────────────────────────────────────────────────────────
 // Helper builders
 // ────────────────────────────────────────────────────────────
@@ -204,7 +236,8 @@ function titleParagraph(text: string): Paragraph {
     children: [
       new TextRun({
         text,
-        bold: true,
+         bold: true,
+         color: BRAND_ORANGE,
         size: 32,
         font: 'Times New Roman',
       }),
@@ -219,7 +252,8 @@ function subTitleParagraph(text: string): Paragraph {
     children: [
       new TextRun({
         text,
-        bold: true,
+         bold: true,
+         color: BRAND_INK,
         size: 24,
         font: 'Times New Roman',
       }),
@@ -251,7 +285,8 @@ function articleTitle(text: string): Paragraph {
     children: [
       new TextRun({
         text,
-        bold: true,
+         bold: true,
+         color: BRAND_ORANGE,
         size: 22,
         font: 'Times New Roman',
       }),
@@ -309,13 +344,13 @@ function boldInlineParagraph(parts: Array<{ text: string; bold?: boolean; italic
 function headerCell(text: string, widthPct: number): TableCell {
   return new TableCell({
     width: { size: widthPct, type: WidthType.PERCENTAGE },
-    shading: { type: ShadingType.SOLID, color: 'D9E2F3' },
+     shading: { type: ShadingType.SOLID, color: BRAND_ORANGE },
     verticalAlign: VerticalAlign.CENTER,
     children: [
       new Paragraph({
         alignment: AlignmentType.CENTER,
         children: [
-          new TextRun({ text, bold: true, size: 20, font: 'Times New Roman' }),
+         new TextRun({ text, bold: true, color: 'FFFFFF', size: 20, font: 'Times New Roman' }),
         ],
       }),
     ],
@@ -393,6 +428,8 @@ export async function generateBailContract(data: BailContractData): Promise<Buff
   const children: (Paragraph | Table)[] = []
 
   // ─────────── TITLE ───────────
+  children.push(brandHeader(data.logoImage))
+  children.push(emptyLine())
   children.push(titleParagraph("BAIL À USAGE D'HABITATION"))
   children.push(
     new Paragraph({
@@ -919,6 +956,8 @@ export async function generateBailContract(data: BailContractData): Promise<Buff
         children: [new PageBreak()],
       }),
     )
+    children.push(brandHeader(data.logoImage))
+    children.push(emptyLine())
 
     children.push(
       new Paragraph({

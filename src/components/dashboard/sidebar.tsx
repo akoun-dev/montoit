@@ -343,18 +343,6 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
         )}
       </div>
 
-      {/* Role badge */}
-      {!collapsed && (
-        <div className="px-4 py-3 border-b border-border shrink-0">
-          <span className={cn(
-            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-            getRoleColor(effectiveRole)
-          )}>
-            {getRoleLabel(effectiveRole)}
-          </span>
-        </div>
-      )}
-
       {/* Navigation with sections */}
       <ScrollArea className="flex-1 min-h-0">
         <nav className="py-2 px-2">

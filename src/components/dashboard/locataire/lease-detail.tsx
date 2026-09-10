@@ -118,7 +118,29 @@ function getDaysRemaining(endDate: string): number {
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
-function generateDepositReceipt(data: {
+async function loadReceiptLogo(): Promise<Uint8Array | null> {
+  try {
+    const response = await fetch('/assets/splash.png')
+    if (!response.ok) return null
+    const bitmap = await createImageBitmap(await response.blob())
+    const canvas = document.createElement('canvas')
+    canvas.width = 86
+    canvas.height = 86
+    const context = canvas.getContext('2d')
+    if (!context) return null
+    context.fillStyle = '#FFFFFF'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    bitmap.close()
+    const base64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1]
+    const binary = atob(base64)
+    return Uint8Array.from(binary, (character) => character.charCodeAt(0))
+  } catch {
+    return null
+  }
+}
+
+async function generateDepositReceipt(data: {
   tenantName: string
   propertyTitle: string
   propertyAddress: string
@@ -128,49 +150,107 @@ function generateDepositReceipt(data: {
   leaseEndDate: string
   ownerName: string
   currentDate: string
-}): string {
+}): Promise<Blob> {
+  const logoBytes = await loadReceiptLogo()
   const fmt = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-  return `<!DOCTYPE html>
-<html lang="fr">
-<head><meta charset="UTF-8"><title>Reçu de caution</title>
-<style>
-  body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #222; }
-  .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
-  .header h1 { margin: 0; font-size: 22px; }
-  .header p { margin: 4px 0 0; color: #666; font-size: 13px; }
-  .receipt-box { border: 1px solid #ddd; border-radius: 8px; padding: 24px; background: #fafafa; }
-  .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-  .row:last-child { border-bottom: none; }
-  .label { color: #666; font-size: 13px; }
-  .value { font-weight: 600; font-size: 14px; }
-  .amount { font-size: 20px; font-weight: 700; color: #059669; text-align: center; padding: 16px 0; }
-  .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #999; }
-  .stamp { text-align: center; margin-top: 30px; font-family: 'Courier New', monospace; font-size: 14px; color: #333; border: 2px solid #333; border-radius: 8px; padding: 12px 24px; display: inline-block; transform: rotate(-3deg); }
-</style>
-</head><body>
-<div class="header">
-  <h1>REÇU DE DÉPÔT DE GARANTIE</h1>
-  <p>Conformément à l'article 4 du contrat de location</p>
-</div>
-<div class="receipt-box">
-  <div class="amount">${data.depositAmount.toLocaleString('fr-FR')} FCFA</div>
-  <div class="row"><span class="label">Locataire</span><span class="value">${data.tenantName}</span></div>
-  <div class="row"><span class="label">Propriétaire</span><span class="value">${data.ownerName}</span></div>
-  <div class="row"><span class="label">Bien concerné</span><span class="value">${data.propertyTitle} — ${data.propertyCity}</span></div>
-  <div class="row"><span class="label">Adresse</span><span class="value">${data.propertyAddress || data.propertyCity}</span></div>
-  <div class="row"><span class="label">Début du bail</span><span class="value">${fmt(data.leaseStartDate)}</span></div>
-  <div class="row"><span class="label">Fin du bail</span><span class="value">${fmt(data.leaseEndDate)}</span></div>
-  <div class="row"><span class="label">Date du reçu</span><span class="value">${fmt(data.currentDate)}</span></div>
-  <div class="row"><span class="label">Nature</span><span class="value">Dépôt de garantie (caution)</span></div>
-</div>
-<div style="text-align: center;">
-  <div class="stamp">REÇU</div>
-</div>
-<div class="footer">
-  <p>Ce document fait office de reçu de dépôt de garantie. Il est délivré par le bailleur au preneur.<br>
-  Document généré automatiquement — Sans valeur de facture officielle.</p>
-</div>
-</body></html>`
+  // Helvetica uses WinAnsi in a PDF, so normalize accents before writing text.
+  const pdfText = (value: string) => value
+    .replace(/œ/g, 'oe')
+    .replace(/Œ/g, 'OE')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/[\\()]/g, (character) => `\\${character}`)
+
+  const lines = [
+    'RECU DE DEPOT DE GARANTIE',
+    "Conformement a l'article 4 du contrat de location",
+    '',
+    `Montant : ${data.depositAmount.toLocaleString('fr-FR')} FCFA`,
+    `Locataire : ${data.tenantName}`,
+    `Proprietaire : ${data.ownerName}`,
+    `Bien concerne : ${data.propertyTitle} - ${data.propertyCity}`,
+    `Adresse : ${data.propertyAddress || data.propertyCity}`,
+    `Debut du bail : ${fmt(data.leaseStartDate)}`,
+    `Fin du bail : ${fmt(data.leaseEndDate)}`,
+    `Date du recu : ${fmt(data.currentDate)}`,
+    'Nature : Depot de garantie (caution)',
+    '',
+    'Ce document fait office de recu de depot de garantie.',
+    'Document genere automatiquement - Sans valeur de facture officielle.',
+  ].map(pdfText)
+
+  const drawText = (text: string, x: number, y: number, size: number, color = '0.13 0.13 0.13') => [
+    'BT',
+    `${color} rg`,
+    `/F1 ${size} Tf`,
+    `${x} ${y} Td`,
+    `(${text}) Tj`,
+    'ET',
+  ].join('\n')
+
+  const content = [
+    // Use the official splash logo in the branded document header.
+    'q',
+    '1 0.4235 0.1843 rg',
+    '0 742 595 100 re f',
+    'Q',
+    ...(logoBytes ? ['q', '86 0 0 86 42 750 cm', '/Logo Do', 'Q'] : [drawText('MON TOIT', 98, 786, 20, '1 1 1'), drawText('PLATEFORME DE LOCATION ANSUT', 100, 765, 9, '1 0.9 0.86')]),
+    drawText(lines[0], 50, 700, 18, '1 0.4235 0.1843'),
+    drawText(lines[1], 50, 680, 10, '0.4 0.4 0.4'),
+    'q',
+    '0.98 0.97 0.95 rg',
+    '42 380 511 260 re f',
+    'Q',
+    drawText(lines[3], 64, 600, 16, '0.03 0.55 0.35'),
+    ...lines.slice(4, 12).flatMap((line, index) => [
+      drawText(line, 64, 565 - (index * 26), 11),
+      '0.9 0.9 0.9 RG',
+      `64 ${550 - (index * 26)} m 531 ${550 - (index * 26)} l S`,
+    ]),
+    drawText('RECU', 265, 335, 15, '1 0.4235 0.1843'),
+    drawText(lines[13], 64, 275, 10, '0.4 0.4 0.4'),
+    drawText(lines[14], 64, 255, 10, '0.4 0.4 0.4'),
+  ].join('\n')
+
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >>${logoBytes ? ' /XObject << /Logo 5 0 R >>' : ''} >> /Contents ${logoBytes ? 6 : 5} 0 R >>`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ]
+  const contentObject = `<< /Length ${new TextEncoder().encode(content).length} >>\nstream\n${content}\nendstream`
+  const parts: Array<string | ArrayBuffer> = ['%PDF-1.4\n']
+  const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+  const offsets = [0]
+  let byteOffset = new TextEncoder().encode('%PDF-1.4\n').length
+  const appendObject = (objectNumber: number, value: string | Uint8Array) => {
+    offsets[objectNumber] = byteOffset
+    const prefix = new TextEncoder().encode(`${objectNumber} 0 obj\n`)
+    const suffix = new TextEncoder().encode('\nendobj\n')
+    parts.push(toArrayBuffer(prefix), typeof value === 'string' ? value : toArrayBuffer(value), toArrayBuffer(suffix))
+    byteOffset += prefix.length + (typeof value === 'string' ? new TextEncoder().encode(value).length : value.length) + suffix.length
+  }
+  const appendBinaryObject = (objectNumber: number, header: string, bytes: Uint8Array) => {
+    offsets[objectNumber] = byteOffset
+    const prefix = new TextEncoder().encode(`${objectNumber} 0 obj\n${header}`)
+    const suffix = new TextEncoder().encode('\nendstream\nendobj\n')
+    parts.push(toArrayBuffer(prefix), toArrayBuffer(bytes), toArrayBuffer(suffix))
+    byteOffset += prefix.length + bytes.length + suffix.length
+  }
+  objects.forEach((object, index) => appendObject(index + 1, object))
+  if (logoBytes) {
+    appendBinaryObject(5, `<< /Type /XObject /Subtype /Image /Width 86 /Height 86 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logoBytes.length} >>\nstream\n`, logoBytes)
+    appendObject(6, contentObject)
+  } else {
+    appendObject(5, contentObject)
+  }
+  const xrefOffset = byteOffset
+  const size = logoBytes ? 8 : 6
+  parts.push(`xref\n0 ${size}\n0000000000 65535 f \n`)
+  parts.push(offsets.slice(1, size).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join(''))
+  parts.push(`trailer\n<< /Size ${size} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`)
+  return new Blob(parts, { type: 'application/pdf' })
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -619,10 +699,10 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
           <Button
             variant="outline"
             className="w-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 gap-2"
-            onClick={() => {
+            onClick={async () => {
               setGeneratingReceipt(true)
               try {
-                const receiptHtml = generateDepositReceipt({
+                const receiptBlob = await generateDepositReceipt({
                   tenantName: `${user?.firstName || ''} ${user?.lastName || ''}`,
                   propertyTitle: property?.title || '',
                   propertyAddress: property?.address || '',
@@ -633,11 +713,10 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                   ownerName: `${owner.firstName} ${owner.lastName}`,
                   currentDate: new Date().toISOString(),
                 })
-                const blob = new Blob([receiptHtml], { type: 'text/html' })
-                const url = URL.createObjectURL(blob)
+                const url = URL.createObjectURL(receiptBlob)
                 const a = document.createElement('a')
                 a.href = url
-                a.download = `Reçu_caution_${property?.title || 'logement'}.html`
+                a.download = `Reçu_caution_${property?.title || 'logement'}.pdf`
                 document.body.appendChild(a)
                 a.click()
                 document.body.removeChild(a)
