@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getRentalFileCompleteness, REQUIRED_RENTAL_FILE_DOCUMENT_TYPES } from '@/lib/rental-file-completeness'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
+import { openValidationSla } from '@/lib/validation-sla'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -486,6 +487,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (rentalFile) {
+        await openValidationSla(admin, 'RENTAL_FILE', rentalFile.id)
         await notifyTcUsers(admin, 'Nouveau dossier locatif soumis', 'Un nouveau dossier locatif a été soumis et nécessite votre validation.', rentalFile.id)
       }
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
+import { openValidationSla } from '@/lib/validation-sla'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -316,6 +317,8 @@ export async function POST(req: NextRequest) {
     // Notify TC when submitted
     if (submit) {
       try {
+        await openValidationSla(admin, 'OWNER_PROFILE', ownerFile.id)
+
         const { data: tcUsers } = await admin
           .from('users')
           .select('id')

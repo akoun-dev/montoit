@@ -248,6 +248,12 @@ export async function PATCH(req: NextRequest) {
         .select()
         .single() as any)
 
+      await (supabase as any)
+        .from('validation_slas')
+        .update({ completed_at: new Date().toISOString(), is_overdue: false })
+        .eq('entity_type', 'OWNER_PROFILE')
+        .eq('entity_id', fileId)
+
       await (supabase.from('audit_logs') as any).insert({
         action: auditAction,
         entity: 'OwnerFile',
