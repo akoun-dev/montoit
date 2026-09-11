@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   Users, Plus, Mail, Phone, ToggleLeft, ToggleRight, Building2,
-  CreditCard, Search, BadgeCheck,
+  CreditCard, Search, BadgeCheck, X,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -48,6 +48,10 @@ export function TeamManagement() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: 'AGENT' })
+  const [agencyProperties, setAgencyProperties] = useState<Array<{ id: string; title: string; city: string }>>([])
+  const [propertiesDialogAgent, setPropertiesDialogAgent] = useState<Agent | null>(null)
+  const [propertyToAssign, setPropertyToAssign] = useState('')
+  const [assigningProperty, setAssigningProperty] = useState(false)
 
   const fetchAgents = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -61,6 +65,13 @@ export function TeamManagement() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchAgents() }, [fetchAgents])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    authFetch<{ properties: Array<{ id: string; title: string; city: string }> }>('/api/dashboard/agence')
+      .then((d) => setAgencyProperties(d.properties ?? []))
+      .catch(() => {})
+  }, [isAuthenticated])
 
   useRealtimeUsers({
     userId: user?.id,
@@ -90,6 +101,38 @@ export function TeamManagement() {
       if (err instanceof AuthError) toast.error(err.message)
       else toast.error('Erreur lors de l\'ajout')
     } finally { setSubmitting(false) }
+  }
+
+  const handleAssignProperty = async () => {
+    if (!propertiesDialogAgent || !propertyToAssign) return
+    setAssigningProperty(true)
+    try {
+      await authFetch(`/api/agence/agents/${propertiesDialogAgent.id}/properties`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId: propertyToAssign }),
+      })
+      toast.success('Bien assigné à l\'agent')
+      setPropertyToAssign('')
+      const d = await authFetch<{ agents: Agent[] }>('/api/agence/agents')
+      setAgents(d.agents ?? [])
+      setPropertiesDialogAgent(d.agents?.find((a) => a.id === propertiesDialogAgent.id) ?? null)
+    } catch (err) {
+      if (err instanceof AuthError) toast.error(err.message)
+      else toast.error('Erreur lors de l\'assignation')
+    } finally { setAssigningProperty(false) }
+  }
+
+  const handleUnassignProperty = async (agent: Agent, propertyId: string) => {
+    try {
+      await authFetch(`/api/agence/agents/${agent.id}/properties?propertyId=${propertyId}`, { method: 'DELETE' })
+      toast.success('Bien retiré de l\'agent')
+      const d = await authFetch<{ agents: Agent[] }>('/api/agence/agents')
+      setAgents(d.agents ?? [])
+      setPropertiesDialogAgent(d.agents?.find((a) => a.id === agent.id) ?? null)
+    } catch {
+      toast.error('Erreur lors du retrait')
+    }
   }
 
   const toggleAgentStatus = async (agent: Agent) => {
@@ -312,8 +355,11 @@ export function TeamManagement() {
                         </div>
                       </div>
 
-                      {/* Toggle status action */}
-                      <div className="shrink-0">
+                      {/* Actions */}
+                      <div className="shrink-0 flex items-center gap-1">
+                        <Button variant="outline" size="sm" className="gap-1" onClick={() => setPropertiesDialogAgent(agent)}>
+                          <Building2 className="size-3.5" /> Biens
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => toggleAgentStatus(agent)} className="gap-1">
                           {agent.status === 'ACTIVE' ? (
                             <ToggleRight className="size-5 text-green-500" />
@@ -362,6 +408,50 @@ export function TeamManagement() {
           </Card>
         </motion.div>
       )}
+
+      {/* Manage assigned properties */}
+      <Dialog open={!!propertiesDialogAgent} onOpenChange={(open) => { if (!open) { setPropertiesDialogAgent(null); setPropertyToAssign('') } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Biens assignés — {propertiesDialogAgent?.firstName} {propertiesDialogAgent?.lastName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2 max-h-56 overflow-y-auto">
+              {(propertiesDialogAgent?.assignedProperties ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aucun bien assigné pour le moment.</p>
+              ) : (
+                propertiesDialogAgent!.assignedProperties.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-2 rounded-lg border border-border">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{p.propertyTitle}</p>
+                      <p className="text-xs text-muted-foreground">{p.propertyCity}</p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="size-7 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                      onClick={() => handleUnassignProperty(propertiesDialogAgent!, p.propertyId)}>
+                      <X className="size-3.5" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Select value={propertyToAssign} onValueChange={setPropertyToAssign}>
+                <SelectTrigger className="flex-1"><SelectValue placeholder="Choisir un bien à assigner" /></SelectTrigger>
+                <SelectContent>
+                  {agencyProperties
+                    .filter((p) => !propertiesDialogAgent?.assignedProperties.some((ap) => ap.propertyId === p.id))
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.title} — {p.city}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={handleAssignProperty} disabled={!propertyToAssign || assigningProperty} className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white shrink-0">
+                {assigningProperty ? 'Assignation...' : 'Assigner'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }
