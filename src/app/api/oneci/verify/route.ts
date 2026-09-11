@@ -35,6 +35,16 @@ export async function POST(req: NextRequest) {
       gender,
     })
     const verified = result.match === true
+
+    await supabase.from('oneci_verifications' as any).insert({
+      user_id: userId,
+      method: 'MATCH',
+      status: verified ? 'PASSED' : 'FAILED',
+      score: result.score ?? null,
+      provider_response: result as any,
+      failure_reason: verified ? null : (result.message || null),
+    } as any)
+
     if (verified) {
       await supabase.from('users').update({
         oneci_verified: true,
