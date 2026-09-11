@@ -17,13 +17,17 @@ import {
   Lightbulb,
   Shield,
   AlertTriangle,
+  Share2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { toast } from 'sonner'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -229,6 +233,9 @@ export function TrustScore() {
   const [data, setData] = useState<ScoringData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareEmail, setShareEmail] = useState('')
+  const [sharing, setSharing] = useState(false)
 
   const fetchScore = useCallback(async () => {
     if (!isAuthenticated) {
@@ -263,6 +270,27 @@ export function TrustScore() {
       setDashboardSection('settings')
     } else if (action === 'my-properties') {
       setDashboardSection('my-properties')
+    }
+  }
+
+  const handleShare = async () => {
+    if (!shareEmail.includes('@')) {
+      toast.error('Adresse email invalide')
+      return
+    }
+    setSharing(true)
+    try {
+      const result = await authFetch<{ message: string }>('/api/profile/share', {
+        method: 'POST',
+        body: JSON.stringify({ email: shareEmail }),
+      })
+      toast.success(result.message)
+      setShareOpen(false)
+      setShareEmail('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors du partage')
+    } finally {
+      setSharing(false)
     }
   }
 
@@ -318,14 +346,19 @@ export function TrustScore() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants} className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
-            <ShieldCheck className="size-6 text-brand-500" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+              <ShieldCheck className="size-6 text-brand-500" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Trust Score</h1>
+              <p className="text-muted-foreground mt-0.5">Votre score de confiance {data.roleLabel || 'locataire'}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Trust Score</h1>
-            <p className="text-muted-foreground mt-0.5">Votre score de confiance {data.roleLabel || 'locataire'}</p>
-          </div>
+          <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={() => setShareOpen(true)}>
+            <Share2 className="size-3.5" /> <span className="hidden sm:inline">Partager</span>
+          </Button>
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
           <Badge className={`border text-[10px] px-2 py-0.5 ${statusBadgeClass}`}>
@@ -601,6 +634,29 @@ export function TrustScore() {
           </div>
         </ExpandableSection>
       </motion.div>
+
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Partager mon profil</DialogTitle>
+            <DialogDescription>
+              Envoyez votre profil de confiance (score, vérifications) par email à un propriétaire ou une agence.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="email"
+            placeholder="email@exemple.com"
+            value={shareEmail}
+            onChange={(e) => setShareEmail(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShareOpen(false)}>Annuler</Button>
+            <Button onClick={handleShare} disabled={sharing} className="bg-brand-500 hover:bg-brand-600 text-white">
+              {sharing ? 'Envoi...' : 'Partager'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }
