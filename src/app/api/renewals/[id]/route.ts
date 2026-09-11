@@ -2,6 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
+import { generateAndUploadLeasePdf } from '@/lib/generate-and-upload-lease-pdf'
+
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function mapLease(lease: Record<string, unknown>) {
+  return {
+    id: lease.id,
+    status: lease.status,
+    propertyId: lease.property_id,
+    tenantId: lease.tenant_id,
+    ownerId: lease.owner_id,
+    monthlyRent: lease.monthly_rent,
+    charges: lease.charges,
+    deposit: lease.deposit,
+    startDate: lease.start_date,
+    endDate: lease.end_date,
+  }
+}
 
 // PATCH /api/renewals/[id] — Accept or decline a lease renewal request (proprietaire)
 export async function PATCH(
@@ -58,19 +78,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'Seul un bail actif peut être renouvelé' }, { status: 400 })
     }
 
-    const newStatus = action === 'accept' ? 'ACCEPTED' : 'REJECTED'
-
-    // Update the lease
-    const { error } = await supabase
-      .from('leases')
-      .update({
-        renewal_status: newStatus,
-        updated_at: new Date().toISOString(),
-      } as any)
-      .eq('id', id)
-
-    if (error) throw error
-
     // Fetch property info for notification
     const { data: property } = await supabase
       .from('properties')
@@ -80,23 +87,93 @@ export async function PATCH(
 
     const propertyTitle = (property as any)?.title || ''
 
-    // Notify the tenant
+    if (action === 'decline') {
+      const { error } = await supabase
+        .from('leases')
+        .update({ renewal_status: 'REJECTED', updated_at: new Date().toISOString() } as any)
+        .eq('id', id)
+      if (error) throw error
+
+      await notify({
+        userId: (lease as any).tenant_id,
+        type: 'LEASE_UPDATE',
+        title: 'Demande de renouvellement refusée',
+        message: `Le propriétaire a refusé votre demande de renouvellement pour "${propertyTitle}".`,
+        actionUrl: 'my-leases',
+        entityId: id,
+      })
+
+      return NextResponse.json({ data: { id, renewalStatus: 'REJECTED' } })
+    }
+
+    // ─── Accept: immediately create the renewed lease ───────────────────────
+    // Same terms as the current lease, shifted by its own duration, reusing
+    // the same (already-validated) rental file — a renewal doesn't require
+    // re-running KYC/TC validation on an already-approved tenant.
+    const oldLease = lease as any
+    const durationMs = new Date(oldLease.end_date).getTime() - new Date(oldLease.start_date).getTime()
+    const newStartDate = new Date(oldLease.end_date)
+    const newEndDate = new Date(newStartDate.getTime() + durationMs)
+    const newLeaseId = generateId()
+
+    const { data: newLease, error: createError } = await (supabase as any)
+      .from('leases')
+      .insert({
+        id: newLeaseId,
+        status: 'PENDING_SIGNATURE',
+        property_id: oldLease.property_id,
+        tenant_id: oldLease.tenant_id,
+        owner_id: oldLease.owner_id,
+        rental_file_id: oldLease.rental_file_id,
+        monthly_rent: oldLease.monthly_rent,
+        charges: oldLease.charges,
+        deposit: oldLease.deposit,
+        start_date: newStartDate.toISOString(),
+        end_date: newEndDate.toISOString(),
+        special_conditions: oldLease.special_conditions,
+      })
+      .select()
+      .single()
+
+    if (createError) throw createError
+
+    const { error: updateError } = await supabase
+      .from('leases')
+      .update({
+        renewal_status: 'RENEWED',
+        renewed_lease_id: newLeaseId,
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq('id', id)
+
+    if (updateError) throw updateError
+
+    generateAndUploadLeasePdf(newLeaseId, 'initial').then((url) => {
+      if (url) {
+        (supabase.from('leases').update({ contract_url: url, updated_at: new Date().toISOString() } as any).eq('id', newLeaseId) as any).then()
+      }
+    }).catch((err) => console.error('PDF generation failed:', err))
+
     await notify({
-      userId: (lease as any).tenant_id,
+      userId: oldLease.tenant_id,
       type: 'LEASE_UPDATE',
-      title: action === 'accept' ? 'Demande de renouvellement acceptée' : 'Demande de renouvellement refusée',
-      message: action === 'accept'
-        ? `Le propriétaire a accepté votre demande de renouvellement pour "${propertyTitle}". Un nouveau bail sera bientôt créé.`
-        : `Le propriétaire a refusé votre demande de renouvellement pour "${propertyTitle}".`,
+      title: 'Demande de renouvellement acceptée',
+      message: `Le propriétaire a accepté votre demande de renouvellement pour "${propertyTitle}". Un nouveau bail est prêt : veuillez le signer.`,
       actionUrl: 'my-leases',
-      entityId: id,
+      entityId: newLeaseId,
     })
 
+    await supabase.from('audit_logs').insert({
+      id: generateId(),
+      action: 'LEASE_RENEWED',
+      entity: 'Lease',
+      entity_id: newLeaseId,
+      details: JSON.stringify({ previousLeaseId: id, propertyId: oldLease.property_id, tenantId: oldLease.tenant_id }),
+      user_id: auth.userId,
+    } as any)
+
     return NextResponse.json({
-      data: {
-        id,
-        renewalStatus: newStatus,
-      },
+      data: { id, renewalStatus: 'RENEWED', renewedLeaseId: newLeaseId, newLease: mapLease(newLease) },
     })
   } catch (error) {
     console.error('Renewal PATCH error:', error)

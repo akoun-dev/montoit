@@ -15,6 +15,7 @@ import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { downloadCsv } from '@/lib/csv'
 
 interface Lease {
   id: string; status: string; monthlyRent: number; charges: number; deposit: number
@@ -91,6 +92,27 @@ export function AgenceContracts() {
     return true
   })
 
+  const handleExport = () => {
+    if (filtered.length === 0) {
+      toast.error('Aucun contrat à exporter')
+      return
+    }
+    const header = ['Bien', 'Ville', 'Locataire', 'Statut', 'Loyer mensuel', 'Charges', 'Dépôt', 'Début', 'Fin']
+    const rows = filtered.map((l) => [
+      l.property.title,
+      l.property.city,
+      `${l.tenant.firstName} ${l.tenant.lastName}`,
+      statusConfig[l.status]?.label || l.status,
+      l.monthlyRent,
+      l.charges,
+      l.deposit,
+      new Date(l.startDate).toLocaleDateString('fr-FR'),
+      new Date(l.endDate).toLocaleDateString('fr-FR'),
+    ])
+    downloadCsv(`contrats-${new Date().toISOString().slice(0, 10)}.csv`, [header, ...rows])
+    toast.success(`${filtered.length} contrat${filtered.length > 1 ? 's' : ''} exporté${filtered.length > 1 ? 's' : ''}`)
+  }
+
   const activeLeases = leases.filter((l) => l.status === 'ACTIVE')
   const expiringLeases = leases.filter((l) => {
     if (l.status !== 'ACTIVE') return false
@@ -114,6 +136,12 @@ export function AgenceContracts() {
           <FileText className="size-5 sm:size-6 text-[#FF6C2F]" /> Contrats
         </h1>
         <p className="text-muted-foreground mt-1">{activeLeases.length} bail{activeLeases.length > 1 ? 'x' : ''} actif{activeLeases.length > 1 ? 's' : ''}</p>
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="flex justify-end">
+        <Button variant="outline" size="sm" className="gap-1" onClick={handleExport}>
+          <Download className="size-3" /> Exporter la liste (CSV)
+        </Button>
       </motion.div>
 
       {/* Expiring Alerts */}
@@ -285,11 +313,8 @@ export function AgenceContracts() {
       {/* Contract Templates */}
       <motion.div variants={itemVariants}>
         <Card className="border-border">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold">Modèles de contrats</CardTitle>
-            <Button variant="outline" size="sm" className="gap-1" onClick={() => toast.info('Fonctionnalité à venir')}>
-              <Download className="size-3" /> Exporter
-            </Button>
           </CardHeader>
           <CardContent className="grid sm:grid-cols-3 gap-3">
             <div className="p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer">

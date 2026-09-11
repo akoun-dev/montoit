@@ -16,6 +16,7 @@ import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { downloadCsv } from '@/lib/csv'
 
 interface AgenceData {
   stats: {
@@ -83,6 +84,25 @@ export function AgenceAnalytics() {
   const maxVisits = Math.max(...trendData.map((d) => d.visits), 1)
   const maxProperties = Math.max(...trendData.map((d) => d.properties), 1)
 
+  const handleExport = () => {
+    const agents = data?.agents ?? []
+    if (agents.length === 0) {
+      toast.error('Aucune donnée à exporter')
+      return
+    }
+    const header = ['Agent', 'Rôle', 'Biens assignés', 'Commissions']
+    const rows = agents.map((a) => [`${a.firstName} ${a.lastName}`, a.role, a.assignedPropertiesCount, a.totalCommissions])
+    const summary = [
+      [],
+      ['Taux d\'occupation', `${occupancyRate}%`],
+      ['Biens actifs', stats?.activeProperties ?? 0],
+      ['Visites ce mois', stats?.pendingVisits ?? 0],
+      ['Commissions totales', stats?.totalCommissions ?? 0],
+    ]
+    downloadCsv(`analytics-agence-${new Date().toISOString().slice(0, 10)}.csv`, [header, ...rows, ...summary])
+    toast.success('Export généré')
+  }
+
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -92,7 +112,7 @@ export function AgenceAnalytics() {
           </h1>
           <p className="text-muted-foreground mt-1">Performance et tendances de votre agence</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-1" onClick={() => toast.info('Export en cours...')}>
+        <Button variant="outline" size="sm" className="gap-1" onClick={handleExport}>
           <Download className="size-3" /> Exporter
         </Button>
       </motion.div>
