@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Users, Search, UserX, Shield, Power, ChevronDown, ArrowUpDown } from 'lucide-react'
+import { Users, Search, UserX, Shield, Power, ChevronDown, ArrowUpDown, Download } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { downloadCsv } from '@/lib/csv'
 
 interface UserData {
   users: Array<{
@@ -141,6 +142,25 @@ export function AdminUsers() {
       return sortOrder === 'desc' ? (valA > valB ? -1 : 1) : (valA < valB ? -1 : 1)
     })
 
+  const handleExport = () => {
+    if (filtered.length === 0) {
+      toast.error('Aucun utilisateur à exporter')
+      return
+    }
+    const header = ['Prénom', 'Nom', 'Email', 'Téléphone', 'Rôle', 'Statut', 'Créé le']
+    const rows = filtered.map((u) => [
+      u.firstName,
+      u.lastName,
+      u.email || '',
+      u.phone || '',
+      roleLabels[u.role] || u.role,
+      u.isActive ? 'Actif' : 'Inactif',
+      new Date(u.createdAt).toLocaleDateString('fr-FR'),
+    ])
+    downloadCsv(`utilisateurs-${new Date().toISOString().slice(0, 10)}.csv`, [header, ...rows])
+    toast.success(`${filtered.length} utilisateur${filtered.length > 1 ? 's' : ''} exporté${filtered.length > 1 ? 's' : ''}`)
+  }
+
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -166,6 +186,9 @@ export function AdminUsers() {
               <SelectItem value="ADMIN">Admin</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" className="gap-1 h-10" onClick={handleExport}>
+            <Download className="size-3" /> Exporter
+          </Button>
         </div>
       </div>
 

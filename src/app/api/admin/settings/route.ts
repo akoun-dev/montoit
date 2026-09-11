@@ -292,6 +292,15 @@ export async function PUT(req: NextRequest) {
 
     await upsertSetting(admin, key, merged)
 
+    await admin.from('audit_logs').insert({
+      id: crypto.randomUUID(),
+      action: 'ADMIN_SETTINGS_UPDATED',
+      entity: 'PlatformSettings',
+      entity_id: section,
+      details: JSON.stringify({ section, values }),
+      user_id: userId,
+    } as any)
+
     const resp = NextResponse.json({ success: true, [section]: merged })
     return applyCookies(resp)
   } catch (error) {
