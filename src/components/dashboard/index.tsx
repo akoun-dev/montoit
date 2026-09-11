@@ -26,6 +26,7 @@ import { PaymentDetail } from './locataire/payment-detail'
 import { ApplicationDetail } from './locataire/application-detail'
 import { VisitDetail } from './locataire/visit-detail'
 import { LeaseDetail } from './locataire/lease-detail'
+import { LocataireInventoryReports } from './locataire/inventory-reports'
 import { ProprietaireOverview } from './proprietaire/overview'
 import { MyProperties } from './proprietaire/my-properties'
 import { VisitRequests } from './proprietaire/visit-requests'
@@ -150,6 +151,7 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'my-visits': return <MyVisits onDetail={goToVisitDetail} />
     case 'visit-detail': return <BackableSection sectionKey="visit-detail" onBack={goBackToVisits}><VisitDetail visitId={selectedItemId} onBack={goBackToVisits} /></BackableSection>
     case 'my-leases': return <MyLeases onDetail={goToLeaseDetail} />
+    case 'inventory-reports': return <LocataireInventoryReports />
     case 'lease-detail': return <BackableSection sectionKey="lease-detail" onBack={goBackToLeases}><LeaseDetail leaseId={selectedItemId} onBack={goBackToLeases} /></BackableSection>
     case 'payments': return <Payments onDetail={goToPaymentDetail} />
     case 'payment-detail': return <BackableSection sectionKey="payment-detail" onBack={goBackToPayments}><PaymentDetail paymentId={selectedItemId} onBack={goBackToPayments} /></BackableSection>
