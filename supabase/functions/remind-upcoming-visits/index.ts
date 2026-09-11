@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
 import { notify } from '../_shared/notify.ts'
+import { sendEmail, sendSms } from '../_shared/ansut-messaging.ts'
 
 // J-1 reminder for accepted visits — notification_preferences.visit_reminders
 // existed but nothing ever triggered a reminder from it.
@@ -47,6 +48,14 @@ serve(async (req) => {
       })
     }
 
+    // agency_agents have no platform account — reach an assigned agent by
+    // email/SMS instead of the in-app notify(), which requires a users.id.
+    const agentIds = [...new Set((visits || []).map((v: any) => v.assigned_agent_id).filter(Boolean))]
+    const { data: agents } = agentIds.length > 0
+      ? await supabase.from('agency_agents').select('id, first_name, email, phone').in('id', agentIds)
+      : { data: [] as any[] }
+    const agentMap = new Map((agents || []).map((a: any) => [a.id, a]))
+
     let notified = 0
     for (const visit of visits || []) {
       const property = visit.property as any
@@ -56,7 +65,6 @@ serve(async (req) => {
       const recipients: Array<{ userId: string; actionUrl: string }> = [
         { userId: visit.tenant_id, actionUrl: 'my-visits' },
         ...(property?.owner_id ? [{ userId: property.owner_id, actionUrl: 'visit-requests' }] : []),
-        ...(visit.assigned_agent_id ? [{ userId: visit.assigned_agent_id, actionUrl: 'visits' }] : []),
       ]
       const recipientIds = recipients.map((r) => r.userId)
       const { data: prefs } = await supabase
@@ -79,6 +87,16 @@ serve(async (req) => {
           actionUrl: recipient.actionUrl,
           entityId: visit.id,
         })
+        notified++
+      }
+
+      const agent = visit.assigned_agent_id ? agentMap.get(visit.assigned_agent_id) : null
+      if (agent) {
+        const text = `Mon Toit - Bonjour ${agent.first_name}, rappel : votre visite pour "${propertyTitle}" est prévue demain${timeLabel ? ` (${timeLabel})` : ''}.`
+        const tasks: Promise<unknown>[] = []
+        if (agent.email) tasks.push(sendEmail({ to: agent.email, subject: 'Mon Toit - Rappel de visite demain', content: `<p>${text}</p>`, isHtml: true }))
+        if (agent.phone) tasks.push(sendSms({ to: agent.phone, text }))
+        await Promise.allSettled(tasks)
         notified++
       }
     }

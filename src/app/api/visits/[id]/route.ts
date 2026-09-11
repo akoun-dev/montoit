@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
+import { sendEmail, sendSms } from '@/lib/ansut-messaging'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -293,6 +294,26 @@ export async function PATCH(
 
     // ─── Assign agent (standalone update, no status change needed) ─────────
     if (assignedAgentId !== undefined) {
+      // agency_agents have no platform account — only an agency (not an
+      // owner, who has no agents of its own) can assign one, and only one
+      // that actually belongs to it.
+      let agent: { first_name: string; email: string; phone: string | null } | null = null
+      if (assignedAgentId) {
+        if (role !== 'AGENCE') {
+          return NextResponse.json({ error: 'Seule une agence peut assigner un agent' }, { status: 403 })
+        }
+        const { data: agentRow } = await (admin as any)
+          .from('agency_agents')
+          .select('first_name, email, phone')
+          .eq('id', assignedAgentId)
+          .eq('agency_id', userId)
+          .maybeSingle()
+        if (!agentRow) {
+          return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
+        }
+        agent = agentRow
+      }
+
       const updateData: Record<string, any> = { assigned_agent_id: assignedAgentId || null }
 
       const { data: updated } = await (admin as any)
@@ -304,6 +325,24 @@ export async function PATCH(
 
       if (!updated) {
         return NextResponse.json({ error: 'Erreur lors de l\'assignation' }, { status: 500 })
+      }
+
+      if (agent) {
+        const { data: propInfo } = await admin
+          .from('properties')
+          .select('title, address, city')
+          .eq('id', visit.property_id)
+          .single()
+        const when = new Date(visit.requested_date).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
+        const text = `Mon Toit - Bonjour ${agent.first_name}, une visite vous a été assignée pour "${propInfo?.title || 'un bien'}" (${propInfo?.address || ''}, ${propInfo?.city || ''}), le ${when}${visit.time_slot ? ` (${visit.time_slot})` : ''}.`
+        const tasks: Promise<unknown>[] = []
+        if (agent.email) {
+          tasks.push(sendEmail({ to: agent.email, subject: 'Mon Toit - Nouvelle visite assignée', content: `<p>${text}</p>`, isHtml: true }))
+        }
+        if (agent.phone) {
+          tasks.push(sendSms({ to: agent.phone, text }))
+        }
+        await Promise.allSettled(tasks)
       }
 
       const enriched = await enrichVisitDetail(admin, updated)
