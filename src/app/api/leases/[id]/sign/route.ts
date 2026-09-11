@@ -45,6 +45,60 @@ function mapLease(lease: Record<string, unknown>) {
 }
 
 /**
+ * The commissions table exists (with a mandat/lease link) but nothing ever
+ * created a row in it — the earning event, an agency-managed lease going
+ * ACTIVE, had no code path writing to it. Generate one PENDING commission
+ * here, the single point where a lease transitions to ACTIVE regardless of
+ * signing order. Requires an agent actually assigned to the property since
+ * commissions.agent_id is NOT NULL (agency_agents, no bare "agency" row).
+ */
+async function createCommissionForActivatedLease(supabase: ReturnType<typeof getSupabaseAdminClient>, lease: any) {
+  try {
+    const { data: mandat } = await (supabase as any)
+      .from('mandats')
+      .select('id, agency_id, commission_rate, commission_type, fixed_commission')
+      .eq('property_id', lease.property_id)
+      .eq('status', 'ACTIVE')
+      .maybeSingle()
+    if (!mandat) return
+
+    const { data: assignment } = await (supabase as any)
+      .from('agency_agent_properties')
+      .select('agent_id')
+      .eq('property_id', lease.property_id)
+      .limit(1)
+      .maybeSingle()
+    if (!assignment?.agent_id) return
+
+    const { data: existing } = await (supabase as any)
+      .from('commissions')
+      .select('id')
+      .eq('lease_id', lease.id)
+      .maybeSingle()
+    if (existing) return
+
+    const amount = mandat.commission_type === 'FIXED'
+      ? (mandat.fixed_commission || 0)
+      : Math.round((lease.monthly_rent || 0) * (mandat.commission_rate || 0) / 100)
+    if (amount <= 0) return
+
+    await (supabase as any).from('commissions').insert({
+      id: crypto.randomUUID(),
+      amount,
+      rate: mandat.commission_rate || 0,
+      status: 'PENDING',
+      description: `Commission sur activation du bail`,
+      agent_id: assignment.agent_id,
+      agency_id: mandat.agency_id,
+      mandat_id: mandat.id,
+      lease_id: lease.id,
+    })
+  } catch (err) {
+    console.error('Failed to create commission for activated lease:', err)
+  }
+}
+
+/**
  * Download the current lease PDF from Storage and convert to base64.
  * Returns { buffer, base64, publicUrl } or null if no contract exists.
  */
@@ -324,6 +378,7 @@ export async function POST(
 
       if (bothSigned) {
         await notifyLeaseActivated(lease.tenant_id, lease.owner_id, property?.title || '', lease.id)
+        await createCommissionForActivatedLease(supabase, updatedLease)
       }
     } else {
       const updateData: Record<string, unknown> = {
@@ -373,6 +428,7 @@ export async function POST(
 
       if (lease.owner_signed_at) {
         await notifyLeaseActivated(lease.tenant_id, lease.owner_id, property?.title || '', lease.id)
+        await createCommissionForActivatedLease(supabase, updatedLease)
       }
     }
 

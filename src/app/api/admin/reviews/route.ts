@@ -155,6 +155,15 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Avis introuvable' }, { status: 404 })
     }
 
+    await admin.from('audit_logs').insert({
+      id: crypto.randomUUID(),
+      action: status === 'HIDDEN' ? 'REVIEW_HIDDEN' : 'REVIEW_RESTORED',
+      entity: 'Rating',
+      entity_id: id,
+      details: JSON.stringify({ reason: reason || null }),
+      user_id: userId,
+    } as any)
+
     // Resolve any open signalements filed against this review so the
     // decision here is reflected in the signalements queue too.
     const { data: openSignalements } = await admin

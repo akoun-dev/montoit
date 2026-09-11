@@ -152,6 +152,15 @@ export async function POST(req: NextRequest) {
 
       if (updateError) throw new Error(updateError.message)
 
+      await supabase.from('audit_logs').insert({
+        id: crypto.randomUUID(),
+        action: 'BACKUP_CREATED',
+        entity: 'Backup',
+        entity_id: id,
+        details: JSON.stringify({ fileName, size: formatSize(sizeBytes) }),
+        user_id: auth.userId,
+      } as any)
+
       return NextResponse.json({ backup: toBackupDto(completed), message: 'Sauvegarde terminée' })
     } catch (execError: any) {
       await (supabase as any)

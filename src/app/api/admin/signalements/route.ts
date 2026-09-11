@@ -219,6 +219,15 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Signalement introuvable' }, { status: 404 })
     }
 
+    await supabase.from('audit_logs').insert({
+      id: crypto.randomUUID(),
+      action: 'SIGNALEMENT_DECIDED',
+      entity: 'Signalement',
+      entity_id: id,
+      details: JSON.stringify({ status, entityType: signalement.entity_type, entityId: signalement.entity_id, adminNotes: adminNotes || null }),
+      user_id: userId,
+    } as any)
+
     const [{ data: reporters }, { data: handlers }] = await Promise.all([
       supabase.from('users').select('id, first_name, last_name, email, role').eq('id', signalement.reporter_id),
       signalement.handled_by_id

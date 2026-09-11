@@ -21,6 +21,16 @@ serve(async (req) => {
     const result = await rnppFingerprintAuth({ nni, fingerprintData })
     const code = result.Code ?? result.code
     const authenticated = result.authenticated === true || code === 200 || code === '200'
+
+    await getSupabaseAdminClient().from('oneci_verifications').insert({
+      user_id: userId,
+      method: 'FINGERPRINT_AUTH',
+      status: authenticated ? 'PASSED' : 'FAILED',
+      score: result?.score ?? null,
+      provider_response: result ?? null,
+      failure_reason: authenticated ? null : (result?.message || null),
+    })
+
     return new Response(JSON.stringify({ ...result, authenticated }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (err) {
     const headers: Record<string, string> = { ...corsHeaders, 'Content-Type': 'application/json' }

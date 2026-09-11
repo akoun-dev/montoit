@@ -81,6 +81,16 @@ serve(async (req) => {
 
     const resultCode = result?.Code ?? result?.code
     const authenticated = result?.authenticated === true || resultCode === 200 || resultCode === '200'
+
+    await supabase.from('oneci_verifications').insert({
+      user_id: userId,
+      method: 'FACE_AUTH',
+      status: authenticated ? 'PASSED' : 'FAILED',
+      score: result?.score ?? null,
+      provider_response: result ?? null,
+      failure_reason: authenticated ? null : (result?.message || null),
+    })
+
     if (authenticated) {
       await supabase.from('users').update({
         oneci_verified: true,

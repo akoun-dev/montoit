@@ -106,6 +106,15 @@ serve(async (req) => {
       })
     }
 
+    await supabase.from('oneci_verifications').insert({
+      user_id: userId,
+      method: 'MATCH',
+      status: result?.match ? 'PASSED' : 'FAILED',
+      score: result?.score ?? null,
+      provider_response: result ?? null,
+      failure_reason: result?.match ? null : (result?.message || null),
+    })
+
     if (result?.match) {
       await supabase.from('users').update({
         oneci_verified: true,

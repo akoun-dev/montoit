@@ -21,7 +21,10 @@ async function expireOverdueFiles(admin: ReturnType<typeof getSupabaseAdminClien
     if (!overdue || overdue.length === 0) return
     const ids = overdue.map(r => r.id)
     await admin.from('rental_files').update({ status: 'EXPIRED' } as any).in('id', ids)
-    await admin.from('applications' as any).update({ status: 'EXPIRED' } as any).in('rental_file_id', ids)
+    // Never overwrite a candidature the owner already decided on (final).
+    await admin.from('applications' as any).update({ status: 'EXPIRED' } as any)
+      .in('rental_file_id', ids)
+      .not('status', 'in', '("ACCEPTED","REJECTED")')
   } catch (error) {
     // Expiration is maintenance work and must not block a user operation.
     console.error('Rental file expiration error:', error)

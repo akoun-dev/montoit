@@ -46,6 +46,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
             { id: 'applications', label: 'Mes candidatures', icon: UserCheck },
             { id: 'my-visits', label: 'Mes visites', icon: Eye },
             { id: 'my-leases', label: 'Mes locations', icon: Home },
+            { id: 'inventory-reports', label: 'États des lieux', icon: FileText },
             { id: 'payments', label: 'Mes paiements', icon: CreditCard },
           ],
         },

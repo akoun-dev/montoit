@@ -165,6 +165,16 @@ export async function PATCH(request: NextRequest) {
       details: JSON.stringify({ action, comment, type: typeLabel }),
     })
 
+    if (action === 'VERIFY_ONECI' || action === 'REJECT_ONECI') {
+      await (supabase.from('oneci_verifications') as any).insert({
+        user_id: userId,
+        method: 'MANUAL_TC',
+        status: action === 'VERIFY_ONECI' ? 'PASSED' : 'FAILED',
+        failure_reason: action === 'REJECT_ONECI' ? (comment || null) : null,
+        provider_response: { decidedBy: tcUserId, comment: comment || null },
+      })
+    }
+
     const isVerified = action.startsWith('VERIFY')
     await notify({
       userId,
