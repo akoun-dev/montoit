@@ -17,6 +17,12 @@ import {
 import { cn } from '@/lib/utils'
 
 // ─── Static Data ────────────────────────────────────────────────────────────
+// Intentionally embedded, not admin-editable: this is reference/training
+// content (procedures, FAQ) that changes with the product itself, not
+// day-to-day configuration. Versioning it would mean building a content
+// management flow (storage, an editor, review) for no demonstrated need —
+// if these guides start needing frequent updates independent of a code
+// release, that's the trigger to revisit this decision.
 
 const verificationGuides = [
   {

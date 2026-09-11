@@ -407,18 +407,28 @@ export async function DELETE(
 }
 
 async function enrichSingleProperty(admin: ReturnType<typeof getSupabaseAdminClient>, property: any, requestingUserId?: string | null) {
+  // The owner sees every document (including drafts not yet published);
+  // anyone else only sees published ones. The previous `.eq('is_published',
+  // isOwner || isActive)` filtered to is_published === false whenever
+  // neither condition held, showing unpublished documents to strangers and
+  // hiding the owner's own drafts on an inactive property.
+  const isOwner = !!requestingUserId && property.owner_id === requestingUserId
+  let documentsQuery = admin
+    .from('property_documents')
+    .select('id, name, type, url, description, expiry_date, created_at, is_published')
+    .eq('property_id', property.id)
+    .order('created_at', { ascending: false })
+  if (!isOwner) {
+    documentsQuery = documentsQuery.eq('is_published', true)
+  }
+
   const [{ data: images }, { data: documents }, { data: similarRows }] = await Promise.all([
     admin
     .from('property_images')
     .select('*')
     .eq('property_id', property.id)
     .order('order', { ascending: true }),
-    admin
-      .from('property_documents')
-      .select('id, name, type, url, description, expiry_date, created_at, is_published')
-      .eq('property_id', property.id)
-      .eq('is_published', property.owner_id === requestingUserId || property.status === 'ACTIVE')
-      .order('created_at', { ascending: false }),
+    documentsQuery,
     admin
       .from('properties')
       .select('id, title, type, price, area, city, commune, rental_status')

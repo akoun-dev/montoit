@@ -286,6 +286,7 @@ export function EnhancedRentalFiles() {
   const [selectedTenant, setSelectedTenant] = useState<RentalFileItem | null>(null)
   const [search, setSearch] = useState('')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [deleteConfirmStatus, setDeleteConfirmStatus] = useState<string | null>(null)
 
   const fetchData = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) {
@@ -434,16 +435,26 @@ export function EnhancedRentalFiles() {
   }
 
   // ─── Delete lease handler ─────────────────────────────────────────────────
-  const handleDeleteLease = async (leaseId: string) => {
+  const handleDeleteLease = async (leaseId: string, status?: string) => {
     setDeleteConfirmId(leaseId)
+    setDeleteConfirmStatus(status || null)
   }
 
   const confirmDeleteLease = async () => {
     if (!deleteConfirmId) return
     try {
-      await authFetch(`/api/leases/${deleteConfirmId}`, { method: 'DELETE' })
-      toast.success('Bail supprimé')
+      // A PENDING_SIGNATURE lease was already notified to the tenant — cancel
+      // it properly (notifies them, releases the property, reopens the
+      // rental file) instead of silently hard-deleting the record.
+      if (deleteConfirmStatus === 'PENDING_SIGNATURE') {
+        await authFetch(`/api/leases/${deleteConfirmId}/cancel`, { method: 'PATCH' })
+        toast.success('Bail annulé')
+      } else {
+        await authFetch(`/api/leases/${deleteConfirmId}`, { method: 'DELETE' })
+        toast.success('Bail supprimé')
+      }
       setDeleteConfirmId(null)
+      setDeleteConfirmStatus(null)
       fetchData()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -712,7 +723,7 @@ export function EnhancedRentalFiles() {
                               className="h-8 border-red-200 text-red-600 hover:bg-red-50 gap-1"
                               onClick={() => {
                                 const unsignedLease = rf.leases.find(l => !l.ownerSignedAt && !l.tenantSignedAt)
-                                if (unsignedLease) handleDeleteLease(unsignedLease.id)
+                                if (unsignedLease) handleDeleteLease(unsignedLease.id, unsignedLease.status)
                               }}
                             >
                               <Trash2 className="size-3.5" />
@@ -1284,7 +1295,7 @@ export function EnhancedRentalFiles() {
                           onClick={() => {
                             const unsignedLease = selectedTenant.leases.find(l => !l.ownerSignedAt && !l.tenantSignedAt)
                             if (unsignedLease) {
-                              handleDeleteLease(unsignedLease.id)
+                              handleDeleteLease(unsignedLease.id, unsignedLease.status)
                               setProfileDialogOpen(false)
                             }
                           }}
@@ -1315,10 +1326,12 @@ export function EnhancedRentalFiles() {
 
       <ConfirmDialog
         open={!!deleteConfirmId}
-        onOpenChange={(open) => { if (!open) setDeleteConfirmId(null) }}
-        title="Supprimer le bail"
-        description="Cette action est irréversible. Toutes les données associées à ce bail seront définitivement supprimées."
-        confirmLabel="Supprimer"
+        onOpenChange={(open) => { if (!open) { setDeleteConfirmId(null); setDeleteConfirmStatus(null) } }}
+        title={deleteConfirmStatus === 'PENDING_SIGNATURE' ? 'Annuler le bail' : 'Supprimer le bail'}
+        description={deleteConfirmStatus === 'PENDING_SIGNATURE'
+          ? 'Le locataire a déjà été notifié de ce bail : il sera prévenu de son annulation et le bien redeviendra disponible.'
+          : 'Cette action est irréversible. Toutes les données associées à ce bail seront définitivement supprimées.'}
+        confirmLabel={deleteConfirmStatus === 'PENDING_SIGNATURE' ? 'Annuler le bail' : 'Supprimer'}
         cancelLabel="Annuler"
         onConfirm={confirmDeleteLease}
         variant="destructive"

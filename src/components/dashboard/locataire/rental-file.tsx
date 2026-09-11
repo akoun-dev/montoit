@@ -110,6 +110,8 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
   const [submitting, setSubmitting] = useState(false)
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null)
   const [deleteDocConfirmId, setDeleteDocConfirmId] = useState<string | null>(null)
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false)
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const rentalFileIdRef = useRef<string | null>(null)
@@ -227,6 +229,20 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
     } finally {
       submittingRef.current = false
       setSubmitting(false)
+    }
+  }
+
+  const handleWithdraw = async () => {
+    setWithdrawing(true)
+    try {
+      await authFetch('/api/rental-file/withdraw', { method: 'POST' })
+      toast.success('Dossier retiré — vous pouvez maintenant le modifier')
+      setWithdrawConfirmOpen(false)
+      await fetchRentalFile()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors du retrait')
+    } finally {
+      setWithdrawing(false)
     }
   }
 
@@ -471,6 +487,18 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Withdraw a submitted (not yet reviewed) file to edit it again */}
+            {existingFile.status === 'SUBMITTED' && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-3 gap-1.5"
+                onClick={() => setWithdrawConfirmOpen(true)}
+              >
+                Retirer mon dossier
+              </Button>
             )}
 
             {/* Re-submit button for rejected/expired/tc_review */}
@@ -843,6 +871,16 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         cancelLabel="Annuler"
         onConfirm={confirmDeleteDocument}
         variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={withdrawConfirmOpen}
+        onOpenChange={setWithdrawConfirmOpen}
+        title="Retirer mon dossier"
+        description="Votre dossier repassera en brouillon et ne sera plus examiné par le Tiers de Confiance tant que vous ne l'aurez pas soumis à nouveau."
+        confirmLabel={withdrawing ? 'Retrait...' : 'Retirer'}
+        cancelLabel="Annuler"
+        onConfirm={handleWithdraw}
       />
     </motion.div>
   )
