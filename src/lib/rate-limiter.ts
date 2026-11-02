@@ -21,6 +21,29 @@ interface RateLimiterEntry {
 
 const stores = new Map<string, Map<string, RateLimiterEntry>>()
 
+/**
+ * SEC-007 — Extrait l'adresse IP client d'une requête Next.js en tenant compte
+ * du reverse-proxy (Caddy) : `x-forwarded-for` (1re valeur) puis `x-real-ip`,
+ * sinon 127.0.0.1. Sert à composer les clés de rate-limit `IP + identifiant`
+ * des routes OTP sensibles (verify-otp, reset-password).
+ */
+export function getClientIp(req: { headers: { get(name: string): string | null } }): string {
+  const forwarded = req.headers.get('x-forwarded-for')
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim()
+    if (first) return first
+  }
+  return req.headers.get('x-real-ip')?.trim() || '127.0.0.1'
+}
+
+/**
+ * SEC-007 — Clé de rate-limit stricte « utilisateur + IP » pour les routes de
+ * vérification OTP / réinitialisation de mot de passe.
+ */
+export function userIpRateLimitKey(identifier: string, ip: string): string {
+  return `${identifier}|${ip}`
+}
+
 function getStore(name: string): Map<string, RateLimiterEntry> {
   let store = stores.get(name)
   if (!store) {

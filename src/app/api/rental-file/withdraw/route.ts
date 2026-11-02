@@ -14,6 +14,11 @@ function generateId() {
  * SUBMITTED) pour pouvoir le modifier à nouveau. Le statut repasse en DRAFT
  * et les TC actifs sont notifiés du retrait.
  *
+ * FUN-002 (dossiers multiples) : le body peut contenir `rentalFileId` pour
+ * cibler un dossier précis (ex. retirer la soumission COLOCATION quand un
+ * autre dossier STANDARD est aussi en attente). Sans `rentalFileId`, on
+ * conserve le comportement historique : le dossier SUBMITTED le plus récent.
+ *
  * Refusé si le dossier est en TC_REVIEW (le TC a déjà commencé à examiner
  * et a demandé un complément — le locataire doit y répondre, pas tout retirer)
  * ou VALIDATED (terminé).
@@ -28,14 +33,47 @@ export async function POST(req: NextRequest) {
 
     const admin = getSupabaseAdminClient()
 
-    const { data: rentalFile, error: fetchError } = await admin
+    // FUN-002 : ciblage optionnel d'un dossier précis (ownership vérifié)
+    let targetFileId: string | null = null
+    try {
+      const body = await req.json()
+      const { rentalFileId } = (body ?? {}) as { rentalFileId?: string }
+      if (rentalFileId && typeof rentalFileId === 'string') {
+        const { data: target } = await admin
+          .from('rental_files')
+          .select('id, tenant_id, status')
+          .eq('id', rentalFileId)
+          .maybeSingle()
+        if (target && target.tenant_id === userId) {
+          targetFileId = target.id
+        } else {
+          const resp = NextResponse.json({ error: 'Dossier introuvable' }, { status: 404 })
+          return applyCookies(resp)
+        }
+      }
+    } catch {
+      // Body absent ou non JSON → comportement historique (dossier le plus récent)
+    }
+
+    let query = admin
       .from('rental_files')
       .select('id, status, tenant_id')
       .eq('tenant_id', userId)
       .eq('status', 'SUBMITTED')
       .order('updated_at', { ascending: false })
       .limit(1)
-      .maybeSingle()
+
+    if (targetFileId) {
+      query = admin
+        .from('rental_files')
+        .select('id, status, tenant_id')
+        .eq('id', targetFileId)
+        .eq('tenant_id', userId)
+        .eq('status', 'SUBMITTED')
+        .limit(1)
+    }
+
+    const { data: rentalFile, error: fetchError } = await query.maybeSingle()
 
     if (fetchError) {
       console.error('[Rental Withdraw] Fetch error:', fetchError)

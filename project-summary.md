@@ -1,0 +1,704 @@
+## Capacitor Plugins
+
+- 🟧 [@capacitor/app@7.1.1](https://github.com/ionic-team/capacitor-plugins.git) - (Latest 8.0.0) - Is behind 1 major version.
+- 🟧 [@capacitor/camera@7.0.3](https://github.com/ionic-team/capacitor-plugins.git) - (Latest 8.0.0) - Is behind 1 major version.
+- 🟧 [@capacitor/geolocation@7.1.7](https://github.com/ionic-team/capacitor-geolocation.git) - (Latest 8.0.0) - Is behind 1 major version.
+- 🟧 [@capacitor/haptics@7.0.3](https://github.com/ionic-team/capacitor-haptics.git) - (Latest 8.0.0) - Is behind 1 major version.
+- 🟧 [@capacitor/keyboard@7.0.4](https://github.com/ionic-team/capacitor-keyboard.git) - (Latest 8.0.0) - Is behind 1 major version.
+- 🟧 [@capacitor/preferences@7.0.3](https://github.com/ionic-team/capacitor-plugins.git) - (Latest 8.0.0) - Is behind 1 major version.
+- 🟧 [@capacitor/push-notifications@7.0.4](https://github.com/ionic-team/capacitor-plugins.git) - (Latest 8.0.0) - Is behind 1 major version.
+- 🟧 [@capacitor/share@7.0.3](https://github.com/ionic-team/capacitor-plugins.git) - (Latest 8.0.0) - Is behind 1 major version.
+- 🟧 [@capacitor/splash-screen@7.0.4](https://github.com/ionic-team/capacitor-plugins.git) - (Latest 8.0.0) - Is behind 1 major version.
+- 🟧 [@capacitor/status-bar@7.0.4](https://github.com/ionic-team/capacitor-plugins.git) - (Latest 8.0.0) - Is behind 1 major version.
+## Cordova Plugins
+
+## Dependencies
+
+- 🟧 [@capacitor/android@7.4.5](https://github.com/ionic-team/capacitor.git) - (Latest 8.0.2) - Is behind 1 major version.
+- 🟧 [@capacitor/assets@3.0.5](https://github.com/ionic-team/capacitor-assets.git) - May be unmaintained (1.9 years since last release)
+- 🟧 [@capacitor/cli@7.4.5](https://github.com/ionic-team/capacitor.git) - (Latest 8.0.2) - Is behind 1 major version.
+- 🟧 [@capacitor/core@7.4.5](https://github.com/ionic-team/capacitor.git) - (Latest 8.0.2) - Is behind 1 major version.
+- 🟧 [@capacitor/ios@7.4.5](https://github.com/ionic-team/capacitor.git) - (Latest 8.0.2) - Is behind 1 major version.
+- 🟧 [@dnd-kit/core@6.3.1](https://github.com/clauderic/dnd-kit.git) - May be unmaintained (1.2 years since last release)
+- 🟧 [@dnd-kit/sortable@10.0.0](https://github.com/clauderic/dnd-kit.git) - May be unmaintained (1.2 years since last release)
+- 🟥 [@dnd-kit/utilities@3.2.2](https://github.com/clauderic/dnd-kit.git) - Unmaintained (2.2 years since last release)
+- 🟩 [@eslint/js@9.39.2](https://github.com/eslint/eslint.git)
+- 🟩 [@radix-ui/react-dialog@1.1.15](https://github.com/radix-ui/primitives.git)
+- 🟩 [@radix-ui/react-dropdown-menu@2.1.16](https://github.com/radix-ui/primitives.git)
+- 🟩 [@radix-ui/react-label@2.1.8](https://github.com/radix-ui/primitives.git)
+- 🟩 [@radix-ui/react-select@2.2.6](https://github.com/radix-ui/primitives.git)
+- 🟩 [@radix-ui/react-slot@1.2.4](https://github.com/radix-ui/primitives.git)
+- 🟩 [@radix-ui/react-switch@1.2.6](https://github.com/radix-ui/primitives.git)
+- 🟩 [@radix-ui/react-tabs@1.1.13](https://github.com/radix-ui/primitives.git)
+- 🟩 [@radix-ui/react-tooltip@1.2.8](https://github.com/radix-ui/primitives.git)
+- 🟩 [@react-google-maps/api@2.20.8](https://github.com/JustFly1984/react-google-maps-api.git)
+- 🟩 [@sentry/react@10.38.0](https://github.com/getsentry/sentry-javascript.git)
+- 🟩 [@sentry/vite-plugin@4.9.0](https://github.com/getsentry/sentry-javascript-bundler-plugins.git)
+- 🟩 [@supabase/supabase-js@2.94.0](https://github.com/supabase/supabase-js.git) - (Latest 2.94.1)
+- 🟩 [@tanstack/react-query@5.90.20](https://github.com/TanStack/query.git)
+- 🟩 [@testing-library/jest-dom@6.9.1](https://github.com/testing-library/jest-dom.git)
+- 🟩 [@testing-library/react@14.3.1](https://github.com/testing-library/react-testing-library.git)
+- 🟧 [@testing-library/user-event@14.6.1](https://github.com/testing-library/user-event.git) - May be unmaintained (1 years since last release)
+- 🟩 [@types/leaflet@1.9.21](https://github.com/DefinitelyTyped/DefinitelyTyped.git)
+- 🟧 [@types/mapbox-gl@3.4.1](https://github.com/DefinitelyTyped/DefinitelyTyped.git) - May be unmaintained (1.3 years since last release)
+- 🟧 [@types/react@18.3.27](https://github.com/DefinitelyTyped/DefinitelyTyped.git) - (Latest 19.2.11) - Is behind 1 major version.
+- 🟧 [@types/react-dom@18.3.7](https://github.com/DefinitelyTyped/DefinitelyTyped.git) - (Latest 19.2.3) - Is behind 1 major version.
+- 🟩 [@vitejs/plugin-react@5.1.3](https://github.com/vitejs/vite-plugin-react.git)
+- 🟩 [@vitest/ui@4.0.18](https://github.com/vitest-dev/vitest.git)
+- 🟩 [autoprefixer@10.4.24](https://github.com/postcss/autoprefixer.git)
+- 🟥 [browser-image-compression@2.0.2](https://github.com/Donaldcwl/browser-image-compression.git) - Unmaintained (2.9 years since last release)
+- 🟩 [canvas-confetti@1.9.4](https://github.com/catdad/canvas-confetti.git)
+- 🟧 [class-variance-authority@0.7.1](https://github.com/joe-bell/cva.git) - May be unmaintained (1.2 years since last release)
+- 🟧 [clsx@2.1.1](https://github.com/lukeed/clsx.git) - May be unmaintained (1.8 years since last release)
+- 🟧 [date-fns@4.1.0](https://github.com/date-fns/date-fns.git) - May be unmaintained (1.4 years since last release)
+- 🟩 [dotenv@17.2.3](https://github.com/motdotla/dotenv.git)
+- 🟩 [eslint@9.39.2](https://github.com/eslint/eslint.git)
+- 🟩 [eslint-plugin-react-hooks@5.2.0](https://github.com/facebook/react.git)
+- 🟩 [eslint-plugin-react-refresh@0.4.26](https://github.com/ArnaudBarre/eslint-plugin-react-refresh.git)
+- 🟩 [globals@15.15.0](https://github.com/sindresorhus/globals.git)
+- 🟧 [husky@8.0.3](https://github.com/typicode/husky.git) - May be unmaintained (1.2 years since last release)
+- 🟩 [idb@8.0.3](https://github.com/jakearchibald/idb.git)
+- 🟩 [jsdom@23.2.0](https://github.com/jsdom/jsdom.git)
+- 🟩 [jspdf@4.1.0](https://github.com/parallax/jsPDF.git)
+- 🟩 [jspdf-autotable@5.0.7](https://github.com/simonbengtsson/jsPDF-AutoTable.git)
+- 🟩 [leaflet@1.9.4](https://github.com/Leaflet/Leaflet.git)
+- 🟩 [lint-staged@15.5.2](https://github.com/lint-staged/lint-staged.git)
+- 🟧 lovable-tagger@1.1.13 - Unable to find information on npm.
+- 🟩 [lucide-react@0.344.0](https://github.com/lucide-icons/lucide.git) - (Latest 0.563.0)
+- 🟩 [mapbox-gl@3.18.1](https://github.com/mapbox/mapbox-gl-js.git)
+- 🟥 [node-fetch@3.3.2](https://github.com/node-fetch/node-fetch.git) - Unmaintained (2.5 years since last release)
+- 🟩 [postcss@8.5.6](https://github.com/postcss/postcss.git)
+- 🟩 [prettier@3.8.1](https://github.com/prettier/prettier.git)
+- 🟧 [react@18.3.1](https://github.com/facebook/react.git) - (Latest 19.2.4) - Is behind 1 major version.
+- 🟧 [react-dom@18.3.1](https://github.com/facebook/react.git) - (Latest 19.2.4) - Is behind 1 major version.
+- 🟥 [react-ga4@2.1.0](https://github.com/codler/react-ga4.git) - Unmaintained (2.9 years since last release)
+- 🟩 [react-router-dom@7.13.0](https://github.com/remix-run/react-router.git)
+- 🟩 [recharts@3.7.0](https://github.com/recharts/recharts.git)
+- 🟩 [rollup-plugin-visualizer@6.0.5](https://github.com/btd/rollup-plugin-visualizer.git)
+- 🟩 [sonner@2.0.7](https://github.com/emilkowalski/sonner.git)
+- 🟩 [supabase@2.75.3](https://github.com/supabase/cli.git)
+- 🟩 [tailwind-merge@3.4.0](https://github.com/dcastil/tailwind-merge.git)
+- 🟧 [tailwindcss@3.4.19](https://github.com/tailwindlabs/tailwindcss.git) - (Latest 4.1.18) - Is behind 1 major version.
+- 🟧 [tesseract.js@5.1.1](https://github.com/naptha/tesseract.js.git) - (Latest 7.0.0) - Is behind 2 major versions.
+- 🟩 [typescript@5.9.3](https://github.com/microsoft/TypeScript.git)
+- 🟩 [typescript-eslint@8.54.0](https://github.com/typescript-eslint/typescript-eslint.git)
+- 🟩 [vite@7.3.1](https://github.com/vitejs/vite.git)
+- 🟩 [vitest@4.0.18](https://github.com/vitest-dev/vitest.git)
+- 🟩 [workbox-window@7.4.0](https://github.com/googlechrome/workbox.git)
+- 🟥 [xlsx@0.18.5](https://github.com/SheetJS/sheetjs.git) - Unmaintained (3.9 years since last release)
+- 🟧 [zustand@4.5.7](https://github.com/pmndrs/zustand.git) - (Latest 5.0.11) - Is behind 1 major version.
+### Maintenance Score
+47 out of 83 dependencies were up to date without issues.
+
+
+
+## Nonstandard naming
+The following files and folders do not follow the standard naming convention:
+
+- /App.tsx
+- /MES_DATA.txt4
+- /app/App.tsx
+- /app/layout/AdminLayout.tsx
+- /app/layout/ContextualRoleSwitcher.tsx
+- /app/layout/Footer.tsx
+- /app/layout/FooterPremium.tsx
+- /app/layout/Header.tsx
+- /app/layout/HeaderPremium.tsx
+- /app/layout/Layout.tsx
+- /app/layout/RoleSwitcher.tsx
+- /app/providers/AuthProvider.tsx
+- /app/routes/adminRoutes.tsx
+- /app/routes/agencyRoutes.tsx
+- /app/routes/agentRoutes.tsx
+- /app/routes/authRoutes.tsx
+- /app/routes/moderatorRoutes.tsx
+- /app/routes/ownerRoutes.tsx
+- /app/routes/publicRoutes.tsx
+- /app/routes/tenantRoutes.tsx
+- /app/routes/trustAgentRoutes.tsx
+- /components/auth/LoginForm.tsx
+- /components/auth/RegisterForm.tsx
+- /components/mandates/CreateMandateForm.tsx
+- /components/mandates/MandateDetailPage.tsx
+- /components/native/NativeCameraUpload.tsx
+- /components/native/SafeAreaWrapper.tsx
+- /components/native/StatusBarController.tsx
+- /components/payment/PaymentModal.tsx
+- /components/role/RoleSwitcher.tsx
+- /components/tenant/CompareModal.tsx
+- /components/ui/AuthErrorBoundary.tsx
+- /components/ui/Button.tsx
+- /components/ui/Input.tsx
+- /contexts/AuthContext.tsx
+- /contexts/RoleContext.tsx
+- /contexts/ThemeContext.tsx
+- /features/admin/components/AssignRoleForm.tsx
+- /features/admin/components/AuditLogsList.tsx
+- /features/admin/components/ConfirmRoleModal.tsx
+- /features/admin/components/DashboardExportButton.tsx
+- /features/admin/components/ProviderCard.tsx
+- /features/admin/components/RoleStatsCard.tsx
+- /features/admin/components/SettingRow.tsx
+- /features/admin/components/SortableProviderCard.tsx
+- /features/admin/components/UserRolesList.tsx
+- /features/admin/hooks/useAdminNotifications.ts
+- /features/admin/hooks/useAnalytics.ts
+- /features/admin/hooks/useFeatureFlags.ts
+- /features/admin/hooks/useServiceConfigurations.ts
+- /features/admin/hooks/useSystemSettings.ts
+- /features/admin/middleware/auditMiddleware.ts
+- /features/admin/middleware/rateLimitMiddleware.ts
+- /features/admin/pages/AnalyticsPage.tsx
+- /features/admin/pages/ApiKeysPage.tsx
+- /features/admin/pages/BusinessRulesPage.tsx
+- /features/admin/pages/CEVManagementPage.tsx
+- /features/admin/pages/DashboardPage.tsx
+- /features/admin/pages/DataGeneratorPage.tsx
+- /features/admin/pages/DocumentValidationPage.tsx
+- /features/admin/pages/FeatureFlagsPage.tsx
+- /features/admin/pages/LogsPage.tsx
+- /features/admin/pages/PropertiesPage.tsx
+- /features/admin/pages/ReviewModerationPage.tsx
+- /features/admin/pages/SecurityMonitoringPage.tsx
+- /features/admin/pages/ServiceConfigurationPage.tsx
+- /features/admin/pages/ServiceMonitoringPage.tsx
+- /features/admin/pages/ServiceProvidersPage.tsx
+- /features/admin/pages/TransactionsPage.tsx
+- /features/admin/pages/TrustAgentsPage.tsx
+- /features/admin/pages/UserRolesPage.tsx
+- /features/admin/pages/UsersPage.tsx
+- /features/admin/services/adminExtended.api.ts
+- /features/admin/services/featureFlags.service.ts
+- /features/agency/README.md
+- /features/agency/components/AgencyDashboardLayout.tsx
+- /features/agency/components/AgencySidebar.tsx
+- /features/agency/components/Header.tsx
+- /features/agency/components/InviteAgencyDialog.tsx
+- /features/agency/components/MandateCard.tsx
+- /features/agency/components/MandateDetailPanel.tsx
+- /features/agency/components/MandatePermissionsForm.tsx
+- /features/agency/components/MandateSignatureStatus.tsx
+- /features/agency/components/MandateStatusBadge.tsx
+- /features/agency/components/PropertiesTable.tsx
+- /features/agency/components/RegistrationRequests.tsx
+- /features/agency/components/Sidebar.tsx
+- /features/agency/components/StatCard.tsx
+- /features/agency/data/mockData.ts
+- /features/agency/pages/AgencyMandatesKanbanPage.tsx
+- /features/agency/pages/AgencyMandatesPage.tsx
+- /features/agency/pages/AgencyReportsPage.tsx
+- /features/agency/pages/AgencySettingsPage.tsx
+- /features/agency/pages/AgentDetailPage.tsx
+- /features/agency/pages/CommissionsPage.tsx
+- /features/agency/pages/DashboardPage.tsx
+- /features/agency/pages/EnhancedAgencyMandatesPage.tsx
+- /features/agency/pages/MandateDetailPage.tsx
+- /features/agency/pages/MyMandatesPage.tsx
+- /features/agency/pages/PropertyAssignmentsPage.tsx
+- /features/agency/pages/RegistrationRequestsPage.tsx
+- /features/agency/pages/SignMandatePage.tsx
+- /features/agency/pages/TeamManagementPage.tsx
+- /features/agency/services/agentInvitation.service.ts
+- /features/agent/components/AgentDashboardLayout.tsx
+- /features/agent/components/AgentSidebar.tsx
+- /features/agent/pages/AgentDashboardPage.tsx
+- /features/agent/pages/AgentPropertiesPage.tsx
+- /features/auth/components/AuthModal.tsx
+- /features/auth/components/ProfileContent.tsx
+- /features/contract/pages/DepartureNoticesPage.tsx
+- /features/contract/pages/InventoryReportsPage.tsx
+- /features/contract/pages/LeaseRenewalsPage.tsx
+- /features/dashboard/pages/UnifiedDashboardPage.tsx
+- /features/dispute/components/CreateReviewModal.tsx
+- /features/dispute/components/PropertyReviewsSection.tsx
+- /features/dispute/components/ReviewCard.tsx
+- /features/dispute/pages/CreateDisputePage.tsx
+- /features/dispute/pages/DisputeDetailPage.tsx
+- /features/mandates/SignMandateWithOTPPage.tsx
+- /features/messaging/components/AttachmentPreview.tsx
+- /features/messaging/components/ConversationItem.tsx
+- /features/messaging/components/ConversationList.tsx
+- /features/messaging/components/EmptyConversation.tsx
+- /features/messaging/components/ImageLightbox.tsx
+- /features/messaging/components/MessageBubble.tsx
+- /features/messaging/components/MessageInput.tsx
+- /features/messaging/components/MessageSearch.tsx
+- /features/messaging/components/MessageThread.tsx
+- /features/messaging/components/MessagesView.tsx
+- /features/messaging/components/SoundToggle.tsx
+- /features/messaging/hooks/useSecureMessaging.ts
+- /features/messaging/pages/MessagesPage.tsx
+- /features/messaging/services/typingIndicator.service.ts
+- /features/owner/components/ApplicationCard.tsx
+- /features/owner/components/OwnerDashboardContent.tsx
+- /features/owner/components/OwnerDashboardLayout.tsx
+- /features/owner/components/OwnerSidebar.tsx
+- /features/property/INTEGRATION_GUIDE.md
+- /features/property/README.md
+- /features/property/components/CitySelector.tsx
+- /features/property/components/DraggableImageGrid.tsx
+- /features/property/components/FeaturedProperties.tsx
+- /features/property/components/FeaturedPropertiesSection.tsx
+- /features/property/components/HeroAfrican.tsx
+- /features/property/components/HeroAfricanWow.tsx
+- /features/property/components/HeroMinimalist.tsx
+- /features/property/components/HeroPremium.tsx
+- /features/property/components/HeroSimplified.docs.md
+- /features/property/components/HeroSimplified.tsx
+- /features/property/components/HeroSlideshow.tsx
+- /features/property/components/HeroSpectacular.tsx
+- /features/property/components/HomeMapSection.tsx
+- /features/property/components/HowItWorksCompact.tsx
+- /features/property/components/ImageGallery.tsx
+- /features/property/components/ImageLightbox.tsx
+- /features/property/components/PropertiesWithMap.tsx
+- /features/property/components/PropertyForm.tsx
+- /features/property/components/PropertyImageUpload.tsx
+- /features/property/components/PropertyModal.tsx
+- /features/property/components/PropertySteps.tsx
+- /features/property/components/QuickSearch.tsx
+- /features/property/components/SearchFilters.tsx
+- /features/property/components/SearchHistory.tsx
+- /features/property/components/SearchResults.tsx
+- /features/property/components/SortableImageItem.tsx
+- /features/property/components/StatsPremium.tsx
+- /features/property/components/StatsSection.tsx
+- /features/property/components/Testimonials.tsx
+- /features/property/components/VoiceSearch.tsx
+- /features/property/hooks/useHomeMapProperties.ts
+- /features/property/pages/AddPropertyPage.tsx
+- /features/property/services/propertyService.ts
+- /features/tenant/components/PaymentAlertsBanner.tsx
+- /features/tenant/components/PropertyRatingDialog.tsx
+- /features/tenant/components/SaveSearchDialog.tsx
+- /features/tenant/components/SearchErrorBoundary.tsx
+- /features/tenant/components/TenantApplicationCard.tsx
+- /features/tenant/components/TenantDashboardContent.tsx
+- /features/tenant/components/TenantDashboardLayout.tsx
+- /features/tenant/components/TenantSidebar.tsx
+- /features/tenant/components/TenantSidebarLayout.tsx
+- /features/trust-agent/components/CalendarLegend.tsx
+- /features/trust-agent/components/DayMissionsList.tsx
+- /features/trust-agent/components/DisputeStatusBadge.tsx
+- /features/trust-agent/components/MediationWorkflow.tsx
+- /features/trust-agent/components/MissionCalendar.tsx
+- /features/trust-agent/components/PlanMissionModal.tsx
+- /features/trust-agent/components/QuickActionsPanel.tsx
+- /features/trust-agent/components/TrustAgentHeader.tsx
+- /features/trust-agent/components/UrgencyIndicator.tsx
+- /features/trust-agent/components/ValidationMetrics.tsx
+- /features/trust-agent/components/WeekCalendarWidget.tsx
+- /features/trust-agent/hooks/useTrustAgentNotifications.ts
+- /features/trust-agent/layouts/TrustAgentLayout.tsx
+- /features/trust-agent/services/agentAssignment.service.ts
+- /features/trust-agent/services/trustAgent.api.ts
+- /features/trust-agent/services/trustAgentNotifications.service.ts
+- /features/verification/components/AnsutBadge.tsx
+- /features/verification/components/CEVBadge.tsx
+- /features/verification/components/CNAMForm.tsx
+- /features/verification/components/EnhancedAnsutBadge.tsx
+- /features/verification/components/FaceCapture.tsx
+- /features/verification/components/ONECIForm.tsx
+- /features/verification/components/ONECIFormClient.tsx
+- /features/verification/components/ONECIFormSimple.tsx
+- /features/verification/components/ONECIFormTest.tsx
+- /features/verification/components/OneCiFaceAuth.tsx
+- /features/verification/components/OneCiVerificationForm.tsx
+- /features/verification/components/TrustIndicator.tsx
+- /features/verification/services/verificationApplications.service.ts
+- /hooks/auth/useFAQ.ts
+- /hooks/contract/useElectronicSignature.ts
+- /hooks/messaging/useConversations.ts
+- /hooks/messaging/useConversationsV2.ts
+- /hooks/messaging/useMessages.ts
+- /hooks/messaging/useMessagesV2.ts
+- /hooks/messaging/useNotificationSound.ts
+- /hooks/messaging/useUnreadCount.ts
+- /hooks/native/useAppLifecycle.ts
+- /hooks/native/useNativeCamera.ts
+- /hooks/native/useNativeGeolocation.ts
+- /hooks/native/useNativeHaptics.ts
+- /hooks/native/useNativeShare.ts
+- /hooks/native/useNativeStorage.ts
+- /hooks/native/usePushNotifications.ts
+- /hooks/property/useHeroSlides.ts
+- /hooks/property/useInfiniteProperties.ts
+- /hooks/property/useProperties.ts
+- /hooks/property/usePropertyFiltering.ts
+- /hooks/property/usePropertyForm.ts
+- /hooks/shared/useAnalytics.ts
+- /hooks/shared/useBreakpoint.ts
+- /hooks/shared/useBusinessRule.ts
+- /hooks/shared/useConfetti.ts
+- /hooks/shared/useContextualRoles.ts
+- /hooks/shared/useDebounce.ts
+- /hooks/shared/useErrorHandler.ts
+- /hooks/shared/useFeatureFlag.ts
+- /hooks/shared/useFormValidation.ts
+- /hooks/shared/useHomeStats.ts
+- /hooks/shared/useLocalStorage.ts
+- /hooks/shared/useMapboxToken.ts
+- /hooks/shared/useParallax.ts
+- /hooks/shared/usePermissions.ts
+- /hooks/shared/useProfileGuard.ts
+- /hooks/shared/useSafeToast.ts
+- /hooks/shared/useScrollAnimation.ts
+- /hooks/shared/useToast.tsx
+- /hooks/shared/useUserRoles.ts
+- /hooks/tenant/useAvailableCities.ts
+- /hooks/tenant/useCompareProperties.ts
+- /hooks/tenant/useInfiniteProperties.ts
+- /hooks/tenant/usePaymentAlerts.ts
+- /hooks/tenant/useSaveSearch.ts
+- /hooks/useAgencyMandates.ts
+- /hooks/useAppLifecycle.ts
+- /hooks/useAuth.ts
+- /hooks/useBrevoAuth.ts
+- /hooks/useHomeMapProperties.ts
+- /hooks/useNativeCamera.ts
+- /hooks/useNativeGeolocation.ts
+- /hooks/useNativeHaptics.ts
+- /hooks/useNativeShare.ts
+- /hooks/useNativeStorage.ts
+- /hooks/useOneCIVerification.ts
+- /hooks/usePayment.ts
+- /hooks/usePushNotifications.ts
+- /lib/constants/ivoirianImages.ts
+- /lib/helpers/imageUtils.ts
+- /lib/helpers/pdfGenerator.ts
+- /lib/helpers/supabaseHealthCheck.ts
+- /pages/admin/AnalyticsPage.tsx
+- /pages/admin/ApiKeysPage.tsx
+- /pages/admin/BusinessRulesPage.tsx
+- /pages/admin/CEVManagementPage.tsx
+- /pages/admin/DashboardPage.tsx
+- /pages/admin/DocumentValidationPage.tsx
+- /pages/admin/FeatureFlagsPage.tsx
+- /pages/admin/LogsPage.tsx
+- /pages/admin/PropertiesPage.tsx
+- /pages/admin/PropertyCreatePage.tsx
+- /pages/admin/PropertyEditPage.tsx
+- /pages/admin/ServiceConfigurationPage.tsx
+- /pages/admin/ServiceMonitoringPage.tsx
+- /pages/admin/ServiceProvidersPage.tsx
+- /pages/admin/TestDataGeneratorPage.tsx
+- /pages/admin/TransactionsPage.tsx
+- /pages/admin/TrustAgentsPage.tsx
+- /pages/admin/UserRolesPage.tsx
+- /pages/admin/UsersPage.tsx
+- /pages/agencies/AgenciesDirectoryPage.tsx
+- /pages/agency/AddPropertyPage.tsx
+- /pages/agency/AgencyPropertiesPage.tsx
+- /pages/agency/AgencyPropertyDetailPage.tsx
+- /pages/agency/AgencyPropertyEditPage.tsx
+- /pages/agency/AnalyticsPage.tsx
+- /pages/agency/CalendarPage.tsx
+- /pages/agency/CandidaturesPage.tsx
+- /pages/agency/CommissionsPage.tsx
+- /pages/agency/ContratsPage.tsx
+- /pages/agency/DashboardPage.tsx
+- /pages/agency/DocumentsPage.tsx
+- /pages/agency/MandateDetailPage.tsx
+- /pages/agency/MyMandatesPage.tsx
+- /pages/agency/PaymentsPage.tsx
+- /pages/agency/ProfilePage.tsx
+- /pages/agency/RemindersPage.tsx
+- /pages/agency/SignMandatePage.tsx
+- /pages/agency/TeamManagementPage.tsx
+- /pages/agency/VisitsPage.tsx
+- /pages/auth/AboutPage.tsx
+- /pages/auth/BiometricVerificationPage.tsx
+- /pages/auth/BlogPage.tsx
+- /pages/auth/CGVPage.tsx
+- /pages/auth/CallbackPage.tsx
+- /pages/auth/ContactPage.tsx
+- /pages/auth/FAQPage.tsx
+- /pages/auth/ForgotPasswordPage.tsx
+- /pages/auth/HelpPage.tsx
+- /pages/auth/HowItWorksPage.tsx
+- /pages/auth/JoinAgencyPage.tsx
+- /pages/auth/ModernAuthPage.tsx
+- /pages/auth/ModernAuthPageBrevo.tsx
+- /pages/auth/NeoFaceReturnPage.tsx
+- /pages/auth/PrivacyPolicyPage.tsx
+- /pages/auth/ProfileCompletionPage.tsx
+- /pages/auth/ProfileSelectionPage.tsx
+- /pages/auth/ResetPasswordPage.tsx
+- /pages/auth/RoleSelectionPage.tsx
+- /pages/auth/TermsOfServicePage.tsx
+- /pages/dashboard/UnifiedDashboardPage.tsx
+- /pages/mandates/HandwrittenSignaturePage.tsx
+- /pages/mandates/SignMandateChoicePage.tsx
+- /pages/messaging/MessagesPage.tsx
+- /pages/moderator/ContentModerationPage.tsx
+- /pages/moderator/DashboardPage.tsx
+- /pages/moderator/ModerationHistoryPage.tsx
+- /pages/moderator/ReviewQueuePage.tsx
+- /pages/moderator/SettingsPage.tsx
+- /pages/moderator/UserReportsPage.tsx
+- /pages/owner/AddPropertyPage.tsx
+- /pages/owner/CommunicationPage.tsx
+- /pages/owner/CreateContractPage.tsx
+- /pages/owner/DashboardPage.tsx
+- /pages/owner/DocumentsPage.tsx
+- /pages/owner/MyPropertiesPage.tsx
+- /pages/owner/MyTenantsPage.tsx
+- /pages/owner/OwnerApplicationsPage.tsx
+- /pages/owner/OwnerContractsPage.tsx
+- /pages/owner/PaymentsPage.tsx
+- /pages/owner/ProfilePage.tsx
+- /pages/owner/RemindersPage.tsx
+- /pages/owner/TerminatedContractsTab.tsx
+- /pages/owner/VisitsPage.tsx
+- /pages/public/AddPropertyLandingPage.tsx
+- /pages/public/AddPropertyPage.tsx
+- /pages/public/HomePage.tsx
+- /pages/public/NotFoundPage.tsx
+- /pages/tenant/ApplicationFormPage.tsx
+- /pages/tenant/CalendarPage.tsx
+- /pages/tenant/ContractDetailPage.tsx
+- /pages/tenant/DashboardPage.tsx
+- /pages/tenant/DocumentsPage.tsx
+- /pages/tenant/EnhancedProfilePage.tsx
+- /pages/tenant/FavoritesPage.tsx
+- /pages/tenant/MaintenancePage.tsx
+- /pages/tenant/MaintenanceRequestPage.tsx
+- /pages/tenant/MakePaymentPage.tsx
+- /pages/tenant/MyApplicationsPage.tsx
+- /pages/tenant/MyContractsPage.tsx
+- /pages/tenant/MyReviewsPage.tsx
+- /pages/tenant/MyVisitsPage.tsx
+- /pages/tenant/NotificationsPage.tsx
+- /pages/tenant/ONECIVerificationPage.tsx
+- /pages/tenant/PaymentHistoryPage.tsx
+- /pages/tenant/ProfilePage.tsx
+- /pages/tenant/PropertyDetailPage.tsx
+- /pages/tenant/RentalHistoryPage.tsx
+- /pages/tenant/SavedSearchesPage.tsx
+- /pages/tenant/ScheduleVisitPage.tsx
+- /pages/tenant/ScorePage.tsx
+- /pages/tenant/SearchPropertiesPage.tsx
+- /pages/tenant/SignLeasePage.tsx
+- /pages/tenant/layouts/TenantLayout.tsx
+- /pages/trust-agent/AgencyDossierValidationPage.tsx
+- /pages/trust-agent/AgentManagementPage.tsx
+- /pages/trust-agent/CEVMissionPage.tsx
+- /pages/trust-agent/CalendarPage.tsx
+- /pages/trust-agent/CertificationHistoryPage.tsx
+- /pages/trust-agent/CertifiedUsersListPage.tsx
+- /pages/trust-agent/DashboardPage.tsx
+- /pages/trust-agent/DisputeDetailPage.tsx
+- /pages/trust-agent/DisputesListPage.tsx
+- /pages/trust-agent/DocumentValidationPage.tsx
+- /pages/trust-agent/DossierValidationPage.tsx
+- /pages/trust-agent/DossiersListPage.tsx
+- /pages/trust-agent/EtatDesLieuxPage.tsx
+- /pages/trust-agent/FieldAgentsPage.tsx
+- /pages/trust-agent/MissionDetailPage.tsx
+- /pages/trust-agent/MissionsListPage.tsx
+- /pages/trust-agent/NewMissionPage.tsx
+- /pages/trust-agent/NotificationsPage.tsx
+- /pages/trust-agent/OwnerDossierValidationPage.tsx
+- /pages/trust-agent/PhotoVerificationPage.tsx
+- /pages/trust-agent/PropertyCertificationPage.tsx
+- /pages/trust-agent/PropertyManagementPage.tsx
+- /pages/trust-agent/ReportsPage.tsx
+- /pages/trust-agent/StatsPage.tsx
+- /pages/trust-agent/TenantDossierValidationPage.tsx
+- /pages/trust-agent/UserCertificationDetailsPage.tsx
+- /pages/trust-agent/UserCertificationPage.tsx
+- /pages/trust-agent/layouts/TrustAgentLayout.tsx
+- /registerServiceWorker.ts
+- /services/README_APPLICATIONS.md
+- /services/analyticsService.ts
+- /services/applications/applicationService.ts
+- /services/azure/azureTranslatorService.ts
+- /services/businessRulesService.ts
+- /services/cacheService.ts
+- /services/certificationService.ts
+- /services/chatbotService.ts
+- /services/contactService.ts
+- /services/contracts/README.md
+- /services/contracts/contractPdfGenerator.ts
+- /services/contracts/contractService.ts
+- /services/contracts/contractTemplates.ts
+- /services/contracts/depositService.ts
+- /services/contracts/lazyPdfGenerator.ts
+- /services/contracts/pdfSections.ts
+- /services/contracts/rentIndexationService.ts
+- /services/contracts/rentPaymentService.ts
+- /services/contracts/signatureService.ts
+- /services/dashboardExportService.ts
+- /services/exportService.ts
+- /services/format/formatService.ts
+- /services/indexedDBService.ts
+- /services/mandates/MandatePdfSectionWriter.ts
+- /services/mandates/cryptoneoSignatureService.ts
+- /services/mandates/mandatePdfGenerator.ts
+- /services/mandates/mandatePdfTemplates.ts
+- /services/mobileUploadService.ts
+- /services/notifications/applicationNotificationService.ts
+- /services/notifications/leaseNotificationService.ts
+- /services/notifications/mandateNotificationService.ts
+- /services/payments/intouchPaymentService.ts
+- /services/payments/recurringPaymentService.ts
+- /services/reviews/reviewService.ts
+- /services/scoringService.ts
+- /services/storage/storageService.ts
+- /services/upload/uploadService.ts
+- /services/validation/validationService.ts
+- /shared/components/Breadcrumb.tsx
+- /shared/components/Carousel.tsx
+- /shared/components/CityCard.tsx
+- /shared/components/ErrorBoundary.tsx
+- /shared/components/FeatureCard.tsx
+- /shared/components/FooterCTA.tsx
+- /shared/components/InfiniteScroll.tsx
+- /shared/components/LoadingStates.tsx
+- /shared/components/Notification.tsx
+- /shared/components/PageHeader.tsx
+- /shared/components/PageLayout.tsx
+- /shared/components/PerformanceOptimizations.tsx
+- /shared/components/PhoneInput.tsx
+- /shared/components/PhoneInputWithCountry.tsx
+- /shared/components/ProfileCard.tsx
+- /shared/components/PropertyCard.tsx
+- /shared/components/PropertyCardMobile.tsx
+- /shared/components/ProtectedRoute.tsx
+- /shared/components/SEOHead.tsx
+- /shared/components/SUTAChatWidget.tsx
+- /shared/components/SecureUpload.tsx
+- /shared/components/SignatureStatusBadge.tsx
+- /shared/components/modern/OTPInput.tsx
+- /shared/components/modern/PhoneInputV2.tsx
+- /shared/components/navigation/BottomNavigation.tsx
+- /shared/components/navigation/Breadcrumb.tsx
+- /shared/config/README.md
+- /shared/data/cityCoordinates.ts
+- /shared/hooks/useFaceDetection.ts
+- /shared/hooks/useNavigationItems.ts
+- /shared/hooks/usePlacesAutocomplete.ts
+- /shared/hooks/usePrefetchProperty.ts
+- /shared/hooks/useSecureAuth.ts
+- /shared/lib/constants/ivoirianImages.ts
+- /shared/lib/fetchWithRetry.ts
+- /shared/lib/helpers/pdfGenerator.ts
+- /shared/lib/helpers/supabaseHealthCheck.ts
+- /shared/services/cacheService.ts
+- /shared/services/errorHandling.service.ts
+- /shared/services/monartisanService.ts
+- /shared/services/rateLimiter.service.ts
+- /shared/services/roleValidation.service.ts
+- /shared/services/secureUpload.service.ts
+- /shared/services/securityMonitoring.service.ts
+- /shared/ui/ANSUTCertificationBadge.tsx
+- /shared/ui/AccessDenied.tsx
+- /shared/ui/AchievementBadges.tsx
+- /shared/ui/BadgeCustom.tsx
+- /shared/ui/BadgeIndicator.tsx
+- /shared/ui/Breadcrumb.tsx
+- /shared/ui/Button.tsx
+- /shared/ui/Card.tsx
+- /shared/ui/ChunkLoadErrorBoundary.tsx
+- /shared/ui/ContextualHelp.tsx
+- /shared/ui/CookieConsent.tsx
+- /shared/ui/CryptoNeoSignature.tsx
+- /shared/ui/DashboardRouter.tsx
+- /shared/ui/DataTable.tsx
+- /shared/ui/DigitalCertificateCard.tsx
+- /shared/ui/DocumentUpload.tsx
+- /shared/ui/ElectronicSignatureGated.tsx
+- /shared/ui/EnhancedClusterMap.tsx
+- /shared/ui/EnhancedSearch.tsx
+- /shared/ui/ErrorBoundary.tsx
+- /shared/ui/FeatureGate.tsx
+- /shared/ui/FileUpload.tsx
+- /shared/ui/FloatingCallButton.tsx
+- /shared/ui/FormStepper.tsx
+- /shared/ui/GlobalLoadingSkeleton.tsx
+- /shared/ui/GuarantorForm.tsx
+- /shared/ui/Icon.tsx
+- /shared/ui/Input.tsx
+- /shared/ui/InputWithIcon.tsx
+- /shared/ui/LanguageSelector.tsx
+- /shared/ui/LazyImage.tsx
+- /shared/ui/LeafletMap.tsx
+- /shared/ui/LivenessDetector.tsx
+- /shared/ui/LoadingFallback.tsx
+- /shared/ui/MapProvider.tsx
+- /shared/ui/MapWrapper.tsx
+- /shared/ui/MapboxMap.tsx
+- /shared/ui/MapboxMapGated.tsx
+- /shared/ui/MobileMoneyGated.tsx
+- /shared/ui/Modal.tsx
+- /shared/ui/MonArtisanRequestButton.tsx
+- /shared/ui/NeofaceVerification.tsx
+- /shared/ui/OnboardingTooltip.tsx
+- /shared/ui/OwnerBadge.tsx
+- /shared/ui/PageTransition.tsx
+- /shared/ui/PasswordStrengthIndicator.tsx
+- /shared/ui/PaymentReceiptModal.tsx
+- /shared/ui/PlacesAutocomplete.tsx
+- /shared/ui/Progress.tsx
+- /shared/ui/PropertyBadges.tsx
+- /shared/ui/ProtectedRoute.tsx
+- /shared/ui/README.md
+- /shared/ui/ScoreBadge.tsx
+- /shared/ui/SelfieCapture.tsx
+- /shared/ui/SignaturePad.tsx
+- /shared/ui/Skeleton.tsx
+- /shared/ui/SmilelessVerification.tsx
+- /shared/ui/SocialShare.tsx
+- /shared/ui/ThemeToggle.tsx
+- /shared/ui/TrustScoreCard.tsx
+- /shared/ui/TrustVerifiedBadge.tsx
+- /shared/ui/UIComponentsDemo.tsx
+- /shared/ui/UnifiedSearchBar.tsx
+- /shared/ui/ValidatedInput.tsx
+- /shared/ui/ValidatedTextarea.tsx
+- /shared/ui/VerificationBadge.tsx
+- /shared/ui/VisitCalendar.tsx
+- /shared/ui/admin/AdminPageHeader.tsx
+- /shared/ui/admin/AdminTable.tsx
+- /shared/ui/admin/ExportButton.tsx
+- /shared/ui/admin/NotificationBell.tsx
+- /shared/ui/admin/StatusBadge.tsx
+- /shared/ui/admin/UserAvatar.tsx
+- /shared/ui/admin/UserRoleSelector.tsx
+- /shared/ui/charts/AnalyticsAreaChart.tsx
+- /shared/ui/charts/AnalyticsBarChart.tsx
+- /shared/ui/charts/AnalyticsLineChart.tsx
+- /shared/ui/charts/AnalyticsPieChart.tsx
+- /shared/ui/charts/SimpleBarChart.tsx
+- /shared/ui/charts/SimpleLineChart.tsx
+- /shared/ui/charts/StatCard.tsx
+- /shared/ui/electronic-signature/ElectronicSignatureButton.tsx
+- /shared/ui/electronic-signature/ElectronicSignatureModal.tsx
+- /shared/ui/profile/ProfileErrorDisplay.tsx
+- /shared/ui/profile/ProfileInformationTab.tsx
+- /shared/ui/profile/ProfileQuickActions.tsx
+- /shared/ui/profile/ProfileVerificationTab.tsx
+- /shared/ui/profile/ProfileWelcome.tsx
+- /shared/ui/trust-agent/ActionCard.tsx
+- /shared/ui/trust-agent/EmptyState.tsx
+- /shared/ui/trust-agent/FilterBar.tsx
+- /shared/ui/trust-agent/KPICard.tsx
+- /shared/ui/trust-agent/MissionCard.tsx
+- /shared/ui/trust-agent/ProgressStepper.tsx
+- /shared/ui/trust-agent/TrustAgentPageHeader.tsx
+- /shared/ui/verification/DocumentUploadCard.tsx
+- /shared/ui/verification/DossierStatusBadge.tsx
+- /shared/ui/verification/DossierSubmissionTab.tsx
+- /shared/ui/verification/VerificationProgressCard.tsx
+- /shared/utils/__tests__/lazyLoad.test.tsx
+- /shared/utils/lazyLoad.tsx
+- /shared/utils/passwordPolicy.ts
+- /shared/utils/priceCompatibility.ts
+- /shared/utils/roleRoutes.ts
+- /store/authStore.ts
+- /store/messageSettingsStore.ts
+- /store/uiStore.ts
+- /test/README.md
+- /tests/setupSecurity.ts
+- /tests/setupTests.ts
+- /types/monToit.types.ts

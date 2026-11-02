@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { signStorageUrl } from '@/lib/supabase/storage'
 import crypto from 'crypto'
 import { notify } from '@/lib/notify'
 import { validateNonNegativeNumber } from '@/lib/validators'
@@ -34,6 +35,14 @@ function mapLease(lease: Record<string, unknown>) {
     createdAt: lease.created_at,
     updatedAt: lease.updated_at,
   }
+}
+
+/** SEC-006 : le bucket lease-documents est privé — le contract_url renvoyé au
+ * client est converti en URL signée (1 h) avant la réponse. */
+async function withSignedContractUrl<T extends { contractUrl?: unknown }>(lease: T): Promise<T> {
+  const raw = lease.contractUrl
+  const signed = typeof raw === 'string' ? await signStorageUrl(raw) : null
+  return { ...lease, contractUrl: signed }
 }
 
 export async function POST(req: NextRequest) {
@@ -221,7 +230,7 @@ export async function POST(req: NextRequest) {
     const userMap = new Map((users ?? []).map((u: any) => [u.id, u]))
 
     const result = {
-      ...mapLease(lease),
+      ...(await withSignedContractUrl(mapLease(lease))),
       property: propData ? {
         id: propData.id,
         title: propData.title,

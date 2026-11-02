@@ -5,7 +5,8 @@ import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token
 import crypto from 'crypto'
 import { notify, notifyLeaseActivated } from '@/lib/notify'
 import { generateAndUploadLeasePdf } from '@/lib/generate-and-upload-lease-pdf'
-import { uploadFromBase64, BUCKETS, getPublicUrl } from '@/lib/supabase/storage'
+import { uploadFromBase64, BUCKETS, getSignedUrl, SIGNED_URL_EXPIRES_IN_SECONDS, signStorageUrl } from '@/lib/supabase/storage'
+import { hashOtpCode } from '@/lib/otp-hash'
 import {
   getLeaseAdvanceRentAmount,
   getLeaseDepositAmount,
@@ -42,6 +43,14 @@ function mapLease(lease: Record<string, unknown>) {
     createdAt: lease.created_at,
     updatedAt: lease.updated_at,
   }
+}
+
+/** SEC-006 : le bucket lease-documents est privé — le contract_url renvoyé au
+ * client est converti en URL signée (1 h) avant la réponse. */
+async function withSignedContractUrl<T extends { contractUrl?: unknown }>(lease: T): Promise<T> {
+  const raw = lease.contractUrl
+  const signed = typeof raw === 'string' ? await signStorageUrl(raw) : null
+  return { ...lease, contractUrl: signed }
 }
 
 /**
@@ -100,9 +109,11 @@ async function createCommissionForActivatedLease(supabase: ReturnType<typeof get
 
 /**
  * Download the current lease PDF from Storage and convert to base64.
- * Returns { buffer, base64, publicUrl } or null if no contract exists.
+ * Returns { buffer, base64, publicUrl, signedUrl } or null if no contract exists.
+ * SEC-006 : `signedUrl` (1 h) sert d'`urlDoc` pour CRYPTONEO puisque le bucket
+ * lease-documents est désormais privé.
  */
-async function getCurrentPdfInfo(supabase: ReturnType<typeof getSupabaseAdminClient>, leaseId: string, lease: any): Promise<{ buffer: Buffer; base64: string; publicUrl: string } | null> {
+async function getCurrentPdfInfo(supabase: ReturnType<typeof getSupabaseAdminClient>, leaseId: string, lease: any): Promise<{ buffer: Buffer; base64: string; publicUrl: string; signedUrl: string } | null> {
   // If no contract_url, generate the initial PDF
   let contractUrl = lease.contract_url
   if (!contractUrl) {
@@ -112,18 +123,17 @@ async function getCurrentPdfInfo(supabase: ReturnType<typeof getSupabaseAdminCli
     await supabase.from('leases').update({ contract_url: contractUrl, updated_at: new Date().toISOString() } as any).eq('id', leaseId)
   }
 
-  // Try signed URL first (private bucket), fallback to public URL
+  // SEC-006 : bucket privé → URL signée obligatoire pour télécharger le PDF
+  // (serveur) et pour la passer à CRYPTONEO comme urlDoc (1 h de validité).
   let pdfUrl = contractUrl
-  const pathMatch = contractUrl.match(/\/object\/public\/[^/]+\/(.+)/)
-  const storagePath = pathMatch?.[1]
+  const pathMatch = contractUrl.match(/\/object\/(?:public|sign)\/[^/]+\/(.+)/)
+  const storagePath = pathMatch?.[1].split('?')[0]
+  let signedUrl = contractUrl
   if (storagePath) {
     try {
-      const { data: signedData } = await supabase
-        .storage
-        .from('lease-documents')
-        .createSignedUrl(storagePath, 300)
-      if (signedData?.signedUrl) pdfUrl = signedData.signedUrl
-    } catch { /* fallback to public URL */ }
+      signedUrl = await getSignedUrl('lease-documents', storagePath, SIGNED_URL_EXPIRES_IN_SECONDS)
+      pdfUrl = signedUrl
+    } catch { /* fallback to stored URL */ }
   }
 
   try {
@@ -136,7 +146,7 @@ async function getCurrentPdfInfo(supabase: ReturnType<typeof getSupabaseAdminCli
     const buffer = Buffer.from(arrayBuffer)
     const base64 = buffer.toString('base64')
 
-    return { buffer, base64, publicUrl: contractUrl }
+    return { buffer, base64, publicUrl: contractUrl, signedUrl }
   } catch (err) {
     console.error('Error downloading PDF:', err)
     return null
@@ -260,7 +270,9 @@ export async function POST(
       const signRequest = [{
         fileName: `bail_${id}_owner.pdf`,
         base64: pdfInfo.base64,
-        urlDoc: pdfInfo.publicUrl,
+        // SEC-006 : CRYPTONEO télécharge le document lui-même — le bucket étant
+        // privé, on lui transmet une URL signée (1 h) plutôt que l'URL publique.
+        urlDoc: pdfInfo.signedUrl,
         hashDoc: documentHash,
         signataireNom: ownerInfo?.last_name || '',
         signatairePrenom: ownerInfo?.first_name || '',
@@ -325,7 +337,8 @@ export async function POST(
     if (isOwner) {
       const updateData: Record<string, unknown> = {
         owner_signed_at: now.toISOString(),
-        owner_sign_otp: signOtp,
+        // SEC-007 : trace d'OTP de signature stockée hashée (sel `<leaseId>:owner`).
+        owner_sign_otp: hashOtpCode(signOtp, `${id}:owner`),
         owner_signature_image: signatureImage || null,
         cryptoneo_operation_id: operationId,
         updated_at: now.toISOString(),
@@ -333,7 +346,7 @@ export async function POST(
       // Si même personne, signer aussi pour le locataire
       if (isSamePerson) {
         updateData.tenant_signed_at = now.toISOString()
-        updateData.tenant_sign_otp = signOtp
+        updateData.tenant_sign_otp = hashOtpCode(signOtp, `${id}:tenant`)
         updateData.tenant_signature_image = signatureImage || null
       }
       if (newContractUrl) updateData.contract_url = newContractUrl
@@ -383,7 +396,8 @@ export async function POST(
     } else {
       const updateData: Record<string, unknown> = {
         tenant_signed_at: now.toISOString(),
-        tenant_sign_otp: signOtp,
+        // SEC-007 : trace d'OTP de signature stockée hashée (sel `<leaseId>:tenant`).
+        tenant_sign_otp: hashOtpCode(signOtp, `${id}:tenant`),
         tenant_signature_image: signatureImage || null,
         updated_at: now.toISOString(),
       }
@@ -619,7 +633,7 @@ export async function POST(
     }
 
     const result = {
-      ...mapLease(updatedLease),
+      ...(await withSignedContractUrl(mapLease(updatedLease))),
       property: property ? {
         id: property.id,
         title: property.title,

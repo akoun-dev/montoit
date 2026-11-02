@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { signDocUrls } from '@/lib/supabase/storage'
 
 export async function GET(req: NextRequest) {
   try {
@@ -181,7 +182,7 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    const rentalFiles = (rawRentalFiles ?? []).map(rf => {
+    const rentalFiles = await Promise.all((rawRentalFiles ?? []).map(async rf => {
       const tenant = tenantMap.get(rf.tenant_id)
       const linkedPropIds = propertyAppMap.get(rf.id) ?? []
       const linkedProperty = linkedPropIds.length > 0 ? propMap.get(linkedPropIds[0]) : null
@@ -201,16 +202,17 @@ export async function GET(req: NextRequest) {
           id: linkedProperty.id,
           title: linkedProperty.title,
         } : null,
-        documents: (rfDocMap.get(rf.id) ?? []).map(d => ({
+        // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+        documents: await signDocUrls((rfDocMap.get(rf.id) ?? []).map(d => ({
           id: d.id,
           rentalFileId: d.rental_file_id,
           type: d.type,
           url: d.url,
           name: d.name,
           createdAt: d.created_at,
-        })),
+        }))),
       }
-    })
+    }))
 
     const activeLeases = (rawActiveLeases ?? []).map(l => {
       const tenant = tenantMap.get(l.tenant_id)

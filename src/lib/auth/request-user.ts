@@ -24,7 +24,9 @@ export async function resolveRequestUser(
     } = await supabase.auth.getUser()
 
     if (user?.id) {
-      // Also get the access token from the session (session.user is NOT used for auth)
+      // Also get the access token from the session (session.user is NOT used for auth).
+      // Safe here: getSession() reads the very same JWT cookie that getUser() just
+      // verified cryptographically — it is never used to decide authentication.
       const {
         data: { session },
       } = await supabase.auth.getSession()
@@ -33,27 +35,6 @@ export async function resolveRequestUser(
       return {
         userId: user.id,
         accessToken: session?.access_token ?? null,
-        authSource: 'supabase',
-        applyCookies,
-      }
-    }
-
-    // getUser() returned null — try getSession() as fallback
-    console.log(
-      '[resolveRequestUser] getUser() returned null, trying getSession() fallback...',
-    )
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (session?.user?.id) {
-      console.log(
-        '[resolveRequestUser] Resolved via Supabase session (fallback):',
-        session.user.id,
-      )
-      return {
-        userId: session.user.id,
-        accessToken: session.access_token,
         authSource: 'supabase',
         applyCookies,
       }

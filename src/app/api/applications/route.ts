@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
-import { findCurrentCompleteValidatedRentalFile } from '@/lib/rental-file-completeness'
+import { findCurrentCompleteValidatedRentalFile, getRentalFileCompleteness } from '@/lib/rental-file-completeness'
+import { normalizeRentalFileType } from '@/lib/rental-file-types'
+import { signDocUrls } from '@/lib/supabase/storage'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -32,8 +34,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { propertyId } = body as {
+    const { propertyId, rentalFileId } = body as {
       propertyId: string
+      rentalFileId?: string
     }
 
     if (!propertyId) {
@@ -68,7 +71,59 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Vous avez déjà candidaté pour ce bien' }, { status: 409 })
     }
 
-    const { file: rentalFile, completeness } = await findCurrentCompleteValidatedRentalFile(supabase, userId)
+    // ─── Résolution du dossier locatif (FUN-002 : dossiers multiples) ────
+    let rentalFile: any = null
+    let completeness = { complete: false, missingTypes: [] as string[], documentCount: 0 }
+
+    if (rentalFileId) {
+      // Dossier choisi explicitement par le locataire (sélecteur du header) :
+      // ownership + statut VALIDÉ/ACCEPTED + complétude + non-expiré obligatoires.
+      const { data: chosen } = await supabase
+        .from('rental_files')
+        .select('*')
+        .eq('id', rentalFileId)
+        .maybeSingle()
+
+      if (!chosen || chosen.tenant_id !== userId) {
+        // 404 (et non 403) pour ne pas révéler l'existence des dossiers d'autrui
+        return NextResponse.json({ error: 'Dossier introuvable ou non autorisé' }, { status: 404 })
+      }
+
+      if (!['VALIDATED', 'ACCEPTED'].includes(chosen.status)) {
+        return NextResponse.json(
+          { error: 'Ce dossier n\u2019est pas validé : seul un dossier validé par le Tiers de Confiance permet de candidater.' },
+          { status: 400 },
+        )
+      }
+
+      if (chosen.valid_until && new Date(chosen.valid_until).getTime() <= Date.now()) {
+        return NextResponse.json(
+          { error: 'Ce dossier a expiré. Veuillez le soumettre à nouveau avant de candidater.' },
+          { status: 400 },
+        )
+      }
+
+      const chosenCompleteness = await getRentalFileCompleteness(supabase, chosen.id)
+      if (!chosenCompleteness.complete) {
+        return NextResponse.json(
+          {
+            error: 'Votre dossier locataire est incomplet. Veuillez déposer les documents requis avant de candidater.',
+            missingDocuments: chosenCompleteness.missingTypes,
+          },
+          { status: 400 },
+        )
+      }
+
+      rentalFile = chosen
+      completeness = chosenCompleteness
+    } else {
+      // Fallback historique (documenté FUN-002 §4.2) : dossier STANDARD complet
+      // et validé en priorité, sinon le dossier validé le plus récent.
+      const fallback = await findCurrentCompleteValidatedRentalFile(supabase, userId, { preferFileType: 'STANDARD' })
+      rentalFile = fallback.file
+      completeness = fallback.completeness
+    }
+
     if (!rentalFile) {
       return NextResponse.json({
         error: 'Votre dossier locataire est incomplet ou non validé. Veuillez déposer les documents requis avant de candidater.',
@@ -132,6 +187,8 @@ export async function POST(req: NextRequest) {
         id: app.id,
         status: app.status,
         rentalFileId: app.rental_file_id,
+        // FUN-002 : type du dossier porteur de la candidature
+        rentalFileType: normalizeRentalFileType((rentalFile as any)?.file_type),
         propertyId: app.property_id,
         createdAt: app.created_at,
         updatedAt: app.updated_at,
@@ -205,7 +262,7 @@ export async function GET(req: NextRequest) {
       const [docResult, leaseResult, rentalFileResult] = await Promise.all([
         supabase.from('rental_file_documents').select('*').in('rental_file_id', rentalFileIds).order('created_at', { ascending: false }),
         supabase.from('leases').select('*, property:properties!property_id(*)').in('rental_file_id', rentalFileIds),
-        supabase.from('rental_files').select('id, monthly_income, employer, employment_type, guarantor_name, guarantor_phone, guarantor_relation, rejection_reason, tc_comment, reviewed_at, valid_until, reviewed_by_id').in('id', rentalFileIds),
+        supabase.from('rental_files').select('id, file_type, monthly_income, employer, employment_type, guarantor_name, guarantor_phone, guarantor_relation, rejection_reason, tc_comment, reviewed_at, valid_until, reviewed_by_id').in('id', rentalFileIds),
       ])
 
       rentalFileMap = new Map((rentalFileResult.data ?? []).map((f: any) => [f.id, f]))
@@ -301,7 +358,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const enrichedApplications = (applications ?? []).map((app: any) => {
+    const enrichedApplications = await Promise.all((applications ?? []).map(async (app: any) => {
       const statusTimeline = getStatusTimeline(app.status)
       const leaseProperty = leasesMap[app.rental_file_id]?.[0]?.property
       const directProperty = app.property_id ? appPropMap.get(app.property_id) : null
@@ -343,6 +400,8 @@ export async function GET(req: NextRequest) {
       return {
         id: app.id,
         status: app.status,
+        // FUN-002 : type du dossier utilisé pour cette candidature
+        rentalFileType: normalizeRentalFileType(rentalFile?.file_type),
         monthlyIncome: app.monthly_income ?? rentalFile?.monthly_income,
         employer: rentalFile?.employer,
         employmentType: app.employment_type ?? rentalFile?.employment_type,
@@ -364,14 +423,15 @@ export async function GET(req: NextRequest) {
           pending: totalDocs - validatedDocs - rejectedDocs,
         },
         reviewedBy: reviewedByMap[rentalFile?.reviewed_by_id] || null,
-        documents: docs.map((d: any) => ({
+        // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+        documents: await signDocUrls(docs.map((d: any) => ({
           id: d.id,
           type: d.type,
           name: d.name,
           status: d.status,
           url: d.url,
           createdAt: d.created_at,
-        })),
+        }))),
         leases: (leasesMap[app.rental_file_id] || []).map((l: any) => ({
           id: l.id,
           status: l.status,
@@ -391,7 +451,7 @@ export async function GET(req: NextRequest) {
           } : null,
         })),
       }
-    })
+    }))
 
     const allStatusesResult = await supabase
       .from('applications')

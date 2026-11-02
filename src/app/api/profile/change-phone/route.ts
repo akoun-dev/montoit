@@ -3,6 +3,7 @@ import { generateOtpCode, sendOtpSms, normalizePhone } from '@/lib/ansut-messagi
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { checkRateLimit } from '@/lib/rate-limiter'
+import { hashOtpCode } from '@/lib/otp-hash'
 import crypto from 'crypto'
 
 const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
@@ -65,10 +66,11 @@ export async function POST(req: NextRequest) {
 
     const otpCode = generateOtpCode(6)
 
+    // SEC-007 : code stocké hashé (SHA-256 + pepper, selé par le nouveau numéro).
     await admin.from('otp_codes').insert({
       id: crypto.randomUUID(),
       phone: normalizedPhone,
-      code: otpCode,
+      code: hashOtpCode(otpCode, normalizedPhone),
       type: 'PHONE_CHANGE',
       expires_at: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString(),
       user_id: userId,

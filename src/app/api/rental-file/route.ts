@@ -4,6 +4,13 @@ import { getRentalFileCompleteness, REQUIRED_RENTAL_FILE_DOCUMENT_TYPES } from '
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
 import { openValidationSla } from '@/lib/validation-sla'
+import { signDocUrls } from '@/lib/supabase/storage'
+import {
+  DEFAULT_RENTAL_FILE_TYPE,
+  parseRentalFileType,
+  normalizeRentalFileType,
+  RENTAL_FILE_TYPES,
+} from '@/lib/rental-file-types'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -36,6 +43,57 @@ async function syncApplicationsStatus(admin: ReturnType<typeof getSupabaseAdminC
   await admin.from('applications' as any).update({ status } as any).eq('rental_file_id', rentalFileId)
 }
 
+/**
+ * FUN-002 — Compare le type de dossier d'une ligne rental_files.
+ * Les lignes créées avant la migration 20261027000020 n'ont pas de file_type
+ * en base mémoire de test : elles sont traitées comme STANDARD (défaut SQL).
+ */
+function rowMatchesFileType(row: { file_type?: string | null } | null | undefined, fileType: string): boolean {
+  return (row?.file_type ?? DEFAULT_RENTAL_FILE_TYPE) === fileType
+}
+
+/**
+ * FUN-002 — Recherche le dossier réutilisable (REJECTED ou EXPIRED) d'un type
+ * donné. On rapatrie les derniers candidats puis on filtre par type côté
+ * application : la colonne est NOT NULL DEFAULT 'STANDARD' en base, ce filtre
+ * est donc équivalent à un `.eq('file_type', …)` tout en tolérant les lignes
+ * historiques sans type.
+ */
+async function findReusableFileByType(
+  admin: ReturnType<typeof getSupabaseAdminClient>,
+  userId: string,
+  status: 'REJECTED' | 'EXPIRED',
+  fileType: string,
+) {
+  const { data: candidates } = await admin
+    .from('rental_files')
+    .select('*')
+    .eq('tenant_id', userId)
+    .eq('status', status)
+    .order('updated_at', { ascending: false })
+    .limit(20)
+  return (candidates ?? []).find((row: any) => rowMatchesFileType(row, fileType)) ?? null
+}
+
+/**
+ * FUN-002 — Liste des DRAFT d'un locataire filtrée par type de dossier.
+ * Plusieurs DRAFT peuvent désormais coexister (un par type) : on trie côté
+ * application plutôt qu'un `.maybeSingle()` qui échouerait avec 2 lignes.
+ */
+async function findDraftsByType(
+  admin: ReturnType<typeof getSupabaseAdminClient>,
+  userId: string,
+  fileType: string,
+): Promise<any[]> {
+  const { data: drafts } = await admin
+    .from('rental_files')
+    .select('*')
+    .eq('tenant_id', userId)
+    .eq('status', 'DRAFT')
+    .order('updated_at', { ascending: false })
+  return (drafts ?? []).filter((row: any) => rowMatchesFileType(row, fileType))
+}
+
 // GET /api/rental-file — List rental files for current tenant with documents
 export async function GET(req: NextRequest) {
   try {
@@ -64,6 +122,18 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') || undefined
 
+    // FUN-002 : filtre optionnel par type de dossier (?fileType=FAMILLE|COLOCATION|STANDARD)
+    const fileTypeParam = searchParams.get('fileType') || undefined
+    if (fileTypeParam) {
+      const parsedFileType = parseRentalFileType(fileTypeParam)
+      if (!parsedFileType) {
+        return NextResponse.json(
+          { error: `Type de dossier invalide. Valeurs acceptées : ${RENTAL_FILE_TYPES.join(', ')}` },
+          { status: 400 },
+        )
+      }
+    }
+
     let query = admin
       .from('rental_files')
       .select('*')
@@ -72,6 +142,9 @@ export async function GET(req: NextRequest) {
 
     if (status) {
       query = query.eq('status', status)
+    }
+    if (fileTypeParam) {
+      query = query.eq('file_type', fileTypeParam)
     }
 
     const { data: rentalFiles, error } = await query
@@ -133,6 +206,8 @@ export async function POST(req: NextRequest) {
       guarantorPhone,
       guarantorRelation,
       submit,
+      fileType,
+      rentalFileId,
     } = body as {
       tenantCategory?: string
       monthlyIncome?: number
@@ -142,7 +217,19 @@ export async function POST(req: NextRequest) {
       guarantorPhone?: string
       guarantorRelation?: string
       submit?: boolean
+      fileType?: string
+      rentalFileId?: string
     }
+
+    // FUN-002 : type de dossier (STANDARD par défaut, 400 si valeur invalide)
+    const resolvedFileType = parseRentalFileType(fileType)
+    if (fileType !== undefined && fileType !== null && fileType !== '' && !resolvedFileType) {
+      return NextResponse.json(
+        { error: `Type de dossier invalide. Valeurs acceptées : ${RENTAL_FILE_TYPES.join(', ')}` },
+        { status: 400 },
+      )
+    }
+    const fileTypeValue = resolvedFileType ?? DEFAULT_RENTAL_FILE_TYPE
 
     // Validate tenant category if provided
     const validTenantCategories = ['SALARIE', 'ENTREPRENEUR', 'ETUDIANT']
@@ -158,21 +245,280 @@ export async function POST(req: NextRequest) {
         ? employmentType
         : undefined
 
-    // Atomic upsert : utilise l'index unique partiel idx_rental_files_one_draft_per_tenant
-    // pour garantir qu'un seul DRAFT existe par locataire, même en concurrence
-    const id = generateId()
     const status = submit ? 'SUBMITTED' : 'DRAFT'
 
-    // Server-side document validation : vérifier que les documents obligatoires sont présents avant soumission
-    if (submit) {
-      const { data: fileForDocs } = await admin
+    // FUN-002 : champs métier communs à toutes les branches (création, mise à
+    // jour, réutilisation d'un dossier REJECTED/EXPIRED)
+    const fieldUpdates: Record<string, unknown> = {}
+    if (resolvedTenantCategory) fieldUpdates.tenant_category = resolvedTenantCategory
+    if (monthlyIncome !== undefined) fieldUpdates.monthly_income = monthlyIncome
+    if (employer !== undefined) fieldUpdates.employer = employer
+    if (resolvedEmploymentType) fieldUpdates.employment_type = resolvedEmploymentType
+    if (guarantorName !== undefined) fieldUpdates.guarantor_name = guarantorName
+    if (guarantorPhone !== undefined) fieldUpdates.guarantor_phone = guarantorPhone
+    if (guarantorRelation !== undefined) fieldUpdates.guarantor_relation = guarantorRelation
+
+    let rentalFile: any
+
+    if (rentalFileId) {
+      // ─── Mode ciblé (FUN-002) : le locataire édite/soumet UN dossier précis ───
+      const { data: target } = await admin
         .from('rental_files')
-        .select('id, status')
-        .eq('tenant_id', userId)
-        .in('status', ['DRAFT', 'REJECTED', 'EXPIRED'])
-        .order('updated_at', { ascending: false })
+        .select('*')
+        .eq('id', rentalFileId)
         .maybeSingle()
 
+      if (!target || target.tenant_id !== userId) {
+        return NextResponse.json({ error: 'Dossier introuvable' }, { status: 404 })
+      }
+
+      const targetStatus: string = target.status
+      // DRAFT : édition libre — REJECTED/EXPIRED : réouverture — le reste est verrouillé
+      const draftEditableStatuses = ['DRAFT', 'REJECTED', 'EXPIRED']
+      const submitEditableStatuses = ['DRAFT', 'REJECTED', 'EXPIRED', 'TC_REVIEW']
+      const editableStatuses = submit ? submitEditableStatuses : draftEditableStatuses
+
+      if (!editableStatuses.includes(targetStatus)) {
+        const lockMessage =
+          targetStatus === 'SUBMITTED'
+            ? "Votre dossier est en cours de validation. Retirez-le d'abord si vous souhaitez le modifier."
+            : targetStatus === 'TC_REVIEW'
+              ? "Le Tiers de Confiance examine votre dossier : soumettez-le à nouveau plutôt que de le modifier."
+              : 'Ce dossier est déjà validé et ne peut plus être modifié.'
+        return NextResponse.json({ error: lockMessage }, { status: 409 })
+      }
+
+      // Changement de type : seulement sur un dossier (re)passant en DRAFT,
+      // et seulement si aucun autre DRAFT du même type n'existe (index unique).
+      const willBeDraft = !submit
+      const typeChangeAllowed = willBeDraft && ['DRAFT', 'REJECTED', 'EXPIRED'].includes(targetStatus)
+      if (typeChangeAllowed) {
+        const sameTypeDrafts = (await findDraftsByType(admin, userId, fileTypeValue))
+          .filter((d: any) => d.id !== target.id)
+        if (sameTypeDrafts.length > 0) {
+          return NextResponse.json(
+            { error: 'Vous avez déjà un dossier en brouillon pour ce type' },
+            { status: 409 },
+          )
+        }
+      }
+
+      // Validation des documents obligatoires avant soumission (dossier ciblé)
+      if (submit) {
+        const completeness = await getRentalFileCompleteness(admin, target.id)
+        if (!completeness.complete) {
+          return NextResponse.json(
+            { error: 'Veuillez télécharger tous les documents obligatoires avant de soumettre', missingDocuments: completeness.missingTypes },
+            { status: 400 },
+          )
+        }
+      }
+
+      const wasDraft = targetStatus === 'DRAFT'
+      const updateData: Record<string, unknown> = { status, ...fieldUpdates }
+      if (willBeDraft) {
+        updateData.file_type = fileTypeValue
+      }
+      if (!wasDraft) {
+        // Réouverture / resoumission : on efface la décision TC précédente
+        updateData.rejection_reason = null
+        updateData.tc_comment = null
+        updateData.reviewed_by_id = null
+        updateData.reviewed_at = null
+      }
+
+      const { data: updated, error: updateError } = await admin
+        .from('rental_files')
+        .update(updateData as any)
+        .eq('id', target.id)
+        .select()
+        .single()
+
+      if (updateError) {
+        if ((updateError as any).code === '23505') {
+          return NextResponse.json(
+            { error: 'Vous avez déjà un dossier en brouillon pour ce type' },
+            { status: 409 },
+          )
+        }
+        throw updateError
+      }
+      rentalFile = updated
+
+      if (!wasDraft) {
+        // Réutilisation d'un dossier non-DRAFT : remettre les documents en PENDING
+        await admin
+          .from('rental_file_documents')
+          .update({ status: 'PENDING', tc_comment: null })
+          .eq('rental_file_id', target.id)
+      }
+      if (submit || !wasDraft) {
+        // Resynchronise les candidatures liées (comportement historique des deux branches)
+        await syncApplicationsStatus(admin, target.id, status)
+      }
+
+      const auditDetails = !wasDraft && !submit
+        ? `Dossier locatif (rejeté/expiré) rouvert en brouillon — type ${fileTypeValue}`
+        : wasDraft && !submit
+          ? `Dossier locatif (brouillon) mis à jour — type ${fileTypeValue}`
+          : wasDraft && submit
+            ? `Dossier locatif soumis pour validation — type ${fileTypeValue}`
+            : `Dossier locatif soumis à nouveau pour validation — type ${fileTypeValue}`
+
+      await admin.from('audit_logs').insert({
+        id: generateId(),
+        action: submit ? 'SUBMIT' : 'UPDATE',
+        entity: 'RentalFile',
+        entity_id: target.id,
+        details: auditDetails,
+        user_id: userId,
+      })
+
+      if (submit) {
+        await openValidationSla(admin, 'RENTAL_FILE', rentalFile.id)
+        await notifyTcUsers(admin, 'Nouveau dossier locatif soumis', 'Un nouveau dossier locatif a été soumis et nécessite votre validation.', rentalFile.id)
+      }
+    } else if (status === 'DRAFT') {
+      // ─── Mode création (sans id) : un seul DRAFT par (locataire, type) — FUN-002 ───
+      const sameTypeDrafts = await findDraftsByType(admin, userId, fileTypeValue)
+      if (sameTypeDrafts.length > 0) {
+        return NextResponse.json(
+          { error: 'Vous avez déjà un dossier en brouillon pour ce type' },
+          { status: 409 },
+        )
+      }
+
+      // Aucun DRAFT du même type — réutiliser un dossier REJECTED du même type
+      const rejectedFile = await findReusableFileByType(admin, userId, 'REJECTED', fileTypeValue)
+
+      if (rejectedFile) {
+        // Réutiliser le fichier REJECTED : le repasser en DRAFT (conserve le même ID)
+        const updateData: any = {
+          status: 'DRAFT',
+          file_type: fileTypeValue,
+          rejection_reason: null,
+          tc_comment: null,
+          reviewed_by_id: null,
+          reviewed_at: null,
+          ...fieldUpdates,
+        }
+
+        const { data: updated } = await admin
+          .from('rental_files')
+          .update(updateData as any)
+          .eq('id', rejectedFile.id)
+          .select()
+          .single()
+
+        rentalFile = updated
+
+        // Sync les candidatures liées
+        await syncApplicationsStatus(admin, rejectedFile.id, 'DRAFT')
+
+        // Remettre les documents en PENDING pour re-examen
+        await admin
+          .from('rental_file_documents')
+          .update({ status: 'PENDING', tc_comment: null })
+          .eq('rental_file_id', rejectedFile.id)
+
+        await admin.from('audit_logs').insert({
+          id: generateId(),
+          action: 'UPDATE',
+          entity: 'RentalFile',
+          entity_id: rejectedFile.id,
+          details: `Dossier locatif (rejeté) rouvert en brouillon — type ${fileTypeValue}`,
+          user_id: userId,
+        })
+      } else {
+        // Aucun REJECTED du même type — réutiliser un dossier EXPIRED du même type
+        const activeFile = await findReusableFileByType(admin, userId, 'EXPIRED', fileTypeValue)
+
+        if (activeFile) {
+          // Réutiliser le fichier EXPIRED : le repasser en DRAFT (conserve le même ID)
+          const updateData: any = {
+            status: 'DRAFT',
+            file_type: fileTypeValue,
+            rejection_reason: null,
+            tc_comment: null,
+            reviewed_by_id: null,
+            reviewed_at: null,
+            ...fieldUpdates,
+          }
+
+          const { data: updated } = await admin
+            .from('rental_files')
+            .update(updateData as any)
+            .eq('id', activeFile.id)
+            .select()
+            .single()
+
+          rentalFile = updated
+
+          // Sync les candidatures liées
+          await syncApplicationsStatus(admin, activeFile.id, 'DRAFT')
+
+          // Remettre les documents en PENDING
+          await admin
+            .from('rental_file_documents')
+            .update({ status: 'PENDING', tc_comment: null })
+            .eq('rental_file_id', activeFile.id)
+
+          await admin.from('audit_logs').insert({
+            id: generateId(),
+            action: 'UPDATE',
+            entity: 'RentalFile',
+            entity_id: activeFile.id,
+            details: `Dossier locatif rouvert en brouillon (était expiré) — type ${fileTypeValue}`,
+            user_id: userId,
+          })
+        } else {
+          // Aucun dossier réutilisable du même type — créer un nouveau DRAFT
+          const insertData: any = {
+            id: generateId(),
+            tenant_id: userId,
+            status: 'DRAFT',
+            file_type: fileTypeValue,
+            ...fieldUpdates,
+          }
+
+          const { data: created, error: insertError } = await admin
+            .from('rental_files')
+            .insert(insertData as any)
+            .select()
+            .maybeSingle()
+
+          if (insertError && insertError.code === '23505') {
+            // Race condition : un autre appel a créé un DRAFT du même type entre-temps
+            const concurrent = (await findDraftsByType(admin, userId, fileTypeValue))[0]
+            if (concurrent) {
+              rentalFile = concurrent
+            } else {
+              throw insertError
+            }
+          } else if (created) {
+            rentalFile = created
+
+            await admin.from('audit_logs').insert({
+              id: generateId(),
+              action: 'CREATE',
+              entity: 'RentalFile',
+              entity_id: rentalFile.id,
+              details: `Nouveau dossier locatif (brouillon) créé — type ${fileTypeValue}`,
+              user_id: userId,
+            })
+          } else if (insertError) {
+            throw insertError
+          }
+        }
+      }
+    } else {
+      // ─── Mode soumission (sans id) : DRAFT du type demandé prioritaire (FUN-002) ───
+      const draftForType = (await findDraftsByType(admin, userId, fileTypeValue))[0] ?? null
+      const rejectedForType = draftForType ? null : await findReusableFileByType(admin, userId, 'REJECTED', fileTypeValue)
+      const expiredForType = draftForType || rejectedForType ? null : await findReusableFileByType(admin, userId, 'EXPIRED', fileTypeValue)
+
+      // Server-side document validation : le dossier à soumettre doit être complet
+      const fileForDocs = draftForType ?? rejectedForType ?? expiredForType
       if (!fileForDocs) {
         return NextResponse.json({ error: 'Aucun dossier modifiable à soumettre', missingDocuments: [...REQUIRED_RENTAL_FILE_DOCUMENT_TYPES] }, { status: 400 })
       }
@@ -180,271 +526,45 @@ export async function POST(req: NextRequest) {
       if (!completeness.complete) {
         return NextResponse.json({ error: 'Veuillez télécharger tous les documents obligatoires avant de soumettre', missingDocuments: completeness.missingTypes }, { status: 400 })
       }
-    }
 
-    const insertData: any = {
-      id,
-      tenant_id: userId,
-      status,
-    }
-    if (resolvedTenantCategory) insertData.tenant_category = resolvedTenantCategory
-    if (monthlyIncome !== undefined) insertData.monthly_income = monthlyIncome
-    if (employer !== undefined) insertData.employer = employer
-    if (resolvedEmploymentType) insertData.employment_type = resolvedEmploymentType
-    if (guarantorName !== undefined) insertData.guarantor_name = guarantorName
-    if (guarantorPhone !== undefined) insertData.guarantor_phone = guarantorPhone
-    if (guarantorRelation !== undefined) insertData.guarantor_relation = guarantorRelation
-
-    let rentalFile: any
-
-    if (status === 'DRAFT') {
-      // Vérifier d'abord si un DRAFT existe déjà (évite les doublons même sans index unique)
-      const { data: existingDraft } = await admin
-        .from('rental_files')
-        .select('*')
-        .eq('tenant_id', userId)
-        .eq('status', 'DRAFT')
-        .maybeSingle()
-
-      if (existingDraft) {
-        // Mettre à jour l'existant
-        const updateData: any = {}
-        if (resolvedTenantCategory) updateData.tenant_category = resolvedTenantCategory
-        if (monthlyIncome !== undefined) updateData.monthly_income = monthlyIncome
-        if (employer !== undefined) updateData.employer = employer
-        if (resolvedEmploymentType) updateData.employment_type = resolvedEmploymentType
-        if (guarantorName !== undefined) updateData.guarantor_name = guarantorName
-        if (guarantorPhone !== undefined) updateData.guarantor_phone = guarantorPhone
-        if (guarantorRelation !== undefined) updateData.guarantor_relation = guarantorRelation
-        if (existingDraft.rejection_reason) updateData.rejection_reason = null
-
-        const { data: updated } = await admin
-          .from('rental_files')
-          .update(updateData as any)
-          .eq('id', existingDraft.id)
-          .select()
-          .single()
-
-        rentalFile = updated
-
-        await admin.from('audit_logs').insert({
-          id: generateId(),
-          action: 'UPDATE',
-          entity: 'RentalFile',
-          entity_id: existingDraft.id,
-          details: 'Dossier locatif (brouillon) mis à jour',
-          user_id: userId,
-        })
-      } else {
-        // Aucun DRAFT existant — vérifier si l'utilisateur a un fichier REJECTED à réutiliser
-        const { data: rejectedFile } = await admin
-          .from('rental_files')
-          .select('*')
-          .eq('tenant_id', userId)
-          .eq('status', 'REJECTED')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (rejectedFile) {
-          // Réutiliser le fichier REJECTED : le repasser en DRAFT (conserve le même ID)
-          const updateData: any = {
-            status: 'DRAFT',
-            rejection_reason: null,
-            tc_comment: null,
-            reviewed_by_id: null,
-            reviewed_at: null,
-          }
-          if (resolvedTenantCategory) updateData.tenant_category = resolvedTenantCategory
-          if (monthlyIncome !== undefined) updateData.monthly_income = monthlyIncome
-          if (employer !== undefined) updateData.employer = employer
-          if (resolvedEmploymentType) updateData.employment_type = resolvedEmploymentType
-          if (guarantorName !== undefined) updateData.guarantor_name = guarantorName
-          if (guarantorPhone !== undefined) updateData.guarantor_phone = guarantorPhone
-          if (guarantorRelation !== undefined) updateData.guarantor_relation = guarantorRelation
-
-          const { data: updated } = await admin
-            .from('rental_files')
-            .update(updateData as any)
-            .eq('id', rejectedFile.id)
-            .select()
-            .single()
-
-          rentalFile = updated
-
-          // Sync les candidatures liées
-          await syncApplicationsStatus(admin, rejectedFile.id, 'DRAFT')
-
-          // Remettre les documents en PENDING pour re-examen
-          await admin
-            .from('rental_file_documents')
-            .update({ status: 'PENDING', tc_comment: null })
-            .eq('rental_file_id', rejectedFile.id)
-
-          await admin.from('audit_logs').insert({
-            id: generateId(),
-            action: 'UPDATE',
-            entity: 'RentalFile',
-            entity_id: rejectedFile.id,
-            details: 'Dossier locatif (rejeté) rouvert en brouillon',
-            user_id: userId,
-          })
-        } else {
-          // Aucun REJECTED — vérifier si un dossier SUBMITTED/TC_REVIEW existe (évite les doublons)
-          const { data: activeFile } = await admin
-            .from('rental_files')
-            .select('*')
-            .eq('tenant_id', userId)
-            .in('status', ['EXPIRED'])
-            .order('updated_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-
-          if (activeFile) {
-            // Réutiliser le fichier actif : le repasser en DRAFT (conserve le même ID)
-            const updateData: any = {
-              status: 'DRAFT',
-              rejection_reason: null,
-              tc_comment: null,
-              reviewed_by_id: null,
-              reviewed_at: null,
-            }
-            if (resolvedTenantCategory) updateData.tenant_category = resolvedTenantCategory
-            if (monthlyIncome !== undefined) updateData.monthly_income = monthlyIncome
-            if (employer !== undefined) updateData.employer = employer
-            if (resolvedEmploymentType) updateData.employment_type = resolvedEmploymentType
-            if (guarantorName !== undefined) updateData.guarantor_name = guarantorName
-            if (guarantorPhone !== undefined) updateData.guarantor_phone = guarantorPhone
-            if (guarantorRelation !== undefined) updateData.guarantor_relation = guarantorRelation
-
-            const { data: updated } = await admin
-              .from('rental_files')
-              .update(updateData as any)
-              .eq('id', activeFile.id)
-              .select()
-              .single()
-
-            rentalFile = updated
-
-            // Sync les candidatures liées
-            await syncApplicationsStatus(admin, activeFile.id, 'DRAFT')
-
-            // Remettre les documents en PENDING
-            await admin
-              .from('rental_file_documents')
-              .update({ status: 'PENDING', tc_comment: null })
-              .eq('rental_file_id', activeFile.id)
-
-            await admin.from('audit_logs').insert({
-              id: generateId(),
-              action: 'UPDATE',
-              entity: 'RentalFile',
-              entity_id: activeFile.id,
-              details: 'Dossier locatif rouvert en brouillon (était en soumis/relecture)',
-              user_id: userId,
-            })
-          } else {
-            // Aucun fichier existant — créer un nouveau DRAFT
-            const { data: created, error: insertError } = await admin
-              .from('rental_files')
-              .insert(insertData as any)
-              .select()
-              .maybeSingle()
-
-            if (insertError && insertError.code === '23505') {
-              // Race condition : un autre appel a créé un DRAFT entre-temps
-              const { data: concurrent } = await admin
-                .from('rental_files')
-                .select('*')
-                .eq('tenant_id', userId)
-                .eq('status', 'DRAFT')
-                .maybeSingle()
-
-              if (concurrent) {
-                rentalFile = concurrent
-              } else {
-                throw insertError
-              }
-            } else if (created) {
-              rentalFile = created
-
-              await admin.from('audit_logs').insert({
-                id: generateId(),
-                action: 'CREATE',
-                entity: 'RentalFile',
-                entity_id: rentalFile.id,
-                details: 'Nouveau dossier locatif (brouillon) créé',
-                user_id: userId,
-              })
-            } else if (insertError) {
-              throw insertError
-            }
-          }
-        }
-      }
-    } else {
-      // SUBMITTED — chercher un DRAFT existant, ou resoumettre un dossier non-validé
-      const { data: existingDraft } = await admin
-        .from('rental_files')
-        .select('id')
-        .eq('tenant_id', userId)
-        .eq('status', 'DRAFT')
-        .maybeSingle()
-
-      if (existingDraft) {
+      if (draftForType) {
         // Mettre à jour le DRAFT en SUBMITTED en place (conserve le même ID)
-        const updateData: any = { status: 'SUBMITTED' }
-        if (resolvedTenantCategory) updateData.tenant_category = resolvedTenantCategory
-        if (monthlyIncome !== undefined) updateData.monthly_income = monthlyIncome
-        if (employer !== undefined) updateData.employer = employer
-        if (resolvedEmploymentType) updateData.employment_type = resolvedEmploymentType
-        if (guarantorName !== undefined) updateData.guarantor_name = guarantorName
-        if (guarantorPhone !== undefined) updateData.guarantor_phone = guarantorPhone
-        if (guarantorRelation !== undefined) updateData.guarantor_relation = guarantorRelation
+        const updateData: any = { status: 'SUBMITTED', ...fieldUpdates }
 
         const { data: updated } = await admin
           .from('rental_files')
           .update(updateData as any)
-          .eq('id', existingDraft.id)
+          .eq('id', draftForType.id)
           .select()
           .single()
 
         rentalFile = updated
 
         // Sync les candidatures liées
-        await syncApplicationsStatus(admin, existingDraft.id, 'SUBMITTED')
+        await syncApplicationsStatus(admin, draftForType.id, 'SUBMITTED')
 
         await admin.from('audit_logs').insert({
           id: generateId(),
           action: 'SUBMIT',
           entity: 'RentalFile',
-          entity_id: existingDraft.id,
-          details: 'Dossier locatif soumis pour validation',
+          entity_id: draftForType.id,
+          details: `Dossier locatif soumis pour validation — type ${fileTypeValue}`,
           user_id: userId,
         })
       } else {
-        // Resoumettre un dossier existant non-validé (REJECTED, EXPIRED, TC_REVIEW, SUBMITTED…)
-        const { data: existingFile } = await admin
-          .from('rental_files')
-          .select('*')
-          .eq('tenant_id', userId)
-        .in('status', ['REJECTED', 'EXPIRED'])
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+        // Resoumettre un dossier existant non-validé du même type (REJECTED, EXPIRED)
+        const existingFile = rejectedForType ?? expiredForType
 
         if (existingFile) {
-          const updateData: any = { status: 'SUBMITTED' }
-          if (existingFile.status === 'REJECTED' || existingFile.status === 'EXPIRED') {
-            updateData.rejection_reason = null
-            updateData.tc_comment = null
-            updateData.reviewed_by_id = null
-            updateData.reviewed_at = null
-          }
+          const updateData: any = { status: 'SUBMITTED', ...fieldUpdates }
+          updateData.rejection_reason = null
+          updateData.tc_comment = null
+          updateData.reviewed_by_id = null
+          updateData.reviewed_at = null
 
           const { data: updated } = await admin
             .from('rental_files')
-            .update(updateData)
+            .update(updateData as any)
             .eq('id', existingFile.id)
             .select()
             .single()
@@ -465,14 +585,20 @@ export async function POST(req: NextRequest) {
             action: 'SUBMIT',
             entity: 'RentalFile',
             entity_id: existingFile.id,
-            details: 'Dossier locatif soumis à nouveau pour validation',
+            details: `Dossier locatif soumis à nouveau pour validation — type ${fileTypeValue}`,
             user_id: userId,
           })
         } else {
-          // Aucun fichier existant — créer un nouveau SUBMITTED
+          // Aucun dossier existant du même type — créer un nouveau SUBMITTED
           const { data: created } = await admin
             .from('rental_files')
-            .insert(insertData as any)
+            .insert({
+              id: generateId(),
+              tenant_id: userId,
+              status: 'SUBMITTED',
+              file_type: fileTypeValue,
+              ...fieldUpdates,
+            } as any)
             .select()
             .single()
 
@@ -483,7 +609,7 @@ export async function POST(req: NextRequest) {
             action: 'SUBMIT',
             entity: 'RentalFile',
             entity_id: rentalFile.id,
-            details: 'Nouveau dossier locatif créé et soumis',
+            details: `Nouveau dossier locatif créé et soumis — type ${fileTypeValue}`,
             user_id: userId,
           })
         }
@@ -587,9 +713,11 @@ async function enrichRentalFiles(admin: ReturnType<typeof getSupabaseAdminClient
     }
   }
 
-  return files.map((f) => ({
+  return Promise.all(files.map(async (f) => ({
     id: f.id,
     status: f.status,
+    // FUN-002 : type de dossier (STANDARD pour les lignes antérieures à la migration)
+    fileType: normalizeRentalFileType(f.file_type),
     priority: f.priority,
     onHold: f.on_hold,
     onHoldReason: f.on_hold_reason,
@@ -614,13 +742,13 @@ async function enrichRentalFiles(admin: ReturnType<typeof getSupabaseAdminClient
     ),
     tenantId: f.tenant_id,
     reviewedById: f.reviewed_by_id,
-    documents: (() => {
+    documents: await (async () => {
       const fileDocs = docMap.get(f.id)
-      if (fileDocs?.length) return fileDocs.map(mapRentalFileDoc)
+      if (fileDocs?.length) return signDocUrls(fileDocs.map(mapRentalFileDoc))
       const fallbackDraftId = draftFileByTenant.get(f.tenant_id)
       if (fallbackDraftId) {
         const fallbackDocs = docMap.get(fallbackDraftId)
-        if (fallbackDocs?.length) return fallbackDocs.map(mapRentalFileDoc)
+        if (fallbackDocs?.length) return signDocUrls(fallbackDocs.map(mapRentalFileDoc))
       }
       return []
     })(),
@@ -647,7 +775,7 @@ async function enrichRentalFiles(admin: ReturnType<typeof getSupabaseAdminClient
       if (!r) return undefined
       return { id: r.id, firstName: r.first_name, lastName: r.last_name }
     })(),
-  }))
+  })))
 }
 
 async function enrichRentalFile(admin: ReturnType<typeof getSupabaseAdminClient>, file: any) {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Heart, MapPin, Building2, Eye, ArrowRight, Search, Trash2, BellOff, Bell } from 'lucide-react'
+import { Heart, MapPin, Building2, Eye, Search, Trash2, BellOff, Bell } from 'lucide-react'
 import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +10,7 @@ import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/states'
 
 interface FavoriteProperty {
   id: string
@@ -150,24 +151,14 @@ export function Favorites() {
   }
 
   if (loading) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
-        ))}
-      </div>
-    )
+    return <LoadingState variant="grid" rows={3} />
   }
 
   if (error) {
     return (
       <div className="space-y-4">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes favoris</h1>
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-4">
-            <p className="text-sm text-amber-700">Impossible de charger vos favoris. Veuillez réessayer.</p>
-          </CardContent>
-        </Card>
+        <ErrorState description="Impossible de charger vos favoris. Veuillez réessayer." retry={fetchFavorites} />
       </div>
     )
   }
@@ -232,26 +223,12 @@ export function Favorites() {
       {favorites.length === 0 ? (
         /* Empty State */
         <motion.div variants={itemVariants}>
-          <Card className="border-dashed border-border bg-muted/50">
-            <CardContent className="py-12 flex flex-col items-center text-center">
-              <div className="flex size-16 items-center justify-center rounded-full bg-red-50 mb-4">
-                <Heart className="size-7 text-red-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-1">
-                Vous n&apos;avez pas encore de favoris
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-                {user?.firstName}, commencez à sauvegarder les biens qui vous plaisent en cliquant sur le cœur.
-              </p>
-              <Button
-                onClick={handleBrowseProperties}
-                className="bg-brand-500 hover:bg-brand-600 text-white"
-              >
-                Explorer les biens
-                <ArrowRight className="size-4 ml-2" />
-              </Button>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Heart}
+            title="Vous n'avez pas encore de favoris"
+            description={`${user?.firstName}, commencez à sauvegarder les biens qui vous plaisent en cliquant sur le cœur.`}
+            action={{ label: 'Explorer les biens', onClick: handleBrowseProperties }}
+          />
         </motion.div>
       ) : (
         /* Favorites Grid */

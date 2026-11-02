@@ -57,6 +57,20 @@ export default function Home() {
     checkAuth()
   }, [checkAuth])
 
+  // Dégradation gracieuse (règle d'architecture n°4) : filet de sécurité au
+  // niveau page — si l'initialisation n'aboutit jamais (appel suspendu, HMR,
+  // réseau), on débloque l'interface avec l'état persisté après 10 s max.
+  useEffect(() => {
+    const failsafe = setTimeout(() => {
+      const state = useAuthStore.getState()
+      if (!state.isInitialized) {
+        console.warn('[BOOT] Failsafe page — déblocage en mode dégradé')
+        useAuthStore.setState({ isInitialized: true })
+      }
+    }, 10000)
+    return () => clearTimeout(failsafe)
+  }, [])
+
   // Gère le bouton Retour du navigateur (popstate)
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {

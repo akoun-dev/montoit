@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Flag, Eye, CheckCircle, XCircle, AlertTriangle, ArrowUpCircle, Check, Search } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeSignalements } from '@/hooks/use-realtime-signalements'
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/states'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -126,9 +126,14 @@ export function AdminSignalements() {
     }
   }
 
-  if (loading) return <div className="space-y-6"><div><div className="h-8 w-48 bg-muted animate-pulse rounded" /><div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" /></div><div className="flex gap-2">{[1,2,3].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>{[1,2,3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
+  if (loading) return <LoadingState variant="detail" />
 
-  if (error) return <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6"><div><h1 className="text-xl sm:text-2xl font-bold text-foreground">Signalements</h1><p className="text-muted-foreground mt-1">Impossible de charger les signalements</p></div><Card className="border-amber-200 bg-amber-50"><CardContent className="p-4"><p className="text-sm text-amber-700">Impossible de charger. Veuillez réessayer.</p></CardContent></Card></motion.div>
+  if (error) return (
+    <div className="space-y-6">
+      <div><h1 className="text-xl sm:text-2xl font-bold text-foreground">Signalements</h1><p className="text-muted-foreground mt-1">Impossible de charger les signalements</p></div>
+      <ErrorState description="Impossible de charger les signalements. Veuillez réessayer." retry={fetchData} />
+    </div>
+  )
 
   const totalSignalements = Object.values(stats.byStatus).reduce((sum, n) => sum + n, 0)
 
@@ -223,12 +228,11 @@ export function AdminSignalements() {
 
       {/* Signalements Cards */}
       {filteredSignalements.length === 0 ? (
-        <Card className="border-dashed border-border bg-muted/50">
-          <CardContent className="py-12 text-center">
-            <Flag className="size-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-muted-foreground">Aucun signalement trouvé</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Flag}
+          title="Aucun signalement trouvé"
+          description="Ajustez la recherche ou les filtres pour élargir votre liste."
+        />
       ) : (
         <motion.div initial="hidden" animate="show" variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } }} className="space-y-2">
           {filteredSignalements.map((s) => {

@@ -9,7 +9,6 @@ import {
   Receipt,
   User,
   FileSignature,
-  Download,
   Loader2,
   RefreshCw,
   CheckCircle2,
@@ -26,6 +25,7 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { toast } from 'sonner'
 import { PaymentDialog } from './payment-dialog'
+import { QuittanceModal, isQuittanceEligible } from '@/components/shared/quittance-modal'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -144,6 +144,8 @@ export function PaymentDetail({ paymentId, onBack }: PaymentDetailProps) {
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  // Quittance de loyer (FUN-001) : modale imprimable — remplace l'ancien fichier .txt.
+  const [quittanceOpen, setQuittanceOpen] = useState(false)
 
   const fetchPayment = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -235,64 +237,16 @@ export function PaymentDetail({ paymentId, onBack }: PaymentDetailProps) {
   const methodConfig = payment.method ? paymentMethodConfig[payment.method] : null
   const timelineSteps = getTimelineSteps(payment.status, payment.createdAt, payment.paidAt)
 
-  const handleDownloadReceipt = () => {
-    if (payment.status !== 'PAID') {
+  // Quittance de loyer (FUN-001) : les données sont chargées depuis la DB
+  // serveur par la route /api/payments/[id]/quittance et affichées dans une
+  // modale imprimable (numéro QT-YYYY-NNNNNN idempotent). L'ancienne
+  // génération .txt côté client a été supprimée (checklist QA).
+  const handleOpenQuittance = () => {
+    if (!isQuittanceEligible({ status: payment.status, amount: payment.amount, amountPaid: payment.amountPaid })) {
       toast.error('Quittance disponible uniquement pour les paiements effectués')
       return
     }
-    const receiptContent = `
-═══════════════════════════════════════
-         QUITTANCE DE LOYER
-         MON TOIT — ANSUT
-═══════════════════════════════════════
-
-Référence : ${payment.reference || 'N/A'}
-Date d'émission : ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-
-───────────────────────────────────────
-LOCATAIRE
-───────────────────────────────────────
-Nom : Non renseigné
-
-───────────────────────────────────────
-PROPRIÉTAIRE
-───────────────────────────────────────
-Nom : ${owner ? `${owner.firstName} ${owner.lastName}` : 'Non renseigné'}
-
-───────────────────────────────────────
-BIEN LOUÉ
-───────────────────────────────────────
-Titre : ${property?.title || 'Non renseigné'}
-Adresse : ${property ? `${property.address}, ${property.city}` : 'Non renseigné'}
-
-───────────────────────────────────────
-DÉTAILS DU PAIEMENT
-───────────────────────────────────────
-Mois concerné : ${new Date(payment.dueDate).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
-Montant du loyer : ${formatCurrency(payment.lease?.monthlyRent || payment.amount)}
-Charges : ${formatCurrency(payment.lease?.charges || 0)}
-Total payé : ${formatCurrency(payment.amount)}
-Méthode de paiement : ${methodConfig?.label || 'Non renseignée'}
-Date de paiement : ${payment.paidAt ? formatDate(payment.paidAt) : 'Non renseignée'}
-
-═══════════════════════════════════════
-Le propriétaire reconnaît avoir reçu
-le montant ci-dessus en paiement du
-loyer et des charges pour la période
-indiquée.
-═══════════════════════════════════════
-    `.trim()
-
-    const blob = new Blob([receiptContent], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `quittance-${new Date(payment.dueDate).toISOString().slice(0, 7)}-${payment.reference || payment.id.slice(0, 8)}.txt`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    toast.success('Quittance téléchargée')
+    setQuittanceOpen(true)
   }
 
   return (
@@ -318,14 +272,14 @@ indiquée.
             <span className={`size-2 rounded-full ${config.dotColor} mr-1.5`} />
             {config.label}
           </Badge>
-          {payment.status === 'PAID' && (
+          {isQuittanceEligible({ status: payment.status, amount: payment.amount, amountPaid: payment.amountPaid }) && (
             <Button
               variant="outline"
               size="sm"
               className="gap-1.5 text-brand-600 border-brand-200 hover:bg-brand-50 hover:text-brand-700 text-xs h-7"
-              onClick={handleDownloadReceipt}
+              onClick={handleOpenQuittance}
             >
-              <Download className="size-3.5" />
+              <Receipt className="size-3.5" />
               Quittance
             </Button>
           )}
@@ -482,11 +436,11 @@ indiquée.
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={handleDownloadReceipt}
+                onClick={handleOpenQuittance}
                 className="gap-1.5 text-brand-600 border-brand-200 hover:bg-brand-50 hover:text-brand-700"
               >
-                <Download className="size-3.5" />
-                Télécharger la quittance
+                <Receipt className="size-3.5" />
+                Voir la quittance
               </Button>
             </div>
           </CardContent>
@@ -637,6 +591,13 @@ indiquée.
         onOpenChange={setDialogOpen}
         payment={payment}
         onSuccess={handlePaymentSuccess}
+      />
+
+      {/* Quittance de loyer (FUN-001) : modale imprimable partagée */}
+      <QuittanceModal
+        open={quittanceOpen}
+        onOpenChange={setQuittanceOpen}
+        paymentId={payment.id}
       />
     </motion.div>
   )

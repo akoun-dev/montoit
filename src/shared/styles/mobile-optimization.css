@@ -1,0 +1,533 @@
+/**
+ * Mobile Optimization Styles
+ * Mon Toit - Recommandation #3 de l'Audit UX/UI
+ * 
+ * Objectif: Optimiser l'expérience mobile pour 70% du trafic
+ * - Boutons tactiles min 48x48px
+ * - Textes lisibles min 16px
+ * - Espacement confortable
+ * - Feedback tactile
+ */
+
+/* ===== BOUTONS OPTIMISÉS MOBILE ===== */
+
+/* Tous les boutons doivent être facilement cliquables sur mobile */
+button,
+.btn,
+[role='button'],
+a.button {
+  /* Taille tactile minimum (recommandation Apple/Google) */
+  min-height: 48px;
+  min-width: 48px;
+
+  /* Padding confortable */
+  padding: 12px 24px;
+
+  /* Texte lisible */
+  font-size: 16px;
+  line-height: 1.5;
+
+  /* Espacement entre boutons */
+  margin: 8px 0;
+
+  /* Feedback tactile */
+  transition:
+    transform 0.1s ease,
+    background-color 0.2s ease;
+}
+
+button:active,
+.btn:active,
+[role='button']:active {
+  transform: scale(0.98);
+}
+
+/* Boutons primaires - extra visibles */
+.btn-primary,
+button[type='submit'] {
+  min-height: 52px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+/* ===== TEXTES LISIBLES ===== */
+
+/* Taille minimale de texte sur mobile */
+@media (max-width: 768px) {
+  body {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  /* Titres */
+  h1 {
+    font-size: 28px;
+    line-height: 1.3;
+  }
+  h2 {
+    font-size: 24px;
+    line-height: 1.3;
+  }
+  h3 {
+    font-size: 20px;
+    line-height: 1.4;
+  }
+  h4 {
+    font-size: 18px;
+    line-height: 1.4;
+  }
+  h5 {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* Paragraphes */
+  p {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  /* Labels de formulaire */
+  label {
+    font-size: 16px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  /* Texte secondaire */
+  small,
+  .text-sm {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Jamais en dessous de 14px */
+  .text-xs {
+    font-size: 14px !important;
+  }
+}
+
+/* ===== FORMULAIRES OPTIMISÉS ===== */
+
+/* Champs de formulaire tactiles */
+input[type='text'],
+input[type='email'],
+input[type='tel'],
+input[type='password'],
+input[type='number'],
+input[type='search'],
+textarea,
+select {
+  /* Taille tactile */
+  min-height: 48px;
+  padding: 12px 16px;
+
+  /* Texte lisible */
+  font-size: 16px; /* Évite le zoom automatique sur iOS */
+  line-height: 1.5;
+
+  /* Bordure visible */
+  border: 2px solid #d1d5db;
+  border-radius: 12px;
+
+  /* Espacement */
+  margin: 8px 0;
+
+  /* Transition */
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* Focus visible */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+/* Textarea plus grand */
+textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* Select avec icône visible */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23374151' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 20px;
+  padding-right: 44px;
+}
+
+/* Checkbox et radio plus grands */
+input[type='checkbox'],
+input[type='radio'] {
+  min-width: 24px;
+  min-height: 24px;
+  margin-right: 12px;
+  cursor: pointer;
+}
+
+/* Labels cliquables */
+label {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ===== ESPACEMENT MOBILE ===== */
+
+@media (max-width: 768px) {
+  /* Espacement entre sections */
+  section {
+    padding: 32px 16px;
+  }
+
+  /* Espacement entre cartes */
+  .card,
+  .property-card {
+    margin-bottom: 16px;
+  }
+
+  /* Espacement dans les listes */
+  li {
+    margin-bottom: 12px;
+  }
+
+  /* Padding des conteneurs */
+  .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* Espacement des grilles */
+  .grid {
+    gap: 16px;
+  }
+}
+
+/* ===== NAVIGATION MOBILE ===== */
+
+/* Menu hamburger tactile */
+.mobile-menu-button {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Items de menu espacés */
+.mobile-nav-item {
+  min-height: 56px;
+  padding: 16px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.mobile-nav-item:active {
+  background-color: #f3f4f6;
+}
+
+/* ===== CARTES DE PROPRIÉTÉS MOBILE ===== */
+
+@media (max-width: 768px) {
+  .property-card {
+    /* Image grande et visible */
+    .property-image {
+      height: 240px;
+      object-fit: cover;
+    }
+
+    /* Titre lisible */
+    .property-title {
+      font-size: 18px;
+      line-height: 1.4;
+      margin: 12px 0;
+    }
+
+    /* Prix très visible */
+    .property-price {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    /* Infos (chambres, surface) */
+    .property-info {
+      font-size: 15px;
+      margin: 8px 0;
+    }
+
+    /* Boutons d'action */
+    .property-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .property-actions button {
+      flex: 1;
+      min-height: 48px;
+      font-size: 16px;
+    }
+  }
+}
+
+/* ===== MODALS MOBILE ===== */
+
+@media (max-width: 768px) {
+  .modal {
+    /* Plein écran sur mobile */
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  .modal-header {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    max-height: calc(100vh - 140px);
+  }
+
+  .modal-footer {
+    padding: 16px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .modal-close-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* ===== SCROLL FLUIDE ===== */
+
+* {
+  /* Scroll fluide sur iOS */
+  -webkit-overflow-scrolling: touch;
+
+  /* Scroll snap pour les galeries */
+  scroll-behavior: smooth;
+}
+
+/* Scroll horizontal pour galeries */
+.horizontal-scroll {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: 16px;
+  padding: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.horizontal-scroll > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Masquer la scrollbar mais garder le scroll */
+.horizontal-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.horizontal-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ===== IMAGES OPTIMISÉES ===== */
+
+img {
+  /* Éviter le débordement */
+  max-width: 100%;
+  height: auto;
+
+  /* Chargement progressif */
+  image-rendering: -webkit-optimize-contrast;
+
+  /* Éviter le layout shift */
+  aspect-ratio: attr(width) / attr(height);
+}
+
+/* Images de propriétés */
+.property-image {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+/* ===== FEEDBACK TACTILE ===== */
+
+/* Effet de pression sur les éléments cliquables */
+.clickable,
+.card-clickable,
+.property-card {
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.clickable:active,
+.card-clickable:active,
+.property-card:active {
+  transform: scale(0.98);
+}
+
+/* Hover sur desktop, active sur mobile */
+@media (hover: hover) {
+  .clickable:hover,
+  .card-clickable:hover,
+  .property-card:hover {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+}
+
+/* ===== ACCESSIBILITÉ TACTILE ===== */
+
+/* Zone de toucher étendue pour les petits éléments */
+.touch-target-extended {
+  position: relative;
+}
+
+.touch-target-extended::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  right: -12px;
+  bottom: -12px;
+  z-index: -1;
+}
+
+/* Focus visible pour la navigation au clavier */
+*:focus-visible {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ===== PERFORMANCE MOBILE ===== */
+
+/* Accélération matérielle */
+.animated,
+.transition-transform,
+button,
+.btn {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Réduire les animations sur mobile si demandé */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== CLAVIER MOBILE ADAPTÉ ===== */
+
+/* Clavier numérique pour les champs appropriés */
+input[type='tel'] {
+  inputmode: tel;
+}
+
+input[type='number'] {
+  inputmode: numeric;
+}
+
+input[type='email'] {
+  inputmode: email;
+}
+
+input[type='url'] {
+  inputmode: url;
+}
+
+input[type='search'] {
+  inputmode: search;
+}
+
+/* ===== SAFE AREAS (iPhone X+) ===== */
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .fixed-bottom {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .fixed-top {
+    padding-top: calc(16px + env(safe-area-inset-top));
+  }
+}
+
+/* ===== ORIENTATION LANDSCAPE ===== */
+
+@media (max-width: 768px) and (orientation: landscape) {
+  /* Réduire les hauteurs en mode paysage */
+  .property-image {
+    height: 180px;
+  }
+
+  section {
+    padding: 24px 16px;
+  }
+
+  .modal-body {
+    max-height: calc(100vh - 100px);
+  }
+}
+
+/* ===== DARK MODE SUPPORT ===== */
+
+@media (prefers-color-scheme: dark) {
+  input[type='text'],
+  input[type='email'],
+  input[type='tel'],
+  input[type='password'],
+  input[type='number'],
+  input[type='search'],
+  textarea,
+  select {
+    background-color: #1f2937;
+    color: #f9fafb;
+    border-color: #374151;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.1);
+  }
+}

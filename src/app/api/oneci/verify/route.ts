@@ -2,12 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { rnppPersonMatch, RnppApiError } from '@/lib/oneci'
+import { checkRateLimit } from '@/lib/rate-limiter'
 
 // Kept as a compatibility route for existing clients. All calls now use RNPP Connect.
 export async function POST(req: NextRequest) {
   try {
     const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) return NextResponse.json({ message: 'Non authentifié' }, { status: 401 })
+
+    // SEC-012 — Rate-limit 5/min par utilisateur (+ IP, standard kyc/face-auth) :
+    // chaque appel déclenche un appel sortant RNPP facturable.
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    const { allowed } = checkRateLimit('oneci-verify', `${userId}:${ip}`, { maxRequests: 5, windowMs: 60_000 })
+    if (!allowed) {
+      return NextResponse.json(
+        { message: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
+        { status: 429 },
+      )
+    }
 
     const supabase = getSupabaseAdminClient()
     const { data: user } = await supabase

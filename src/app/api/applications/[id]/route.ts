@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { normalizeRentalFileType } from '@/lib/rental-file-types'
+import { signDocUrls } from '@/lib/supabase/storage'
 
 export async function GET(
   req: NextRequest,
@@ -45,7 +47,7 @@ export async function GET(
     // live on the linked rental_files dossier, not on the applications row itself.
     const { data: rentalFile } = await supabase
       .from('rental_files')
-      .select('monthly_income, employer, employment_type, guarantor_name, guarantor_phone, guarantor_relation, rejection_reason, tc_comment, reviewed_at, valid_until, reviewed_by_id')
+      .select('file_type, monthly_income, employer, employment_type, guarantor_name, guarantor_phone, guarantor_relation, rejection_reason, tc_comment, reviewed_at, valid_until, reviewed_by_id')
       .eq('id', application.rental_file_id)
       .maybeSingle()
 
@@ -178,6 +180,8 @@ export async function GET(
         status: application.status,
         propertyId: application.property_id,
         rentalFileId: application.rental_file_id,
+        // FUN-002 : type du dossier porteur de la candidature (détail)
+        rentalFileType: normalizeRentalFileType(rentalFile?.file_type),
         monthlyIncome: application.monthly_income ?? rentalFile?.monthly_income,
         employer: rentalFile?.employer,
         employmentType: application.employment_type ?? rentalFile?.employment_type,
@@ -199,7 +203,8 @@ export async function GET(
           pending: totalDocs - validatedDocs - rejectedDocs,
         },
         reviewedBy,
-        documents: documents.map((d: any) => ({
+        // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+        documents: await signDocUrls(documents.map((d: any) => ({
           id: d.id,
           type: d.type,
           name: d.name,
@@ -207,7 +212,7 @@ export async function GET(
           url: d.url,
           tcComment: d.tc_comment,
           createdAt: d.created_at,
-        })),
+        }))),
         leases: leases.map((l: any) => ({
           id: l.id,
           status: l.status,

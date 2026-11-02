@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <!-- Google Fonts - Playfair Display + Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- SEO Meta Tags -->
+    <meta
+      name="description"
+      content="Mon Toit - Plateforme de location immobilière certifiée ANSUT en Côte d'Ivoire. Trouvez votre logement idéal en toute sécurité à Abidjan, Bouaké, Yamoussoukro et partout en CI."
+    />
+    <meta
+      name="keywords"
+      content="location, immobilier, Côte d'Ivoire, Abidjan, ANSUT, logement, appartement, maison, studio, villa, cocody, marcory, plateau, yopougon"
+    />
+    <meta name="author" content="Mon Toit" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="French" />
+    <meta name="geo.region" content="CI" />
+    <meta name="geo.placename" content="Côte d'Ivoire" />
+    <link rel="canonical" href="https://montoit.ci" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://montoit.ci" />
+    <meta
+      property="og:title"
+      content="Mon Toit - Plateforme de Location Immobilière en Côte d'Ivoire"
+    />
+    <meta
+      property="og:description"
+      content="Trouvez votre logement idéal en Côte d'Ivoire. Plateforme sécurisée et certifiée ANSUT avec paiement Mobile Money intégré."
+    />
+    <meta property="og:image" content="https://montoit.ci/logo.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="Mon Toit" />
+    <meta property="og:locale" content="fr_CI" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://montoit.ci" />
+    <meta name="twitter:title" content="Mon Toit - Plateforme de Location Immobilière" />
+    <meta
+      name="twitter:description"
+      content="Trouvez votre logement idéal en Côte d'Ivoire. Plateforme sécurisée et certifiée ANSUT."
+    />
+    <meta name="twitter:image" content="https://montoit.ci/logo.png" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#ea580c" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Mon Toit" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+
+    <!-- Preload Critical Resources -->
+    <link rel="preload" as="image" href="/logo.png" />
+    <link rel="preload" as="image" href="/images/hero/hero1.jpg" fetchpriority="high" />
+    <link rel="dns-prefetch" href="https://api.mapbox.com" />
+    <link rel="preconnect" href="https://api.mapbox.com" crossorigin />
+
+    <title>Mon Toit - Plateforme de Location Immobilière en Côte d'Ivoire</title>
+
+    <!-- Global Error Handler - Executes BEFORE modules load -->
+    <script>
+      console.log('🔵 index.html: Script inline started at', new Date().toISOString());
+
+      // Catch all module loading errors
+      window.addEventListener('error', function (e) {
+        // Ignore Leaflet internal errors that occur during cleanup/unmounting
+        // These are benign errors from map teardown when component unmounts during animations
+        if (
+          e.message &&
+          (e.message.includes('_leaflet_pos') ||
+            (e.message.includes('leaflet') && e.message.includes('undefined')))
+        ) {
+          // Silently ignore Leaflet cleanup errors - they're expected during unmount
+          return;
+        }
+
+        console.error('❌ Global error caught:', e.message, e.filename, e.lineno, e.colno);
+        var loader = document.getElementById('initial-loader');
+        if (loader && e.message && loader.style.opacity !== '0') {
+          loader.innerHTML =
+            '<div style="text-align:center;padding:20px;font-family:Inter,sans-serif;">' +
+            '<img src="/logo.png" alt="Mon Toit" style="width:60px;height:60px;margin-bottom:12px;opacity:0.5;" />' +
+            '<div style="color:#dc2626;font-size:16px;margin-bottom:8px;">Erreur de chargement</div>' +
+            '<div style="color:#666;font-size:12px;margin-bottom:16px;max-width:300px;word-break:break-word;">' +
+            (e.message || 'Erreur inconnue') +
+            '</div>' +
+            '<button onclick="location.reload()" style="background:#ea580c;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-family:Inter,sans-serif;">Rafraîchir la page</button>' +
+            '</div>';
+        }
+      });
+
+      // Catch unhandled promise rejections (async errors)
+      window.addEventListener('unhandledrejection', function (e) {
+        console.error('❌ Unhandled rejection:', e.reason);
+      });
+
+      // ABSOLUTE FALLBACK: Force remove loader after 8 seconds no matter what
+      setTimeout(function () {
+        var loader = document.getElementById('initial-loader');
+        if (loader && loader.parentNode) {
+          console.warn('⚠️ Fallback: Forcing loader removal after 8s timeout');
+          loader.style.transition = 'opacity 0.4s ease';
+          loader.style.opacity = '0';
+          setTimeout(function () {
+            if (loader.parentNode) loader.remove();
+          }, 400);
+        }
+      }, 8000);
+    </script>
+  </head>
+  <body>
+    <!-- Loader initial HORS de #root pour éviter qu'il soit écrasé par React -->
+    <div
+      id="initial-loader"
+      style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        z-index: 9999;
+      "
+    >
+      <div style="text-align: center">
+        <img
+          src="/logo.png"
+          alt="Mon Toit"
+          style="width: 80px; height: 80px; margin-bottom: 16px"
+        />
+        <div style="color: #ea580c; font-family: Inter, sans-serif; font-size: 16px">
+          Chargement...
+        </div>
+      </div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

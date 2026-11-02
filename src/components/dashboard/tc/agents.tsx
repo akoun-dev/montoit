@@ -19,12 +19,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useAuthStore } from '@/lib/auth-store'
 import { useRealtimeUsers } from '@/hooks/use-realtime-users'
+import { EmptyState, LoadingState } from '@/components/shared/states'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useInAppBrowser } from '@/hooks/capacitor'
+import { MissionTokenBadge } from './mission-token-badge'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -415,13 +417,7 @@ export function AgentsManagement() {
   // ─── Loading skeleton ──────────────────────────────────────────────────
 
   if (loading) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-40 rounded-xl bg-muted animate-pulse" />
-        ))}
-      </div>
-    )
+    return <LoadingState variant="list" rows={3} />
   }
 
   // ─── Agent Detail View ────────────────────────────────────────────────
@@ -592,14 +588,18 @@ export function AgentsManagement() {
                           {formatDateTime(m.scheduledAt)}
                         </p>
                       </div>
-                      <Badge className={cn(
-                        'shrink-0 text-[10px]',
-                        m.status === 'IN_PROGRESS'
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-brand-100 text-brand-700'
-                      )}>
-                        {m.status === 'IN_PROGRESS' ? 'En cours' : 'Assignée'}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* TC-006 : statut du lien d'accès — masqué si le GET n'est pas encore disponible */}
+                        <MissionTokenBadge missionId={m.id} />
+                        <Badge className={cn(
+                          'shrink-0 text-[10px]',
+                          m.status === 'IN_PROGRESS'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-brand-100 text-brand-700'
+                        )}>
+                          {m.status === 'IN_PROGRESS' ? 'En cours' : 'Assignée'}
+                        </Badge>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -805,27 +805,12 @@ export function AgentsManagement() {
 
       {/* Empty state */}
       {filteredAgents.length === 0 ? (
-        <Card className="border-border">
-          <CardContent className="py-12 text-center">
-            <Users className="size-12 text-muted-foreground/50 mx-auto mb-4" />
-            <p className="text-muted-foreground font-medium">
-              {agents.length === 0 ? 'Aucun agent enregistré' : 'Aucun agent trouvé'}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {agents.length === 0
-                ? 'Ajoutez votre premier agent de vérification'
-                : 'Essayez une autre recherche'}
-            </p>
-            {agents.length === 0 && (
-              <Button
-                className="bg-brand-500 hover:bg-brand-600 text-white gap-2 mt-4"
-                onClick={openCreateDialog}
-              >
-                <UserPlus className="size-4" /> Ajouter un agent
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Users}
+          title={agents.length === 0 ? 'Aucun agent enregistré' : 'Aucun agent trouvé'}
+          description={agents.length === 0 ? 'Ajoutez votre premier agent de vérification' : 'Essayez une autre recherche'}
+          action={agents.length === 0 ? { label: 'Ajouter un agent', onClick: openCreateDialog } : undefined}
+        />
       ) : viewMode === 'card' ? (
         /* ─── Card View ──────────────────────────────────────────────── */
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">

@@ -18,7 +18,7 @@ module.exports = {
     interpreter: 'node',
     env: {
       NODE_ENV: 'production',
-      PORT: 5000,
+      PORT: 3000,
     },
   }],
 }

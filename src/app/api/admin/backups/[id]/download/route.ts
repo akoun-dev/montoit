@@ -33,13 +33,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { data, error } = await supabase.storage
       .from('backups')
+      // SEC-006 : le bucket `backups` est privé dès sa création (migration
+      // 20260910000000, `public = false`) — lecture uniquement via URL signée.
+      // Expiration volontairement plus courte que le standard 1 h
+      // (SIGNED_URL_EXPIRES_IN_SECONDS) : l'URL est renvoyée au client admin.
       .createSignedUrl(backup.storage_path, 60, { download: backup.file_name })
 
     if (error || !data) {
       return NextResponse.json({ error: error?.message || 'Échec de génération du lien' }, { status: 500 })
     }
 
-    return NextResponse.json({ url: data.signedUrl })
+    return NextResponse.json(
+      { url: data.signedUrl },
+      // L'URL signée ne doit jamais être mise en cache (intermédiaires/navigateur)
+      { headers: { 'Cache-Control': 'no-store' } }
+    )
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

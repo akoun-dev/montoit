@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { signStorageUrl } from '@/lib/supabase/storage'
 
 export async function GET(
   req: NextRequest,
@@ -46,8 +47,11 @@ export async function GET(
       )
     }
 
-    // Get signed URL for the file
-    const pathMatch = mandat.contract_url.match(/\/object\/public\/[^/]+\/(.+)/)
+    // SEC-006 : le bucket mandat-documents est privé (migration
+    // 20261027000001) — le contract_url canonique est converti en URL signée
+    // (1 h) via le helper centralisé ; les URLs externes (CRYPTONEO) passent
+    // telles quelles.
+    const pathMatch = mandat.contract_url.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/[^/]+\/(.+)/)
     const storagePath = pathMatch?.[1]
 
     if (!storagePath) {
@@ -58,11 +62,8 @@ export async function GET(
 
     let pdfUrl = mandat.contract_url
     try {
-      const { data: signedData } = await admin
-        .storage
-        .from('mandat-documents')
-        .createSignedUrl(storagePath, 300)
-      if (signedData?.signedUrl) pdfUrl = signedData.signedUrl
+      const signedUrl = await signStorageUrl(mandat.contract_url)
+      if (signedUrl) pdfUrl = signedUrl
     } catch (err) {
       console.error('Error creating signed URL:', err)
     }
@@ -71,7 +72,8 @@ export async function GET(
     try {
       const res = await fetch(pdfUrl)
       if (!res.ok) {
-        console.error(`Failed to download mandat PDF from ${pdfUrl} (status: ${res.status})`)
+        // Pas d'URL dans le log : une URL signée embarque un token d'accès.
+        console.error(`Failed to download mandat PDF (mandat ${id}, status: ${res.status})`)
         return applyCookies(
           NextResponse.json({ error: 'Impossible de télécharger le document' }, { status: 500 })
         )
@@ -80,9 +82,9 @@ export async function GET(
       const arrayBuffer = await res.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
-      // Determine content type
-      const contentType = pdfUrl.includes('.pdf') ? 'application/pdf' : 'text/html'
-      const extension = pdfUrl.includes('.pdf') ? 'pdf' : 'html'
+      // Determine content type (depuis l'URL canonique, pas l'URL signée)
+      const contentType = mandat.contract_url.includes('.pdf') ? 'application/pdf' : 'text/html'
+      const extension = mandat.contract_url.includes('.pdf') ? 'pdf' : 'html'
 
       return applyCookies(
         new NextResponse(buffer, {
@@ -90,6 +92,8 @@ export async function GET(
             'Content-Type': contentType,
             'Content-Disposition': `attachment; filename="mandat_${id.slice(0, 8)}.${extension}"`,
             'Content-Length': buffer.length.toString(),
+            // SEC-006 : document sensible — aucune mise en cache intermédiaire
+            'Cache-Control': 'no-store',
           },
         })
       )

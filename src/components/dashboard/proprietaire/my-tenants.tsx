@@ -12,6 +12,7 @@ import { motion } from 'framer-motion'
 import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { useRealtimePayments } from '@/hooks/use-realtime-payments'
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/states'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface TenantLease {
@@ -154,26 +155,14 @@ export function TenantsList({ onDetail }: TenantsListProps) {
   })
 
   if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />)}
-        </div>
-        {[1, 2, 3].map(i => <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />)}
-      </div>
-    )
+    return <LoadingState variant="detail" />
   }
 
   if (error) {
     return (
       <div className="space-y-4">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes locataires</h1>
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-4">
-            <p className="text-sm text-amber-700">{error}</p>
-          </CardContent>
-        </Card>
+        <ErrorState description={error} retry={fetchTenants} />
       </div>
     )
   }
@@ -231,17 +220,11 @@ export function TenantsList({ onDetail }: TenantsListProps) {
       {/* Tenant List */}
       {tenants.length === 0 ? (
         <motion.div variants={itemVariants}>
-          <Card className="border-border">
-            <CardContent className="py-12 text-center">
-              <UserCircle className="size-12 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground text-sm">
-                {search ? 'Aucun locataire trouvé pour cette recherche' : 'Vous n\'avez aucun locataire pour le moment'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Les locataires apparaîtront ici lorsque vous aurez des baux actifs
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={UserCircle}
+            title={search ? 'Aucun locataire trouvé pour cette recherche' : "Vous n'avez aucun locataire pour le moment"}
+            description="Les locataires apparaîtront ici lorsque vous aurez des baux actifs"
+          />
         </motion.div>
       ) : (
         <motion.div variants={containerVariants} className="space-y-3">

@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { generateOtpCode, sendOtpSms, normalizePhone } from '@/lib/ansut-messaging'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit } from '@/lib/rate-limiter'
+import { hashOtpCode } from '@/lib/otp-hash'
 
 const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
 
@@ -64,12 +65,14 @@ export async function POST(req: NextRequest) {
 
     const otpCode = generateOtpCode(6)
 
+    // SEC-007 : le code n'est plus stocké en clair — SHA-256 + pepper, selé par
+    // le numéro cible. Seul le code en clair part dans le SMS.
     await supabase
       .from('otp_codes')
       .insert({
         id: crypto.randomUUID(),
         phone: normalizedPhone,
-        code: otpCode,
+        code: hashOtpCode(otpCode, normalizedPhone),
         type: otpType,
         expires_at: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString(),
         user_id: otpUserId,

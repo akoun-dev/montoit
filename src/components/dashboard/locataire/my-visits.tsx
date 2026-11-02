@@ -13,6 +13,7 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
 import { PaginationControls } from '@/components/ui/pagination-controls'
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/states'
 
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
@@ -133,26 +134,21 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
   }, [filtered, page, limit])
 
   if (isLoading) {
-    return <div className="space-y-6">
-      <div><div className="h-8 w-48 bg-muted animate-pulse rounded" /><div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" /></div>
-      <div className="flex gap-2">{[1,2,3,4,5].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>
-      {[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}
-    </div>
+    return <LoadingState variant="detail" />
   }
 
   if (error && !data) {
     return (
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <div className="space-y-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes visites</h1>
           <p className="text-muted-foreground mt-1">Suivez vos demandes de visite</p>
         </div>
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-4">
-            <p className="text-sm text-amber-700">Impossible de charger vos visites. Veuillez réessayer.</p>
-          </CardContent>
-        </Card>
-      </motion.div>
+        <ErrorState
+          description="Impossible de charger vos visites. Veuillez réessayer."
+          retry={() => queryClient.invalidateQueries({ queryKey })}
+        />
+      </div>
     )
   }
 
@@ -243,17 +239,11 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
 
       {/* Visit list */}
       {filtered.length === 0 ? (
-        <Card className="border-dashed border-border bg-muted/50">
-          <CardContent className="py-12 flex flex-col items-center text-center">
-            <Eye className="size-12 text-muted-foreground/40 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-1">
-              {search ? 'Aucune visite trouvée' : 'Aucune visite planifiée'}
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              {search ? 'Essayez de modifier votre recherche.' : 'Explorez les biens disponibles pour demander une visite'}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Eye}
+          title={search ? 'Aucune visite trouvée' : 'Aucune visite planifiée'}
+          description={search ? 'Essayez de modifier votre recherche.' : 'Explorez les biens disponibles pour demander une visite'}
+        />
       ) : (
         <div className="space-y-3">
           {paginatedVisits.map((vr) => (

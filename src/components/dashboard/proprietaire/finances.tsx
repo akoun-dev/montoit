@@ -1,109 +1,31 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+// Architecture data (ADR-0003) : fetch via service + hook React Query (useOwnerFinances),
+// realtime → invalidateQueries, états loading/error mutualisés (components/shared/states).
+import { useState, useMemo } from 'react'
 import {
   TrendingUp, Clock, AlertTriangle, Percent,
   Building2, ChevronRight, Send, CreditCard,
-  Calendar, ArrowUpRight, User
+  Calendar, ArrowUpRight, User, Receipt
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
-import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query-keys'
+import { useOwnerFinances, financesErrorMessage } from '@/hooks/proprietaire/use-owner-finances'
+import {
+  sendPaymentReminder,
+  type PaymentReminder,
+} from '@/services/proprietaire/finances'
 import { useRealtimePayments } from '@/hooks/use-realtime-payments'
-import { apiFetch } from '@/lib/capacitor'
+import { ErrorState, LoadingState } from '@/components/shared/states'
+// FUN-001 — consultation des quittances de loyer de ses biens (lecture seule).
+import { QuittanceModal, isQuittanceEligible } from '@/components/shared/quittance-modal'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { PaginationControls } from '@/components/ui/pagination-controls'
-
-// ─── Types ──────────────────────────────────────────────────────────────────
-interface MonthlyRevenue {
-  month: string
-  revenue: number
-  collected: number
-  pending: number
-  late: number
-}
-
-interface PaymentReminder {
-  paymentId: string
-  amount: number
-  dueDate: string
-  daysLate: number
-  tenant: { id: string; name: string; phone: string | null }
-  property: { id: string; title: string }
-  reference: string | null
-}
-
-interface RevenuePerProperty {
-  propertyId: string
-  propertyTitle: string
-  city: string
-  monthlyRent: number
-  isRented: boolean
-  collected: number
-  pending: number
-  late: number
-  netRevenue: number
-  commission: number
-}
-
-interface CommissionMandat {
-  mandatId: string
-  mandatType: string
-  propertyTitle: string
-  agencyName: string
-  commissionRate: number
-  commissionType: string
-  totalCollected: number
-  commissionAmount: number
-  period: string
-}
-
-interface RecentPayment {
-  id: string
-  amount: number
-  amountPaid?: number
-  status: string
-  dueDate: string
-  paidAt: string | null
-  reference: string | null
-  createdAt: string
-  lease: {
-    id: string
-    monthlyRent: number
-    property: { id: string; title: string; city: string }
-    tenant: { id: string; firstName: string; lastName: string }
-  }
-}
-
-interface FinancesData {
-  monthlyRevenueHistory: MonthlyRevenue[]
-  paymentStatusBreakdown: {
-    PAID: { count: number; amount: number }
-    PENDING: { count: number; amount: number }
-    LATE: { count: number; amount: number }
-    PARTIAL: { count: number; amount: number }
-    CANCELLED: { count: number; amount: number }
-  }
-  commissionTracking: {
-    mandats: CommissionMandat[]
-    totalCommissionDue: number
-  }
-  revenuePerProperty: RevenuePerProperty[]
-  paymentReminders: PaymentReminder[]
-  recentPayments: RecentPayment[]
-  summary: {
-    totalCollected: number
-    totalPending: number
-    totalLate: number
-    totalCommissionDue: number
-    netRevenue: number
-    propertiesCount: number
-    rentedPropertiesCount: number
-  }
-}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const statusConfig: Record<string, { label: string; color: string; dotColor: string }> = {
@@ -143,43 +65,24 @@ const itemVariants = {
 // ─── Component ──────────────────────────────────────────────────────────────
 export function OwnerFinances() {
   const { user, isAuthenticated } = useAuthStore()
-  const [data, setData] = useState<FinancesData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   const [sendingReminder, setSendingReminder] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const limit = 10
+  // FUN-001 : identifiant du paiement dont on consulte la quittance (lecture).
+  const [quittancePaymentId, setQuittancePaymentId] = useState<string | null>(null)
 
-  const fetchData = useCallback(async () => {
-    if (!isAuthenticated) {
-      setLoading(false)
-      return
-    }
-    try {
-      const result = await authFetch<FinancesData>('/api/owner/finances')
-      setData(result)
-    } catch (err) {
-      if (err instanceof AuthError && err.status === 401) {
-        setData(null)
-        return
-      }
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
-      setData(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [isAuthenticated])
+  // ── Données : service + React Query (plus de fetch/useState/useEffect ad-hoc) ──
+  const financesQuery = useOwnerFinances(undefined, { enabled: isAuthenticated })
+  const { data, isLoading: loading, error } = financesQuery
+  const errorMessage = financesErrorMessage(error)
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  // Realtime subscription for payments (re-fetch aggregated data)
+  // Realtime payments → invalidation du cache React Query (ADR-0003 : plus de refetch manuel)
   useRealtimePayments({
     userId: user?.id,
     leaseIds: data?.recentPayments?.map((p) => p.lease?.id).filter(Boolean) as string[] | undefined,
     onPaymentChange: () => {
-      fetchData()
+      queryClient.invalidateQueries({ queryKey: queryKeys.finances.all })
     },
   })
 
@@ -191,16 +94,11 @@ export function OwnerFinances() {
   const handleSendReminder = async (reminder: PaymentReminder) => {
     setSendingReminder(reminder.paymentId)
     try {
-      await apiFetch('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: reminder.tenant.id,
-          type: 'PAYMENT_ALERT',
-          title: 'Rappel de paiement',
-          message: `Votre paiement de ${formatCurrency(reminder.amount)} pour le bien "${reminder.property.title}" est en retard de ${reminder.daysLate} jour${reminder.daysLate > 1 ? 's' : ''}. Veuillez régulariser votre situation.`,
-          entityId: reminder.paymentId,
-        }),
+      await sendPaymentReminder({
+        userId: reminder.tenant.id,
+        entityId: reminder.paymentId,
+        title: 'Rappel de paiement',
+        message: `Votre paiement de ${formatCurrency(reminder.amount)} pour le bien "${reminder.property.title}" est en retard de ${reminder.daysLate} jour${reminder.daysLate > 1 ? 's' : ''}. Veuillez régulariser votre situation.`,
       })
       toast.success(`Rappel envoyé à ${reminder.tenant.name}`)
     } catch {
@@ -212,33 +110,20 @@ export function OwnerFinances() {
 
   // ─── Loading skeleton ──────────────────────────────────────────────────
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-          <div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" />
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
-          ))}
-        </div>
-        <div className="h-48 rounded-xl bg-muted animate-pulse" />
-        <div className="h-36 rounded-xl bg-muted animate-pulse" />
-      </div>
-    )
+    return <LoadingState variant="detail" />
   }
 
   // ─── Error state ───────────────────────────────────────────────────────
-  if (error || !data) {
+  // Cas !isAuthenticated : requête désactivée (data indéfinie sans erreur) → même garde-fou.
+  if (error || !isAuthenticated || !data) {
     return (
       <div className="space-y-4">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Finances</h1>
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-4">
-            <p className="text-sm text-amber-700">Impossible de charger vos données financières. Veuillez réessayer.</p>
-          </CardContent>
-        </Card>
+        <ErrorState
+          title="Impossible de charger vos données financières"
+          description={errorMessage ?? 'Veuillez réessayer.'}
+          retry={isAuthenticated ? () => financesQuery.refetch() : undefined}
+        />
       </div>
     )
   }
@@ -704,6 +589,18 @@ export function OwnerFinances() {
                               reste {formatCurrency(payment.amount - (payment.amountPaid || 0))}
                             </span>
                           )}
+                          {/* FUN-001 : quittance des paiements éligibles de ses biens (lecture seule) */}
+                          {isQuittanceEligible({ status: payment.status, amount: payment.amount, amountPaid: payment.amountPaid }) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setQuittancePaymentId(payment.id)}
+                              className="h-6 text-[10px] gap-1 px-2 text-brand-600 border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+                            >
+                              <Receipt className="size-3" />
+                              Quittance
+                            </Button>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Calendar className="size-3" />
@@ -727,6 +624,13 @@ export function OwnerFinances() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* FUN-001 : modale quittance partagée (données serveur, impression A4) */}
+      <QuittanceModal
+        open={quittancePaymentId !== null}
+        onOpenChange={(o) => { if (!o) setQuittancePaymentId(null) }}
+        paymentId={quittancePaymentId}
+      />
     </motion.div>
   )
 }

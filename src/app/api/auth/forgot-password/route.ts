@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { generateOtpCode, sendOtpEmail, sendOtpSms, normalizePhone } from '@/lib/ansut-messaging'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { hashOtpCode } from '@/lib/otp-hash'
 import {
   createEmailOtp,
   getUserProfileByEmail,
@@ -48,7 +49,8 @@ export async function POST(req: NextRequest) {
 
       const emailResult = await sendOtpEmail(user.email, otpCode, user.first_name, 'password_reset')
       if (!emailResult.success) {
-        console.warn(`[Forgot Password] Email send failed for ${user.email}, but OTP stored. Code: ${otpCode}`)
+        // SEC-007 : ne jamais logger le code OTP en clair (fuite via les logs).
+        console.warn(`[Forgot Password] Email send failed for ${user.email}, but OTP stored`)
       }
 
       const isDev = process.env.NODE_ENV !== 'production'
@@ -98,13 +100,15 @@ export async function POST(req: NextRequest) {
     }
 
     const otpCode = generateOtpCode(6)
+    // SEC-007 : code hashé (SHA-256 + pepper, selé par le numéro) — le SMS est
+    // le seul canal où le code apparaît en clair.
     await supabase
       .from('otp_codes')
       .insert({
         id: crypto.randomUUID(),
         email: user.email,
         phone: normalizedPhone,
-        code: otpCode,
+        code: hashOtpCode(otpCode, normalizedPhone),
         type: 'PASSWORD_RESET',
         expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         user_id: user.id,
@@ -112,7 +116,8 @@ export async function POST(req: NextRequest) {
 
     const smsResult = await sendOtpSms(normalizedPhone, otpCode, 'password_reset')
     if (!smsResult.success) {
-      console.warn(`[Forgot Password] SMS send failed for ${identifier}, but OTP stored. Code: ${otpCode}`)
+      // SEC-007 : ne jamais logger le code OTP en clair (fuite via les logs).
+      console.warn(`[Forgot Password] SMS send failed for ${identifier}, but OTP stored`)
     }
 
     const isDev = process.env.NODE_ENV !== 'production'

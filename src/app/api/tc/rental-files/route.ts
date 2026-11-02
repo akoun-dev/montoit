@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
+import { normalizeRentalFileType, parseRentalFileType, RENTAL_FILE_TYPES } from '@/lib/rental-file-types'
+import { signDocUrls } from '@/lib/supabase/storage'
 
 /** Returns a Map of fileId → last rejection date (ISO string) */
 async function fetchRejectionHistory(supabase: any, fileIds: string[]): Promise<Map<string, string>> {
@@ -49,8 +51,18 @@ export async function GET(req: NextRequest) {
     const priority = searchParams.get('priority')
     const onHold = searchParams.get('onHold')
     const overdue = searchParams.get('overdue') === 'true'
+    // FUN-002 : filtre optionnel par type de dossier (STANDARD | FAMILLE | COLOCATION)
+    const fileTypeParam = searchParams.get('fileType') || undefined
     const limitParam = searchParams.get('limit')
     const offsetParam = searchParams.get('offset')
+
+    if (fileTypeParam && !parseRentalFileType(fileTypeParam)) {
+      const resp = NextResponse.json(
+        { error: `Type de dossier invalide. Valeurs acceptées : ${RENTAL_FILE_TYPES.join(', ')}` },
+        { status: 400 },
+      )
+      return applyCookies(resp)
+    }
 
     // If a specific file ID is requested, fetch only that file
     if (fileId) {
@@ -95,7 +107,8 @@ export async function GET(req: NextRequest) {
 
       const f = singleFile
       const tenant = tenantMap.get(f.tenant_id)
-      const documents = (docByFile.get(f.id) ?? []).map((d: any) => ({
+      // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+      const documents = await signDocUrls((docByFile.get(f.id) ?? []).map((d: any) => ({
         id: d.id,
         rentalFileId: f.id,
         type: d.type,
@@ -104,7 +117,7 @@ export async function GET(req: NextRequest) {
         status: d.status,
         tcComment: d.tc_comment,
         createdAt: d.created_at,
-      }))
+      })))
       const sla = slaMap.get(f.id)
 
       const fileWithSla = {
@@ -113,6 +126,8 @@ export async function GET(req: NextRequest) {
         status: f.status,
         priority: f.priority,
         tenantCategory: f.tenant_category,
+        // FUN-002 : type de dossier (badge TC)
+        fileType: normalizeRentalFileType(f.file_type),
         rentalStatus: f.rental_status,
         tcComment: f.tc_comment,
         rejectionReason: f.rejection_reason,
@@ -181,6 +196,7 @@ export async function GET(req: NextRequest) {
     if (priority) query = query.eq('priority', priority)
     if (onHold === 'true') query = query.eq('on_hold', true)
     else if (onHold === 'false') query = query.eq('on_hold', false)
+    if (fileTypeParam) query = query.eq('file_type', fileTypeParam)
 
     if (overdue) {
       const { data: overdueSlas } = await ((supabase as any)
@@ -251,12 +267,13 @@ export async function GET(req: NextRequest) {
 
     const slaMap = new Map<string, any>((slasData ?? []).map((s: any) => [s.entity_id, s]))
 
-    const filesWithSla = filesRaw.map((f: any) => {
+    const filesWithSla = await Promise.all(filesRaw.map(async (f: any) => {
       const tenant = tenantMap.get(f.tenant_id)
       // Fallback : si le fichier n'a pas de documents, prend ceux du DRAFT du même locataire
       const fileDocs = docByFile.get(f.id)
       const fallbackDraftId = !fileDocs?.length ? draftFileByTenant.get(f.tenant_id) : undefined
-      const documents = ((fileDocs?.length ? fileDocs : (fallbackDraftId ? docByFile.get(fallbackDraftId) : [])) ?? []).map((d: any) => ({
+      // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+      const documents = await signDocUrls(((fileDocs?.length ? fileDocs : (fallbackDraftId ? docByFile.get(fallbackDraftId) : [])) ?? []).map((d: any) => ({
         id: d.id,
         rentalFileId: f.id,
         type: d.type,
@@ -265,7 +282,7 @@ export async function GET(req: NextRequest) {
         status: d.status,
         tcComment: d.tc_comment,
         createdAt: d.created_at,
-      }))
+      })))
       const sla = slaMap.get(f.id)
 
       return {
@@ -274,6 +291,8 @@ export async function GET(req: NextRequest) {
         status: f.status,
         priority: f.priority,
         tenantCategory: f.tenant_category,
+        // FUN-002 : type de dossier (badge TC)
+        fileType: normalizeRentalFileType(f.file_type),
         rentalStatus: f.rental_status,
         tcComment: f.tc_comment,
         rejectionReason: f.rejection_reason,
@@ -302,7 +321,7 @@ export async function GET(req: NextRequest) {
           isOverdue: sla.is_overdue,
         } : null,
       }
-    })
+    }))
 
     const resp = NextResponse.json({
       files: filesWithSla,

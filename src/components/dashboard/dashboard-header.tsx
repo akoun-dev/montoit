@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { SidebarContent, getRoleLabel, getRoleColor } from './sidebar'
 import { ThemeToggle, LiveClock } from '@/components/theme-toggle'
 import { useNotifications } from '@/hooks/use-notifications'
+import { ActiveDossierSelect } from './locataire/active-dossier-select'
 import { toast } from 'sonner'
 
 export function DashboardHeader() {
@@ -87,6 +88,8 @@ export function DashboardHeader() {
 
         {/* Right - Actions */}
         <div className="flex items-center gap-1 sm:gap-2">
+          {/* FUN-002 : sélecteur du dossier actif (LOCATAIRE, ≥ 2 dossiers uniquement) */}
+          <ActiveDossierSelect />
           <LiveClock />
           <ThemeToggle />
 

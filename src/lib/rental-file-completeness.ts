@@ -36,6 +36,11 @@ export async function getRentalFileCompleteness(
 export async function findCurrentCompleteValidatedRentalFile(
   admin: SupabaseClient,
   tenantId: string,
+  // FUN-002 (dossiers multiples) : préférence de type pour le fallback de
+  // candidature. `STANDARD` (défaut historique) est examiné en premier, puis
+  // les autres types du plus récent au plus ancien — documenté dans la spec
+  // FUN-002 §4.2. Sans option, comportement inchangé (plus récent d'abord).
+  opts?: { preferFileType?: string },
 ) {
   const { data: files, error } = await admin
     .from('rental_files')
@@ -46,7 +51,18 @@ export async function findCurrentCompleteValidatedRentalFile(
 
   if (error) throw error
 
-  for (const file of files ?? []) {
+  let candidates = files ?? []
+  const preferredType = opts?.preferFileType
+  if (preferredType) {
+    // Tri stable : les dossiers du type préféré d'abord (l'ordre updated_at
+    // DESC est conservé à l'intérieur de chaque groupe).
+    candidates = [
+      ...candidates.filter((file: any) => (file.file_type ?? 'STANDARD') === preferredType),
+      ...candidates.filter((file: any) => (file.file_type ?? 'STANDARD') !== preferredType),
+    ]
+  }
+
+  for (const file of candidates) {
     const completeness = await getRentalFileCompleteness(admin, file.id)
     if (completeness.complete && (!file.valid_until || new Date(file.valid_until).getTime() > Date.now())) {
       return { file, completeness }

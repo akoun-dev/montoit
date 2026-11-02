@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { checkRateLimit, getClientIp, userIpRateLimitKey } from '@/lib/rate-limiter'
 import {
   findValidEmailOtp,
   getUserProfileByEmail,
@@ -17,6 +18,21 @@ export async function POST(req: NextRequest) {
     const admin = getSupabaseAdminClient()
     const normalizedEmail = normalizeEmail(email)
     const otpType = purpose === 'password_reset' ? 'PASSWORD_RESET' : 'EMAIL_VERIFY'
+
+    // SEC-007 — Rate-limit anti brute-force (absent jusqu'ici) : 5 tentatives
+    // / 15 min par couple email + IP. Critique pour PASSWORD_RESET, dont le
+    // succès permet de réinitialiser le mot de passe.
+    const strictAllowed = checkRateLimit(
+      'otp-verify-strict',
+      userIpRateLimitKey(normalizedEmail, getClientIp(req)),
+      { maxRequests: 5, windowMs: 15 * 60_000 }
+    )
+    if (!strictAllowed.allowed) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Veuillez réessayer dans 15 minutes.' },
+        { status: 429, headers: { 'Retry-After': String(15 * 60) } }
+      )
+    }
 
     const otp = await findValidEmailOtp(admin, {
       email: normalizedEmail,

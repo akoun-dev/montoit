@@ -1,0 +1,377 @@
+/* 
+ * MON TOIT - Premium Ivorian Design System
+ * Palette harmonisée chocolat/sable/orange
+ * Version 5.0.0
+ */
+
+:root {
+  /* === PALETTE PREMIUM IVORIAN === */
+
+  /* Chocolat - Headers, accents sombres */
+  --color-chocolat: #2c1810;
+  --color-chocolat-light: #3d2a20;
+  --color-chocolat-dark: #1a0f0a;
+
+  /* Sable - Texte clair sur fond sombre */
+  --color-sable: #e8d4c5;
+  --color-sable-light: #f5ede6;
+  --color-sable-dark: #d4b8a5;
+
+  /* Orange - CTAs, badges, accents */
+  --color-orange: #f16522;
+  --color-orange-light: #ff8a50;
+  --color-orange-dark: #d95518;
+  --color-orange-50: #fff5f0;
+  --color-orange-100: #ffe5d6;
+
+  /* Crème - Fond de page principal */
+  --color-creme: #faf7f4;
+  --color-creme-dark: #f5ede6;
+
+  /* Gris Texte - Texte secondaire */
+  --color-gris-texte: #6b5a4e;
+
+  /* Gris Neutre - Labels, icônes inactives */
+  --color-gris-neutre: #a69b95;
+
+  /* Bordures subtiles */
+  --color-border: #efebe9;
+  --color-border-hover: #e8d4c5;
+
+  /* Aliases pour compatibilité */
+  --premium-chocolat: var(--color-chocolat);
+  --premium-sable: var(--color-sable);
+  --premium-orange: var(--color-orange);
+  --premium-creme: var(--color-creme);
+  --premium-gris-texte: var(--color-gris-texte);
+  --premium-border: var(--color-border);
+}
+
+/* === COMPOSANTS PREMIUM IVORIAN === */
+
+/* Header Premium Chocolat */
+.premium-header {
+  background-color: var(--color-chocolat);
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23E8D4C5' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  position: relative;
+}
+
+.premium-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(241, 101, 34, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(232, 212, 197, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Card Premium */
+.premium-card {
+  background: white;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+  transition: all 0.3s ease;
+}
+
+.premium-card:hover {
+  border-color: var(--color-orange);
+  box-shadow: 0 8px 24px rgba(241, 101, 34, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Boutons Premium */
+.btn-premium-primary {
+  background-color: var(--color-orange);
+  color: white;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: none;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-premium-primary:hover {
+  background-color: var(--color-orange-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(241, 101, 34, 0.3);
+}
+
+.btn-premium-secondary {
+  background-color: transparent;
+  color: var(--color-chocolat);
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: 2px solid var(--color-border);
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-premium-secondary:hover {
+  border-color: var(--color-orange);
+  color: var(--color-orange);
+}
+
+.btn-premium-chocolat {
+  background-color: var(--color-chocolat);
+  color: white;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: none;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-premium-chocolat:hover {
+  background-color: var(--color-chocolat-light);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 24, 16, 0.25);
+}
+
+/* Badge Premium */
+.badge-premium {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.badge-premium-orange {
+  background-color: var(--color-orange-50);
+  color: var(--color-orange);
+}
+
+.badge-premium-chocolat {
+  background-color: var(--color-chocolat);
+  color: var(--color-sable);
+}
+
+.badge-premium-sable {
+  background-color: var(--color-sable-light);
+  color: var(--color-chocolat);
+}
+
+/* Page Premium */
+.page-premium {
+  background-color: var(--color-creme);
+  min-height: 100vh;
+}
+
+/* Input Premium */
+.input-premium {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.input-premium:focus {
+  outline: none;
+  border-color: var(--color-orange);
+  box-shadow: 0 0 0 3px rgba(241, 101, 34, 0.15);
+}
+
+/* Section Premium */
+.section-premium-chocolat {
+  background-color: var(--color-chocolat);
+  color: white;
+  padding: 64px 0;
+}
+
+.section-premium-creme {
+  background-color: var(--color-creme);
+  padding: 64px 0;
+}
+
+/* Pills/Tabs Premium */
+.pill-premium {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.pill-premium-inactive {
+  background-color: white;
+  color: var(--color-gris-texte);
+  border: 1px solid var(--color-border);
+}
+
+.pill-premium-inactive:hover {
+  border-color: var(--color-orange);
+  color: var(--color-orange);
+}
+
+.pill-premium-active {
+  background-color: var(--color-orange);
+  color: white;
+  border: 1px solid var(--color-orange);
+}
+
+/* Accordion Premium */
+.accordion-premium-header {
+  padding: 16px 20px;
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.accordion-premium-header:hover {
+  border-color: var(--color-orange);
+}
+
+.accordion-premium-header[data-open='true'] {
+  border-color: var(--color-orange);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Stats Premium */
+.stat-premium {
+  text-align: center;
+  padding: 24px;
+}
+
+.stat-premium-value {
+  font-size: 48px;
+  font-weight: 700;
+  color: white;
+  line-height: 1.1;
+}
+
+.stat-premium-label {
+  font-size: 16px;
+  color: var(--color-sable);
+  margin-top: 8px;
+}
+
+/* Footer CTA Premium */
+.footer-cta-premium {
+  background-color: var(--color-chocolat);
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23E8D4C5' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  padding: 80px 0;
+  position: relative;
+}
+
+.footer-cta-premium::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(241, 101, 34, 0.15) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* === ANIMATIONS CARDS DASHBOARD === */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Animation d'entrée Premium */
+.card-animate-in {
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
+/* Stagger pour grilles de cards */
+.card-stagger-1 {
+  animation-delay: 0.05s;
+}
+.card-stagger-2 {
+  animation-delay: 0.1s;
+}
+.card-stagger-3 {
+  animation-delay: 0.15s;
+}
+.card-stagger-4 {
+  animation-delay: 0.2s;
+}
+.card-stagger-5 {
+  animation-delay: 0.25s;
+}
+.card-stagger-6 {
+  animation-delay: 0.3s;
+}
+
+/* Hover Premium avec lift + glow orange */
+.card-hover-premium {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover-premium:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-orange) !important;
+  box-shadow: 0 12px 32px rgba(241, 101, 34, 0.15);
+}
+
+/* Header Dashboard avec animation slide */
+.dashboard-header-animate {
+  animation: slideDown 0.4s ease-out;
+}
+
+/* Icône avec pulse subtile */
+.icon-pulse-premium {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* Respect des préférences utilisateur */
+@media (prefers-reduced-motion: reduce) {
+  .card-animate-in,
+  .dashboard-header-animate,
+  .icon-pulse-premium {
+    animation: none !important;
+  }
+
+  .card-hover-premium:hover {
+    transform: none;
+  }
+}

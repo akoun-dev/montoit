@@ -1,4 +1,4 @@
-import { uploadFromBase64, BUCKETS } from '@/lib/supabase/storage'
+import { uploadFromBase64, BUCKETS, signStorageUrl } from '@/lib/supabase/storage'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export interface AttachmentInput {
@@ -60,7 +60,8 @@ export async function uploadAttachments(
       fileName: att.fileName,
       fileType: att.fileType,
       fileSize: att.fileSize,
-      url,
+      // SEC-006 : URL signée (1 h) pour l'affichage immédiat — le bucket est privé
+      url: (await signStorageUrl(url)) || url,
     })
   }
 
@@ -87,7 +88,8 @@ export async function getAttachmentsForMessages(
       fileName: row.file_name,
       fileType: row.file_type,
       fileSize: row.file_size,
-      url: row.url,
+      // SEC-006 : URL signée (1 h) — le bucket message-attachments est privé
+      url: (await signStorageUrl(row.url)) || row.url,
     })
     map.set(row.message_id, existing)
   }

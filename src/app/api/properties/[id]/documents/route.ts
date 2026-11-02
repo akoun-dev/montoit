@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
-import { BUCKETS, uploadFromBase64 } from '@/lib/supabase/storage'
+import { BUCKETS, signStorageUrl, uploadFromBase64 } from '@/lib/supabase/storage'
+import { validateBase64Upload, uploadValidationHttpStatus } from '@/lib/file-validation'
 
 const VALID_DOC_TYPES = [
   'DIAGNOSTIC_DPE',
@@ -66,17 +67,18 @@ export async function GET(
     if (!isOwner) documentsQuery = documentsQuery.eq('is_published', true)
     const { data: documents, error: docsError } = await documentsQuery.order('created_at', { ascending: false })
 
-    const mapped = (documents || []).map((d: any) => ({
+    // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+    const mapped = await Promise.all((documents || []).map(async (d: any) => ({
       id: d.id,
       propertyId: d.property_id,
       name: d.name,
       type: d.type,
-      url: d.url,
+      url: await signStorageUrl(d.url),
       description: d.description,
       expiryDate: d.expiry_date,
       createdAt: d.created_at,
       updatedAt: d.updated_at,
-    }))
+    })))
 
     const response = NextResponse.json({ data: mapped })
     return applyCookies(response)
@@ -161,6 +163,21 @@ export async function POST(
 
     const ext = guessFileExt(name)
     const filePath = `${userId}/${propertyId}/${type}_${Date.now()}.${ext}`
+
+    // SEC-009 — Magic bytes + taille max (10 Mo) sur le contenu réel.
+    const validation = validateBase64Upload(content, {
+      allowed: ['jpeg', 'png', 'pdf', 'webp'],
+    })
+    if (!validation.ok) {
+      console.warn(
+        `[properties/documents][SEC-009] Upload rejeté (${validation.code}) pour ${userId}`,
+      )
+      return NextResponse.json(
+        { error: validation.error },
+        { status: uploadValidationHttpStatus(validation) },
+      )
+    }
+
     const url = await uploadFromBase64(BUCKETS.PROPERTY_DOCUMENTS, content, filePath)
 
     const { data: document, error: createError } = await supabase
@@ -185,7 +202,8 @@ export async function POST(
       propertyId: document.property_id,
       name: document.name,
       type: document.type,
-      url: document.url,
+      // SEC-006 : URL signée (1 h) pour l'affichage immédiat du document
+      url: await signStorageUrl(document.url),
       description: document.description,
       expiryDate: document.expiry_date,
       createdAt: document.created_at,

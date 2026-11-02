@@ -13,6 +13,7 @@ import { promisify } from 'util'
 import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { getSignedUrl, SIGNED_URL_EXPIRES_IN_SECONDS } from '@/lib/supabase/storage'
 
 const execFileAsync = promisify(execFile)
 
@@ -99,7 +100,17 @@ export async function GET(
     // ── Try to serve from Storage first ──
     if (leaseAny.contract_url) {
       try {
-        const storageRes = await fetch(leaseAny.contract_url)
+        // SEC-006 : le bucket lease-documents est privé — on télécharge via une
+        // URL signée (1 h) reconstruite depuis l'URL canonique stockée.
+        let fetchUrl = leaseAny.contract_url
+        try {
+          const pathMatch = leaseAny.contract_url.match(/\/object\/(?:public|sign)\/[^/]+\/(.+)/)
+          const storagePath = pathMatch?.[1].split('?')[0]
+          if (storagePath) {
+            fetchUrl = await getSignedUrl('lease-documents', storagePath, SIGNED_URL_EXPIRES_IN_SECONDS)
+          }
+        } catch { /* fallback : URL stockée telle quelle */ }
+        const storageRes = await fetch(fetchUrl)
         if (storageRes.ok) {
           const blob = await storageRes.arrayBuffer()
           const contentType = storageRes.headers.get('content-type') || 'application/pdf'

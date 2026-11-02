@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Users, Search, UserX, Shield, Power, ChevronDown, ArrowUpDown, Download } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeUsers } from '@/hooks/use-realtime-users'
+import { EmptyState, LoadingState } from '@/components/shared/states'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { downloadCsv } from '@/lib/csv'
@@ -127,7 +127,7 @@ export function AdminUsers() {
     }
   }
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
+  if (loading) return <LoadingState variant="list" rows={3} />
 
   const filtered = data
     .filter((u) => {
@@ -255,12 +255,11 @@ export function AdminUsers() {
       </div>
 
       {filtered.length === 0 ? (
-        <Card className="border-dashed border-border bg-muted/50">
-          <CardContent className="py-12 text-center">
-            <Users className="size-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-muted-foreground">Aucun utilisateur trouvé</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Users}
+          title="Aucun utilisateur trouvé"
+          description="Ajustez la recherche ou les filtres pour élargir votre liste."
+        />
       ) : (
         <motion.div initial="hidden" animate="show" variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } }} className="space-y-2">
           {filtered.map((u) => (

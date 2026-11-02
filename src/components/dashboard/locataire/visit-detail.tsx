@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
+import { useActiveDossierStore } from '@/lib/active-dossier-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -170,10 +171,20 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   const applyMutation = useMutation({
     mutationFn: async () => {
       if (!visit) throw new Error('Visite introuvable')
+      // FUN-002 : candidater avec le dossier actif s'il est validé (sinon fallback serveur)
+      const activeDossier = user?.id
+        ? useActiveDossierStore.getState().activeByUser[user.id]
+        : undefined
       const res = await authFetch<{ error?: string; data?: { rentalFileId?: string } }>('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propertyId: visit.property.id }),
+        body: JSON.stringify({
+          propertyId: visit.property.id,
+          rentalFileId:
+            activeDossier && ['VALIDATED', 'ACCEPTED'].includes(activeDossier.status)
+              ? activeDossier.id
+              : undefined,
+        }),
       })
       if (res.error) throw new Error(res.error)
       return { dossierIncomplete: false }

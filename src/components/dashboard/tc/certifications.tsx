@@ -17,6 +17,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeCertifications } from '@/hooks/use-realtime-certifications'
+import { EmptyState, LoadingState } from '@/components/shared/states'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -302,13 +303,7 @@ export function CertificationsManagement() {
   // ─── Loading ──────────────────────────────────────────────────────────
 
   if (loading) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-40 rounded-xl bg-muted animate-pulse" />
-        ))}
-      </div>
-    )
+    return <LoadingState variant="list" rows={3} />
   }
 
   // ─── Render ───────────────────────────────────────────────────────────
@@ -498,21 +493,12 @@ export function CertificationsManagement() {
 
       {/* Empty state */}
       {certifications.length === 0 ? (
-        <Card className="border-border">
-          <CardContent className="py-12 text-center">
-            <Award className="size-12 text-muted-foreground/50 mx-auto mb-4" />
-            <p className="text-muted-foreground font-medium">Aucune certification trouvée</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Créez votre première certification ou ajustez les filtres
-            </p>
-            <Button
-              className="bg-brand-500 hover:bg-brand-600 text-white gap-2 mt-4"
-              onClick={() => setCreateDialog(true)}
-            >
-              <Plus className="size-4" /> Créer une certification
-            </Button>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Award}
+          title="Aucune certification trouvée"
+          description="Créez votre première certification ou ajustez les filtres"
+          action={{ label: 'Créer une certification', onClick: () => setCreateDialog(true) }}
+        />
       ) : viewMode === 'card' ? (
         /* ─── Card View ──────────────────────────────────────────── */
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">

@@ -1,8 +1,57 @@
+/**
+ * CRYPTONEO / ANSUT e-signature — runtime DENO (Edge Functions).
+ * ============================================================================
+ * DAT-004 (déduplication lib ↔ Edge Functions) : la logique PURE (codes
+ * succès, normalisation du genre, shapes API) vit dans
+ * `./cryptoneo-contract.ts` — source de vérité partagée, runtime-agnostique
+ * (aucune dépendance Deno / Node / npm). Ce module n'ajoute que la partie
+ * runtime Deno : secrets via `Deno.env`, cache du token JWT, fetch
+ * authentifié avec retry 401.
+ *
+ * Miroir Node/Next.js : `src/lib/cryptoneo.ts` (importe le même contrat et
+ * ne conserve que `process.env` + cache token). Contrat de parité et tests
+ * manuels : docs/DEDUP-LIB-EDGE-FUNCTIONS.md.
+ *
+ * ⚠️ Toute évolution du contrat (codes succès, normalisation, shapes) se fait
+ * dans `./cryptoneo-contract.ts` puis est héritée par les deux runtimes.
+ */
+
+import { CRYPTONEO_TOKEN_TTL_MS } from './cryptoneo-contract.ts'
+
+// ─── Contrat partagé (source de vérité — ré-export) ─────────────────────────
+export {
+  CRYPTONEO_SUCCESS_CODES,
+  isCryptoneoSuccess,
+  normalizeCryptoneoGender,
+} from './cryptoneo-contract.ts'
+
+export type {
+  CryptoneoAuthResponse,
+  CryptoneoCertificatResponse,
+  CryptoneoOtpResponse,
+  CryptoneoSignResponse,
+  CryptoneoSignedFileResponse,
+  CryptoneoUser,
+  CryptoneoUsersResponse,
+  CryptoneoVerifyResponse,
+  SignRequestItem,
+} from './cryptoneo-contract.ts'
+
+// ─── Configuration (runtime Deno uniquement) ────────────────────────────────
+
 const CRYPTONEO_API_URL = Deno.env.get("CRYPTONEO_API_URL") || "https://ansut.cryptoneoplatforms.com/esignaturedemo";
 const APP_KEY = Deno.env.get("CRYPTONEO_APP_KEY") || "";
 const APP_SECRET = Deno.env.get("CRYPTONEO_APP_SECRET") || "";
-const TOKEN_TTL_MS = 30 * 60 * 1000;
-let cachedToken = null;
+
+interface CachedToken {
+  token: string
+  expiresAt: number
+}
+
+let cachedToken: CachedToken | null = null;
+
+// ─── Token Management ───────────────────────────────────────────────────────
+
 export async function getCryptoneoToken() {
   console.log('[cryptoneo] getCryptoneoToken called');
   console.log('[cryptoneo] CRYPTONEO_API_URL:', CRYPTONEO_API_URL);
@@ -37,42 +86,21 @@ export async function getCryptoneoToken() {
   }
   cachedToken = {
     token,
-    expiresAt: Date.now() + TOKEN_TTL_MS
+    expiresAt: Date.now() + CRYPTONEO_TOKEN_TTL_MS
   };
   console.log('[cryptoneo] Token obtained successfully, expires at:', new Date(cachedToken.expiresAt).toISOString());
   return token;
 }
+
 export function clearCryptoneoToken() {
   cachedToken = null;
 }
-/**
- * Normalise le genre pour CRYPTONEO qui attend "Homme" ou "Femme".
- */ export function normalizeCryptoneoGender(gender) {
-  if (!gender) return 'Homme';
-  const g = gender.toLowerCase().trim();
-  if (g === 'homme' || g === 'm' || g === 'male' || g === 'masculin') return 'Homme';
-  if (g === 'femme' || g === 'f' || g === 'female' || g === 'feminin') return 'Femme';
-  return 'Homme';
-}
-/**
- * Codes succès CRYPTONEO : 200, 7000 (liste d'utilisateurs), etc.
- * Codes erreur : >= 8000 (8006 = paramètres invalides).
- */ const CRYPTONEO_SUCCESS_CODES = new Set([
-  200,
-  7000,
-  7002,
-  7003,
-  7004
-]);
-/** Vérifie si un code de retour CRYPTONEO indique un succès. */ export function isCryptoneoSuccess(data) {
-  const code = data.code ?? data.statusCode;
-  // 0 est un code erreur côté CRYPTONEO, on ne peut pas utiliser !code
-  return code === undefined || code === null || CRYPTONEO_SUCCESS_CODES.has(code);
-}
+
 /**
  * CRYPTONEO renvoie des erreurs métier avec HTTP 200 + statusCode dans le body.
  * Vérifie les deux et retourne { ok, data, error }.
- */ export async function cryptoneoFetchJson(path, options = {}) {
+ */
+export async function cryptoneoFetchJson(path, options = {}) {
   const res = await cryptoneoFetch(path, options);
   const text = await res.text();
   let data;
@@ -96,6 +124,9 @@ export function clearCryptoneoToken() {
     data
   };
 }
+
+// ─── Authenticated Fetch Helper ─────────────────────────────────────────────
+
 export async function cryptoneoFetch(path, options = {}, retry = true) {
   const token = await getCryptoneoToken();
   const url = `${CRYPTONEO_API_URL}${path}`;

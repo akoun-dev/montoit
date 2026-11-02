@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { signStorageUrl } from '@/lib/supabase/storage'
 
 function mapLease(lease: Record<string, unknown>) {
   return {

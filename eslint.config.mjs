@@ -1,5 +1,6 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
+import reactHooks from "eslint-plugin-react-hooks";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -7,6 +8,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
+  // Le plugin react-hooks (v7 : set-state-in-effect / purity) doit être explicitement
+  // enregistré pour que les règles ci-dessous se résolvent en flat config.
+  plugins: {
+    "react-hooks": reactHooks,
+  },
   rules: {
     // TypeScript rules
     "@typescript-eslint/no-explicit-any": "off",

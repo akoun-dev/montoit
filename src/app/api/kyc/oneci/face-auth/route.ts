@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
+import { checkRateLimit } from '@/lib/rate-limiter'
 
 export async function POST(req: NextRequest) {
   try {
     const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
+
+    // SEC-012 — Rate-limit 5/min par utilisateur (+ IP, standard kyc/face-auth).
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    const { allowed } = checkRateLimit('kyc-oneci-face-auth', `${userId}:${ip}`, { maxRequests: 5, windowMs: 60_000 })
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
+        { status: 429 },
+      )
     }
 
     const contentLength = Number(req.headers.get('content-length') || 0)

@@ -1,18 +1,51 @@
 // ─── CRYPTONEO / ANSUT Electronic Signature Helper ─────────────────────────────
 // Server-side only — NEVER import this on the client.
+//
+// DAT-004 (déduplication lib ↔ Edge Functions) : la logique PURE (codes
+// succès, normalisation du genre, shapes API) est extraite dans
+// `supabase/functions/_shared/cryptoneo-contract.ts` — source de vérité
+// partagée, runtime-agnostique (aucune dépendance Deno/Node/npm), importée
+// et ré-exportée ci-dessous. Ce module ne conserve que la partie runtime
+// Node/Next.js : secrets via `process.env`, cache du token JWT, fetch.
+//
+// ⚠️ Toute évolution du contrat (codes succès, shapes API) se fait dans
+// `cryptoneo-contract.ts` puis est héritée ici ET par
+// `supabase/functions/_shared/cryptoneo.ts` (runtime Deno).
+// Contrat de parité et tests manuels : docs/DEDUP-LIB-EDGE-FUNCTIONS.md.
+//
+// Historique de divergence corrigée (DAT-004) : `isCryptoneoSuccess` traitait
+// `code = 0` comme un succès (« falsy = succès ») et ignorait les codes
+// 7003/7004. Le contrat (aligné sur la version Edge, canonique) corrige :
+// 0 et les codes >= 8000 sont des ERREURS. Seul consommateur app : la route
+// admin `/api/signature/sync-aliases` — alignement voulu avec le comportement
+// des Edge Functions.
 
-/**
- * Normalise le genre pour CRYPTONEO qui attend "Homme" ou "Femme".
- */
-export function normalizeCryptoneoGender(gender?: string | null): string {
-    if (!gender) return 'Homme'
-    const g = gender.toLowerCase().trim()
-    if (g === 'homme' || g === 'm' || g === 'male' || g === 'masculin') return 'Homme'
-    if (g === 'femme' || g === 'f' || g === 'female' || g === 'feminin') return 'Femme'
-    return 'Homme'
-}
+import {
+  CRYPTONEO_TOKEN_TTL_MS,
+  type CryptoneoAuthResponse,
+} from '../../supabase/functions/_shared/cryptoneo-contract'
 
-// ─── Configuration ──────────────────────────────────────────────────────────────
+// ─── Contrat partagé (source de vérité — ré-export) ──────────────────────────
+
+export {
+  CRYPTONEO_SUCCESS_CODES,
+  isCryptoneoSuccess,
+  normalizeCryptoneoGender,
+} from '../../supabase/functions/_shared/cryptoneo-contract'
+
+export type {
+  CryptoneoAuthResponse,
+  CryptoneoCertificatResponse,
+  CryptoneoOtpResponse,
+  CryptoneoSignResponse,
+  CryptoneoSignedFileResponse,
+  CryptoneoUser,
+  CryptoneoUsersResponse,
+  CryptoneoVerifyResponse,
+  SignRequestItem,
+} from '../../supabase/functions/_shared/cryptoneo-contract'
+
+// ─── Configuration (runtime Node/Next uniquement) ─────────────────────────────
 
 export const CRYPTONEO_API_URL =
     process.env.CRYPTONEO_API_URL ||
@@ -22,79 +55,12 @@ export const APP_SECRET = process.env.CRYPTONEO_APP_SECRET || ""
 
 // ─── Token Cache ────────────────────────────────────────────────────────────────
 
-const TOKEN_TTL_MS = 30 * 60 * 1000 // 30 minutes
-
 interface CachedToken {
     token: string
     expiresAt: number // Date.now() + TTL
 }
 
 let cachedToken: CachedToken | null = null
-
-// ─── Type Definitions ───────────────────────────────────────────────────────────
-
-export interface CryptoneoAuthResponse {
-    data?: {
-        token?: string
-    }
-    statusCode?: number
-    statusMessage?: string
-    [key: string]: unknown
-}
-
-export interface CryptoneoCertificatResponse {
-    data?: {
-        aliasCertificat?: string
-    }
-    statusCode?: number
-    statusMessage?: string
-    [key: string]: unknown
-}
-
-export interface CryptoneoOtpResponse {
-    message?: string
-    [key: string]: unknown
-}
-
-/** Format envoyé par le frontend Next.js → l'Edge Function le convertit au format CRYPTONEO */
-export interface SignRequestInputItem {
-    fileName: string
-    base64: string
-    signataireNom: string
-    signatairePrenom: string
-    signataireEmail: string
-    signatairePhone: string
-    positionX?: number
-    positionY?: number
-    page?: number
-    visibleSignature?: boolean
-}
-
-export interface CryptoneoSignResponse {
-    data?: {
-        operationId?: string
-        signedFileName?: string
-    }
-    statusCode?: number
-    statusMessage?: string
-    [key: string]: unknown
-}
-
-export interface CryptoneoVerifyResponse {
-    data?: {
-        operationId?: string
-        status?: string
-        signedAt?: string
-        signerInfo?: { name?: string; certificateAlias?: string }
-    }
-    statusCode?: number
-    statusMessage?: string
-    [key: string]: unknown
-}
-
-export interface CryptoneoSignedFileResponse {
-    [key: string]: unknown
-}
 
 // ─── Token Management ───────────────────────────────────────────────────────────
 
@@ -135,7 +101,7 @@ export async function getCryptoneoToken(): Promise<string> {
 
     cachedToken = {
         token,
-        expiresAt: Date.now() + TOKEN_TTL_MS,
+        expiresAt: Date.now() + CRYPTONEO_TOKEN_TTL_MS,
     }
 
     return cachedToken.token
@@ -144,15 +110,6 @@ export async function getCryptoneoToken(): Promise<string> {
 /**
  * Clear the cached token (e.g., after a 401 from CRYPTONEO to force re-auth).
  */
-/** Codes succès CRYPTONEO : 200, 7000 (liste utilisateurs), etc. */
-const CRYPTONEO_SUCCESS_CODES = new Set([200, 7000, 7002])
-
-/** Vérifie si un code de retour CRYPTONEO indique un succès. */
-export function isCryptoneoSuccess(data: Record<string, unknown>): boolean {
-    const code = (data as any).code ?? (data as any).statusCode
-    return !code || CRYPTONEO_SUCCESS_CODES.has(code)
-}
-
 export function clearCryptoneoToken(): void {
     cachedToken = null
 }
@@ -189,4 +146,23 @@ export async function cryptoneoFetch(
     }
 
     return res
+}
+
+// ─── Type : format FRONTEND (Next.js → Edge Function) ────────────────────────
+
+/**
+ * Format envoyé par le frontend Next.js → l'Edge Function le convertit au
+ * format CRYPTONEO (`SignRequestItem`, défini dans le contrat partagé).
+ */
+export interface SignRequestInputItem {
+    fileName: string
+    base64: string
+    signataireNom: string
+    signatairePrenom: string
+    signataireEmail: string
+    signatairePhone: string
+    positionX?: number
+    positionY?: number
+    page?: number
+    visibleSignature?: boolean
 }

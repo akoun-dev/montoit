@@ -9,6 +9,7 @@ import {
   Building2,
   ChevronRight,
   Loader2,
+  Receipt,
   Smartphone,
   Zap,
   CheckCircle2,
@@ -21,6 +22,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { PaymentDialog } from './payment-dialog'
+import { QuittanceModal, isQuittanceEligible } from '@/components/shared/quittance-modal'
 import { PaginationControls } from '@/components/ui/pagination-controls'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -197,6 +199,8 @@ export function Payments({ onDetail }: PaymentsProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<PaymentItem | null>(null)
   const [advancing, setAdvancing] = useState(false)
+  // Quittance de loyer (FUN-001) : identifiant du paiement dont on consulte la quittance.
+  const [quittancePaymentId, setQuittancePaymentId] = useState<string | null>(null)
 
   const fetchPayments = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -644,52 +648,65 @@ export function Payments({ onDetail }: PaymentsProps) {
                         </div>
 
                         {/* Action area */}
-                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
-                          {payment.status === 'PENDING' && (
-                            <Button
-                              size="sm"
-                              onClick={(e) => handlePay(e, payment)}
-                              className="h-7 text-xs gap-1.5"
-                            >
-                              <CreditCard className="size-3" />
-                              Payer
-                            </Button>
-                          )}
-                          {payment.status === 'PROCESSING' && (
-                            <div className="flex items-center gap-1.5 text-xs text-blue-600">
-                              <Loader2 className="size-3 animate-spin" />
-                              En cours de traitement
-                            </div>
-                          )}
-                          {payment.status === 'PAID' && (
-                            <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-                              {payment.reference && (
-                                <span className="font-mono">Réf : {payment.reference.slice(0, 8)}</span>
-                              )}
-                            </div>
-                          )}
-                          {(payment.status === 'LATE') && (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={(e) => handlePay(e, payment)}
-                              className="h-7 text-xs gap-1.5"
-                            >
-                              <CreditCard className="size-3" />
-                              Payer maintenant
-                            </Button>
-                          )}
-                          {payment.status === 'PARTIAL' && (
-                            <Button
-                              size="sm"
-                              onClick={(e) => handlePay(e, payment)}
-                              className="h-7 text-xs gap-1.5"
-                            >
-                              <CreditCard className="size-3" />
-                              Solder le paiement
-                            </Button>
-                          )}
-                          <ChevronRight className="size-4 text-neutral-300" />
+                        <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-border/50">
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            {payment.status === 'PENDING' && (
+                              <Button
+                                size="sm"
+                                onClick={(e) => handlePay(e, payment)}
+                                className="h-7 text-xs gap-1.5"
+                              >
+                                <CreditCard className="size-3" />
+                                Payer
+                              </Button>
+                            )}
+                            {payment.status === 'PROCESSING' && (
+                              <div className="flex items-center gap-1.5 text-xs text-blue-600">
+                                <Loader2 className="size-3 animate-spin" />
+                                En cours de traitement
+                              </div>
+                            )}
+                            {payment.status === 'PAID' && payment.reference && (
+                              <span className="font-mono text-xs text-emerald-600">Réf : {payment.reference.slice(0, 8)}</span>
+                            )}
+                            {(payment.status === 'LATE') && (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={(e) => handlePay(e, payment)}
+                                className="h-7 text-xs gap-1.5"
+                              >
+                                <CreditCard className="size-3" />
+                                Payer maintenant
+                              </Button>
+                            )}
+                            {payment.status === 'PARTIAL' && (
+                              <Button
+                                size="sm"
+                                onClick={(e) => handlePay(e, payment)}
+                                className="h-7 text-xs gap-1.5"
+                              >
+                                <CreditCard className="size-3" />
+                                Solder le paiement
+                              </Button>
+                            )}
+                            {/* Quittance (FUN-001) : uniquement pour les paiements éligibles (PAYÉ / PARTIAL soldé) */}
+                            {isQuittanceEligible({ status: payment.status, amount: payment.amount, amountPaid: payment.amountPaid }) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setQuittancePaymentId(payment.id)
+                                }}
+                                className="h-7 text-xs gap-1.5 text-brand-600 border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+                              >
+                                <Receipt className="size-3" />
+                                Quittance
+                              </Button>
+                            )}
+                          </div>
+                          <ChevronRight className="size-4 text-neutral-300 shrink-0" />
                         </div>
                       </div>
                     </div>
@@ -715,6 +732,13 @@ export function Payments({ onDetail }: PaymentsProps) {
         onOpenChange={setDialogOpen}
         payment={selectedPayment}
         onSuccess={handlePaymentSuccess}
+      />
+
+      {/* Quittance de loyer (FUN-001) : modale imprimable partagée */}
+      <QuittanceModal
+        open={quittancePaymentId !== null}
+        onOpenChange={(o) => { if (!o) setQuittancePaymentId(null) }}
+        paymentId={quittancePaymentId}
       />
     </motion.div>
   )

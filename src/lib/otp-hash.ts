@@ -48,3 +48,62 @@ export function verifyOtpCode(code: string, identifier: string, storedHash: stri
     return false
   }
 }
+
+/**
+ * SEC-007 — Indique si une valeur stockée est bien un hash SHA-256 hexadécimal
+ * (64 caractères) et non un OTP en clair hérité d'avant la migration.
+ */
+export function isHashedOtp(stored: string | null | undefined): boolean {
+  return !!stored && /^[0-9a-f]{64}$/.test(stored)
+}
+
+function timingSafeStringEqual(a: string, b: string): boolean {
+  try {
+    const ab = Buffer.from(a)
+    const bb = Buffer.from(b)
+    if (ab.length !== bb.length) return false
+    return crypto.timingSafeEqual(ab, bb)
+  } catch {
+    return false
+  }
+}
+
+export interface OtpCandidateVerifyResult {
+  /** Le code fourni correspond à la valeur stockée. */
+  matched: boolean
+  /**
+   * La valeur stockée était un OTP en clair (migration douce) et la
+   * vérification a réussi : l'appelant DOIT ré-écrire la valeur en hash
+   * (`hashOtpCode(code, identifier)`) pour achever la migration.
+   */
+  needsRehash: boolean
+}
+
+/**
+ * SEC-007 — Vérifie un code OTP contre la valeur stockée, avec migration douce :
+ *  - valeur stockée hashée (64 hex) → comparaison via hash + pepper (timing-safe) ;
+ *  - valeur stockée en clair (lignes créées avant la branchement du hash) →
+ *    comparaison en clair (timing-safe) ; en cas de succès `needsRehash = true`
+ *    afin que l'appelant re-hashe la ligne immédiatement.
+ *
+ * @param code Code OTP fourni par l'utilisateur.
+ * @param identifier Sel de hash : téléphone, email, ou `<leaseId>:owner|tenant`.
+ * @param stored Valeur lue en base (colonne `code`, `owner_sign_otp`, …).
+ */
+export function verifyOtpCandidate(
+  code: string,
+  identifier: string,
+  stored: string | null | undefined
+): OtpCandidateVerifyResult {
+  if (!stored) return { matched: false, needsRehash: false }
+
+  const trimmed = code.trim()
+
+  if (isHashedOtp(stored)) {
+    return { matched: verifyOtpCode(trimmed, identifier, stored), needsRehash: false }
+  }
+
+  // Ligne legacy en clair : comparaison directe, puis re-hash par l'appelant.
+  const matched = timingSafeStringEqual(trimmed, stored)
+  return { matched, needsRehash: matched }
+}

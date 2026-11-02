@@ -7,6 +7,7 @@ import {
   CalendarDays, Home, ArrowRight, Loader2, ShieldCheck, XCircle,
   CheckCircle2, AlertTriangle, PenLine
 } from 'lucide-react'
+import { EmptyState, ErrorState, LoadingState } from '@/components/shared/states'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -373,21 +374,15 @@ export function VisitRequests() {
   // ─── Loading state ───────────────────────────────────────────────────────
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div><div className="h-8 w-56 bg-muted animate-pulse rounded" /><div className="h-4 w-72 bg-muted animate-pulse rounded mt-2" /></div>
-        <div className="flex gap-2">{[1,2,3,4,5].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>
-        {[1,2,3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}
-      </div>
-    )
+    return <LoadingState variant="detail" />
   }
 
   if (error) {
     return (
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <div className="space-y-6">
         <div><h1 className="text-xl sm:text-2xl font-bold text-foreground">Demandes de visite</h1><p className="text-muted-foreground mt-1">Gérez les demandes de visite de vos biens</p></div>
-        <Card className="border-amber-200 bg-amber-50"><CardContent className="p-4"><p className="text-sm text-amber-700">Impossible de charger les demandes. Veuillez réessayer.</p></CardContent></Card>
-      </motion.div>
+        <ErrorState description="Impossible de charger les demandes. Veuillez réessayer." retry={fetchData} />
+      </div>
     )
   }
 
@@ -469,23 +464,21 @@ export function VisitRequests() {
 
       {/* Visit list */}
       {filteredVisits.length === 0 ? (
-        <Card className="border-dashed border-border bg-muted/50">
-          <CardContent className="py-12 flex flex-col items-center text-center">
-            <Eye className="size-12 text-muted-foreground/40 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-1">
-              {search || propertyFilter !== 'ALL'
-                ? 'Aucune visite trouvée'
-                : statusFilter === 'PENDING'
-                  ? 'Aucune demande en attente'
-                  : 'Aucune visite'}
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              {search || propertyFilter !== 'ALL'
-                ? 'Essayez de modifier vos filtres de recherche.'
-                : 'Les nouvelles demandes de visite apparaîtront ici.'}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Eye}
+          title={
+            search || propertyFilter !== 'ALL'
+              ? 'Aucune visite trouvée'
+              : statusFilter === 'PENDING'
+                ? 'Aucune demande en attente'
+                : 'Aucune visite'
+          }
+          description={
+            search || propertyFilter !== 'ALL'
+              ? 'Essayez de modifier vos filtres de recherche.'
+              : 'Les nouvelles demandes de visite apparaîtront ici.'
+          }
+        />
       ) : (
         <AnimatePresence mode="wait">
           <motion.div

@@ -11,10 +11,43 @@ import {
   SUPABASE_PASSWORD_PLACEHOLDER,
 } from '@/lib/supabase/email-auth'
 import { toAuthUser } from '@/lib/supabase/profile'
+import type { UserRole } from '@/lib/supabase/types'
+
+// SEC-001 — Whitelist stricte des rôles auto-attribuables à l'inscription.
+// L'enum DB `user_role` inclut aussi ADMIN et TIERS_CONFIANCE : ils ne doivent
+// JAMAIS pouvoir être choisis via le body d'inscription (escalade de privilèges).
+const SELF_REGISTRATION_ROLES: readonly string[] = ['LOCATAIRE', 'PROPRIETAIRE', 'AGENCE']
+
+function resolveSelfRegistrationRole(
+  requestedRole: unknown,
+): { ok: true; role: string } | { ok: false } {
+  if (requestedRole === undefined || requestedRole === null || requestedRole === '') {
+    return { ok: true, role: 'LOCATAIRE' }
+  }
+  const normalized = typeof requestedRole === 'string' ? requestedRole.trim().toUpperCase() : ''
+  if (SELF_REGISTRATION_ROLES.includes(normalized)) {
+    return { ok: true, role: normalized }
+  }
+  return { ok: false }
+}
 
 export async function POST(req: NextRequest) {
   try {
     const { email, password, firstName, lastName, phone, role, method } = await req.json()
+
+    // SEC-001 — Rejet strict de tout rôle hors whitelist (au lieu de l'ignorer
+    // silencieusement) : 403 + log pour détection des tentatives d'escalade.
+    const roleResolution = resolveSelfRegistrationRole(role)
+    if (!roleResolution.ok) {
+      console.warn(
+        `[Register][SEC-001] Tentative d'inscription avec un rôle non autorisé : ${String(role)}`,
+      )
+      return NextResponse.json(
+        { error: 'Rôle non autorisé pour l\'auto-inscription' },
+        { status: 403 },
+      )
+    }
+    const safeRole = roleResolution.role
 
     if (!firstName || !lastName) {
       return NextResponse.json(
@@ -102,8 +135,8 @@ export async function POST(req: NextRequest) {
             password_hash: SUPABASE_PASSWORD_PLACEHOLDER,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
-            role: role || 'LOCATAIRE',
-            active_role: role || 'LOCATAIRE',
+            role: safeRole as UserRole,
+            active_role: safeRole as UserRole,
             is_active: true,
             is_email_verified: false,
             is_phone_verified: false,
@@ -190,8 +223,8 @@ export async function POST(req: NextRequest) {
             first_name: firstName,
             last_name: lastName,
             email: email || existingUser.email,
-            role: role || 'LOCATAIRE',
-            active_role: role || 'LOCATAIRE',
+            role: safeRole as UserRole,
+            active_role: safeRole as UserRole,
             is_phone_verified: false,
             is_active: true,
             password_hash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
@@ -215,8 +248,8 @@ export async function POST(req: NextRequest) {
             password_hash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
             first_name: firstName,
             last_name: lastName,
-            role: (role || 'LOCATAIRE') as any,
-            active_role: (role || 'LOCATAIRE') as any,
+            role: safeRole as any,
+            active_role: safeRole as any,
             is_phone_verified: false,
             is_active: true,
           } as any)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
+import { signStorageUrl } from '@/lib/supabase/storage'
 
 export async function GET(
   req: NextRequest,
@@ -248,10 +249,12 @@ async function enrichSingleMandat(admin: ReturnType<typeof getSupabaseAdminClien
     .eq('id', m.owner_id)
     .single()
 
-  return mapMandat(m, property, images ?? [], agency, owner)
+  return await mapMandat(m, property, images ?? [], agency, owner)
 }
 
-function mapMandat(m: any, property?: any, images?: any[], agency?: any, owner?: any) {
+/** SEC-006 : le bucket mandat-documents est privé — le contract_url renvoyé au
+ * client est converti en URL signée (1 h) avant la réponse. */
+async function mapMandat(m: any, property?: any, images?: any[], agency?: any, owner?: any) {
   return {
     id: m.id,
     propertyId: m.property_id,
@@ -269,7 +272,7 @@ function mapMandat(m: any, property?: any, images?: any[], agency?: any, owner?:
     agencySignedAt: m.agency_signed_at,
     ownerSignatureImage: m.owner_signature_image,
     agencySignatureImage: m.agency_signature_image,
-    contractUrl: m.contract_url,
+    contractUrl: await signStorageUrl(m.contract_url),
     cryptoneoOperationId: m.cryptoneo_operation_id,
     terminatedAt: m.terminated_at,
     terminationReason: m.termination_reason,

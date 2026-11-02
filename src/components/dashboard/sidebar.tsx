@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ChevronLeft, ChevronRight,
   Search, Heart, UserCheck, CreditCard, Bell, Wrench, UserCircle, Home, MapPin, Scale, FolderOpen, Lock,
   Award, Fingerprint, ShieldAlert, GraduationCap, Megaphone, Flag, Activity, Database, RefreshCw,
-  PlusCircle, Star
+  PlusCircle, Star, Wallet
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -88,6 +88,13 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
             { id: 'mandats', label: 'Mes mandats', icon: ScrollText },
             { id: 'maintenance', label: 'Maintenance', icon: Wrench },
             { id: 'payments', label: 'Paiements', icon: CreditCard },
+          ],
+        },
+        {
+          title: 'FINANCES',
+          items: [
+            { id: 'finances', label: 'Finances', icon: Wallet },
+            { id: 'analytics', label: 'Analytics', icon: BarChart3 },
           ],
         },
         {

@@ -3,7 +3,8 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
 import { openValidationSla } from '@/lib/validation-sla'
-import { BUCKETS, deleteFromStorage, extractBucketAndPath, uploadFromBase64 } from '@/lib/supabase/storage'
+import { BUCKETS, deleteFromStorage, extractBucketAndPath, signStorageUrl, uploadFromBase64 } from '@/lib/supabase/storage'
+import { validateBase64Upload, uploadValidationHttpStatus } from '@/lib/file-validation'
 
 // Agency legal documents (AGREMENT, RCCM) validated by the Tiers de Confiance.
 // Until this route existed, ownership_documents had no writer at all for
@@ -42,15 +43,16 @@ export async function GET(req: NextRequest) {
       .in('type', LEGAL_DOC_TYPES)
       .order('created_at', { ascending: false })
 
-    const documents = (data ?? []).map((d: any) => ({
+    // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+    const documents = await Promise.all((data ?? []).map(async (d: any) => ({
       id: d.id,
       type: d.type,
       name: d.name,
-      url: d.url,
+      url: await signStorageUrl(d.url),
       status: d.status,
       tcComment: d.tc_comment,
       createdAt: d.created_at,
-    }))
+    })))
 
     return auth.applyCookies(NextResponse.json({ documents }))
   } catch (error) {
@@ -89,6 +91,19 @@ export async function POST(req: NextRequest) {
 
     let url = existingDoc?.url || ''
     if (content) {
+      // SEC-009 — Magic bytes + taille max (10 Mo) sur le contenu réel.
+      const validation = validateBase64Upload(content, {
+        allowed: ['jpeg', 'png', 'pdf', 'webp'],
+      })
+      if (!validation.ok) {
+        console.warn(
+          `[agence/legal-documents][SEC-009] Upload rejeté (${validation.code}) pour ${auth.userId}`,
+        )
+        return NextResponse.json(
+          { error: validation.error },
+          { status: uploadValidationHttpStatus(validation) },
+        )
+      }
       const ext = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : 'pdf'
       const filePath = `${auth.userId}/agency/${type}_${Date.now()}.${ext}`
       url = await uploadFromBase64(BUCKETS.OWNER_DOCUMENTS, content, filePath)
@@ -145,7 +160,8 @@ export async function POST(req: NextRequest) {
       id: document.id,
       type: document.type,
       name: document.name,
-      url: document.url,
+      // SEC-006 : URL signée (1 h) pour l'affichage immédiat du document
+      url: await signStorageUrl(document.url),
       status: document.status,
       tcComment: document.tc_comment,
       createdAt: document.created_at,

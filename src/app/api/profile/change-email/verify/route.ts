@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { normalizeEmail } from '@/lib/supabase/email-auth'
-import { checkRateLimit } from '@/lib/rate-limiter'
+import { checkRateLimit, getClientIp, userIpRateLimitKey } from '@/lib/rate-limiter'
+import { hashOtpCode, verifyOtpCandidate } from '@/lib/otp-hash'
 
 export async function POST(req: NextRequest) {
   const auth = await resolveRequestUser(req)
@@ -28,14 +29,28 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // SEC-007 — Rate-limit strict anti brute-force : 5 tentatives / 15 min
+    // par couple email + IP.
+    const strictAllowed = checkRateLimit(
+      'otp-verify-strict',
+      userIpRateLimitKey(normalizedEmail, getClientIp(req)),
+      { maxRequests: 5, windowMs: 15 * 60_000 }
+    )
+    if (!strictAllowed.allowed) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Veuillez réessayer dans 15 minutes.' },
+        { status: 429, headers: { 'Retry-After': String(15 * 60) } }
+      )
+    }
+
     const admin = getSupabaseAdminClient()
 
+    // SEC-007 — comparaison via hash (migration douce des lignes legacy).
     const { data: otp } = await admin
       .from('otp_codes')
-      .select('id')
+      .select('id, code')
       .eq('user_id', userId)
       .eq('email', normalizedEmail)
-      .eq('code', code.trim())
       .eq('type', 'EMAIL_CHANGE')
       .eq('is_used', false)
       .gt('expires_at', new Date().toISOString())
@@ -45,6 +60,18 @@ export async function POST(req: NextRequest) {
 
     if (!otp) {
       return NextResponse.json({ error: 'Code invalide ou expiré' }, { status: 400 })
+    }
+
+    const verdict = verifyOtpCandidate(code, normalizedEmail, otp.code)
+    if (!verdict.matched) {
+      return NextResponse.json({ error: 'Code invalide ou expiré' }, { status: 400 })
+    }
+
+    if (verdict.needsRehash) {
+      await admin
+        .from('otp_codes')
+        .update({ code: hashOtpCode(code.trim(), normalizedEmail) })
+        .eq('id', otp.id)
     }
 
     const { error: markUsedError } = await admin

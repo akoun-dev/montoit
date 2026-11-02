@@ -651,6 +651,17 @@ export const useAuthStore = create<AuthState>()(
                 // Deduplicate: if a checkAuth is already in progress, reuse that promise
                 if (checkAuthPromise) return checkAuthPromise
 
+                // Dégradation gracieuse (règle d'architecture n°4) : si l'appel reste
+                // suspendu (réseau instable, proxy, HMR dev, WebView), on débloque
+                // l'interface avec l'état persisté plutôt qu'un spinner infini.
+                let failsafeTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+                    failsafeTimer = null
+                    console.warn(
+                        "[checkAuth] Délai dépassé sans réponse — déblocage de l'interface en mode dégradé"
+                    )
+                    set({ isInitialized: true })
+                }, 8000)
+
                 checkAuthPromise = (async () => {
                     try {
                         const res = await apiFetch("/api/auth/me", {
@@ -701,6 +712,10 @@ export const useAuthStore = create<AuthState>()(
                         // The persisted state might still be valid when connectivity returns
                         set({ isInitialized: true })
                     } finally {
+                        if (failsafeTimer) {
+                            clearTimeout(failsafeTimer)
+                            failsafeTimer = null
+                        }
                         checkAuthPromise = null
                     }
                 })()

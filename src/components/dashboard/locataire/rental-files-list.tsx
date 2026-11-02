@@ -5,10 +5,20 @@ import { FileText, Plus, CheckCircle2, AlertCircle, Clock, ArrowRight, Loader2, 
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { EmptyState } from '@/components/shared/states'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useActiveDossierStore } from '@/lib/active-dossier-store'
+import {
+  normalizeRentalFileType,
+  RENTAL_FILE_TYPES,
+  RENTAL_FILE_TYPE_DESCRIPTIONS,
+  rentalFileTypeLabel,
+} from '@/lib/rental-file-types'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { RentalFileTypeBadge } from './rental-file-type-badge'
 
 import type { RentalFileItem } from './rental-file'
 
@@ -31,7 +41,7 @@ interface RentalFilesResponse {
 }
 
 export function RentalFilesList() {
-  const { isAuthenticated, setDashboardSection } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [files, setFiles] = useState<RentalFileItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -53,17 +63,34 @@ export function RentalFilesList() {
 
   useEffect(() => { fetchFiles() }, [fetchFiles])
 
-  const handleCreateNewDraft = async () => {
+  const openCreateDialog = () => setShowCreateDialog(true)
+
+  /**
+   * FUN-002 : création d'un dossier d'un type précis.
+   * Le serveur renvoie 409 « Vous avez déjà un dossier en brouillon pour ce
+   * type » si un DRAFT du même type existe (double protection : le bouton du
+   * type concerné est aussi désactivé dans la boîte de dialogue).
+   */
+  const handleCreateNewDraft = async (fileType: string) => {
     setCreating(true)
     try {
       const raw: any = await authFetch('/api/rental-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ fileType }),
       })
       if (raw?.data?.id) {
-        toast.success('Nouveau dossier créé')
+        toast.success(`Nouveau dossier ${rentalFileTypeLabel(raw.data.fileType ?? fileType)} créé`)
         setShowCreateDialog(false)
+        if (user?.id) {
+          useActiveDossierStore.getState().setActiveDossier(user.id, {
+            id: raw.data.id,
+            fileType: normalizeRentalFileType(raw.data.fileType ?? fileType),
+            status: raw.data.status ?? 'DRAFT',
+          })
+        }
+        // Ouvre directement le formulaire sur le dossier créé
+        setDashboardSection('rental-file')
         fetchFiles()
       }
     } catch (err) {
@@ -73,12 +100,17 @@ export function RentalFilesList() {
     }
   }
 
-  const handleResubmit = async (fileId: string) => {
+  const handleResubmit = async (file: RentalFileItem) => {
     try {
+      // FUN-002 : resoumission ciblée (le bon dossier, même en multi-dossiers)
       await authFetch('/api/rental-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ submit: true }),
+        body: JSON.stringify({
+          rentalFileId: file.id,
+          fileType: normalizeRentalFileType(file.fileType),
+          submit: true,
+        }),
       })
       toast.success('Dossier soumis à nouveau')
       fetchFiles()
@@ -130,20 +162,20 @@ export function RentalFilesList() {
               Créez et gérez plusieurs dossiers pour postuler à différentes annonces
             </p>
           </div>
-          {files.filter((f) => f.status === 'DRAFT').length === 0 && (
-            <Button
-              className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0"
-              onClick={handleCreateNewDraft}
-              disabled={creating}
-            >
-              {creating ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Plus className="size-4" />
-              )}
-              <span className="hidden sm:inline">Nouveau dossier</span>
-            </Button>
-          )}
+          {/* FUN-002 : création toujours accessible — le choix du type est fait
+              dans la boîte de dialogue (blocage explicite si DRAFT du même type) */}
+          <Button
+            className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0"
+            onClick={openCreateDialog}
+            disabled={creating}
+          >
+            {creating ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Plus className="size-4" />
+            )}
+            <span className="hidden sm:inline">Nouveau dossier</span>
+          </Button>
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
           <Badge variant="secondary" className="bg-brand-50 text-brand-700">
@@ -160,27 +192,12 @@ export function RentalFilesList() {
 
       {/* Files list */}
       {sortedFiles.length === 0 ? (
-        <Card className="border-border">
-          <CardContent className="py-12 text-center">
-            <FileText className="size-12 text-neutral-300 mx-auto mb-4" />
-            <p className="text-muted-foreground font-medium">Aucun dossier locatif</p>
-            <p className="text-sm text-muted-foreground mt-1 mb-4">
-              Créez votre premier dossier pour commencer à postuler aux annonces
-            </p>
-            <Button
-              className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
-              onClick={handleCreateNewDraft}
-              disabled={creating}
-            >
-              {creating ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Plus className="size-4" />
-              )}
-              Créer un dossier
-            </Button>
-          </CardContent>
-        </Card>
+        <EmptyState
+          title="Aucun dossier locatif"
+          description="Créez votre premier dossier pour commencer à postuler aux annonces"
+          icon={FileText}
+          action={{ label: 'Créer un dossier', onClick: openCreateDialog }}
+        />
       ) : (
         <div className="space-y-3">
           {groupedFiles.map((group) => (
@@ -217,8 +234,11 @@ export function RentalFilesList() {
                               <FileText className="size-4 text-muted-foreground shrink-0" />
                             )}
                             <span className="text-sm font-semibold text-foreground">
-                              Dossier du {formatDate(file.createdAt)}
+                              Dossier {rentalFileTypeLabel(file.fileType)} du {formatDate(file.createdAt)}
                             </span>
+                            {/* FUN-002 : badge type de dossier (composant partagé locataire,
+                                même style que candidatures + overview) */}
+                            <RentalFileTypeBadge fileType={file.fileType} />
                             <Badge variant="outline" className={`text-[10px] ${config?.color}`}>
                               {config?.label}
                             </Badge>
@@ -280,7 +300,7 @@ export function RentalFilesList() {
                               size="sm"
                               variant="outline"
                               className="text-xs gap-1 border-brand-200 text-brand-600 hover:bg-brand-50"
-                              onClick={() => handleResubmit(file.id)}
+                              onClick={() => handleResubmit(file)}
                             >
                               <Send className="size-3" />
                               Resoumettre
@@ -292,7 +312,17 @@ export function RentalFilesList() {
                               size="sm"
                               variant="outline"
                               className="text-xs gap-1"
-                              onClick={() => setDashboardSection('rental-file')}
+                              onClick={() => {
+                                // FUN-002 : ce DRAFT devient le dossier actif avant d'ouvrir le formulaire
+                                if (user?.id) {
+                                  useActiveDossierStore.getState().setActiveDossier(user.id, {
+                                    id: file.id,
+                                    fileType: normalizeRentalFileType(file.fileType),
+                                    status: file.status,
+                                  })
+                                }
+                                setDashboardSection('rental-file')
+                              }}
                             >
                               <ArrowRight className="size-3" />
                               Continuer
@@ -308,6 +338,60 @@ export function RentalFilesList() {
           ))}
         </div>
       )}
+
+      {/* ─── FUN-002 : boîte de dialogue de création par type ─────────── */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="size-5 text-brand-500" />
+              Créer un dossier locatif
+            </DialogTitle>
+            <DialogDescription>
+              Choisissez le type de dossier à créer. Un seul brouillon par type est
+              autorisé — les autres dossiers ne sont pas affectés.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            {RENTAL_FILE_TYPES.map((type) => {
+              const draftExists = files.some(
+                (f) => f.status === 'DRAFT' && normalizeRentalFileType(f.fileType) === type,
+              )
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  disabled={creating || draftExists}
+                  title={draftExists ? 'Vous avez déjà un dossier en brouillon pour ce type' : undefined}
+                  onClick={() => handleCreateNewDraft(type)}
+                  className={`w-full text-left p-3 rounded-xl border-2 transition-all active:scale-[0.98] ${
+                    draftExists
+                      ? 'border-border bg-muted/50 opacity-60 cursor-not-allowed'
+                      : 'border-border bg-card hover:border-brand-300 hover:bg-brand-50/50 cursor-pointer'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-foreground">{rentalFileTypeLabel(type)}</p>
+                    {draftExists && (
+                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                        Brouillon existant
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{RENTAL_FILE_TYPE_DESCRIPTIONS[type]}</p>
+                </button>
+              )
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={creating}>
+              Annuler
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

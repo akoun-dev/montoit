@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
-import { BUCKETS, deleteFromStorage, extractBucketAndPath, uploadFromBase64 } from '@/lib/supabase/storage'
+import { BUCKETS, deleteFromStorage, extractBucketAndPath, signStorageUrl, uploadFromBase64 } from '@/lib/supabase/storage'
+import { validateBase64Upload, uploadValidationHttpStatus } from '@/lib/file-validation'
 
 export async function POST(req: NextRequest) {
   try {
@@ -62,6 +63,19 @@ export async function POST(req: NextRequest) {
 
     let url = existingDoc?.url || ''
     if (content) {
+      // SEC-009 — Magic bytes + taille max (10 Mo) sur le contenu réel.
+      const validation = validateBase64Upload(content, {
+        allowed: ['jpeg', 'png', 'pdf', 'webp'],
+      })
+      if (!validation.ok) {
+        console.warn(
+          `[rental-file/documents][SEC-009] Upload rejeté (${validation.code}) pour ${userId}`,
+        )
+        return NextResponse.json(
+          { error: validation.error },
+          { status: uploadValidationHttpStatus(validation) },
+        )
+      }
       const ext = guessFileExt(name)
       const filePath = `${userId}/${rentalFileId}/${type}_${Date.now()}.${ext}`
       url = await uploadFromBase64(BUCKETS.RENTAL_DOCUMENTS, content, filePath)
@@ -105,7 +119,8 @@ export async function POST(req: NextRequest) {
       rentalFileId: document.rental_file_id,
       type: document.type,
       name: document.name,
-      url: document.url,
+      // SEC-006 : URL signée (1 h) pour l'affichage immédiat du document
+      url: await signStorageUrl(document.url),
       status: document.status,
       tcComment: document.tc_comment,
       createdAt: document.created_at,

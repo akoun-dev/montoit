@@ -3,6 +3,13 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import crypto from 'crypto'
 
+// SEC-009 — Plafond configurable par paiement/transfert (anti-fraude).
+// Surchargable via la variable d'environnement MAX_TRANSFER_AMOUNT_XOF.
+const MAX_TRANSFER_AMOUNT_XOF = (() => {
+  const parsed = Number(process.env.MAX_TRANSFER_AMOUNT_XOF)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5_000_000
+})()
+
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
@@ -88,6 +95,21 @@ export async function POST(req: NextRequest) {
     const monthlyRent = activeLease.monthly_rent || propertyPrice
     if (monthlyRent <= 0) {
       return applyCookies(NextResponse.json({ error: 'Le loyer mensuel n\'est pas défini' }, { status: 400 }))
+    }
+
+    // SEC-009 — Garde-fou : refus d'une échéance au-delà du plafond configuré.
+    if (monthlyRent > MAX_TRANSFER_AMOUNT_XOF) {
+      console.warn(
+        `[payments/advance][SEC-009] Paiement en avance refusé (plafond ${MAX_TRANSFER_AMOUNT_XOF} XOF) : ${monthlyRent} XOF`,
+      )
+      return applyCookies(
+        NextResponse.json(
+          {
+            error: `Montant au-delà du plafond autorisé (${MAX_TRANSFER_AMOUNT_XOF.toLocaleString('fr-FR')} XOF par transaction)`,
+          },
+          { status: 422 },
+        ),
+      )
     }
 
     const { data: newPayment, error: insertError } = await (supabase

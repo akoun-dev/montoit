@@ -19,7 +19,7 @@ import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ActivityHistory } from '@/components/dashboard/locataire/history'
+import { ActivityHistory } from '@/components/shared/activity-history'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

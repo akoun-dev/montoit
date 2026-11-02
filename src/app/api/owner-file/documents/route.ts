@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
-import { BUCKETS, deleteFromStorage, extractBucketAndPath, uploadFromBase64 } from '@/lib/supabase/storage'
+import { BUCKETS, deleteFromStorage, extractBucketAndPath, signStorageUrl, uploadFromBase64 } from '@/lib/supabase/storage'
+import { validateBase64Upload, uploadValidationHttpStatus } from '@/lib/file-validation'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -61,14 +62,17 @@ export async function GET(req: NextRequest) {
       .select('id, name, type, url, status, property_id')
       .in('owner_file_id', ownerFileIds)
 
-    const mappedDocs = documents?.map(doc => ({
-      id: doc.id,
-      name: doc.name || '',
-      type: doc.type || 'OTHER',
-      url: doc.url,
-      status: doc.status,
-      propertyId: doc.property_id,
-    })) || []
+    // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+    const mappedDocs = await Promise.all(
+      (documents ?? []).map(async (doc) => ({
+        id: doc.id,
+        name: doc.name || '',
+        type: doc.type || 'OTHER',
+        url: await signStorageUrl(doc.url),
+        status: doc.status,
+        propertyId: doc.property_id,
+      }))
+    )
 
     const resp = NextResponse.json({ documents: mappedDocs })
     return applyCookies(resp)
@@ -169,6 +173,19 @@ export async function POST(req: NextRequest) {
 
     let url = existingDoc?.url || ''
     if (content) {
+      // SEC-009 — Magic bytes + taille max (10 Mo) sur le contenu réel.
+      const validation = validateBase64Upload(content, {
+        allowed: ['jpeg', 'png', 'pdf', 'webp'],
+      })
+      if (!validation.ok) {
+        console.warn(
+          `[owner-file/documents][SEC-009] Upload rejeté (${validation.code}) pour ${userId}`,
+        )
+        return NextResponse.json(
+          { error: validation.error },
+          { status: uploadValidationHttpStatus(validation) },
+        )
+      }
       const ext = guessFileExt(name)
       const filePath = `${userId}/${ownerFileId}/${type}_${Date.now()}.${ext}`
       url = await uploadFromBase64(BUCKETS.OWNER_DOCUMENTS, content, filePath)
@@ -231,7 +248,8 @@ export async function POST(req: NextRequest) {
       ownerFileId: document.owner_file_id,
       type: document.type,
       name: document.name,
-      url: document.url,
+      // SEC-006 : URL signée (1 h) pour l'affichage immédiat du document
+      url: await signStorageUrl(document.url),
       status: document.status,
       tcComment: document.tc_comment,
       propertyId: document.property_id,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { signStorageUrl } from '@/lib/supabase/storage'
 import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
 import crypto from 'crypto'
 import { generateAndUploadMandatPdf } from '@/lib/generate-and-upload-mandat-pdf'
@@ -23,22 +24,21 @@ async function getCurrentMandatPdfInfo(
   }
 
   let pdfUrl = contractUrl
-  const pathMatch = contractUrl.match(/\/object\/public\/[^/]+\/(.+)/)
-  const storagePath = pathMatch?.[1]
-  if (storagePath) {
-    try {
-      const { data: signedData } = await supabase
-        .storage
-        .from('mandat-documents')
-        .createSignedUrl(storagePath, 300)
-      if (signedData?.signedUrl) pdfUrl = signedData.signedUrl
-    } catch { }
-  }
+  // SEC-006 : le bucket mandat-documents est privé (migration 20261027000001)
+  // — conversion en URL signée (1 h) via le helper centralisé ; une URL
+  // externe (CRYPTONEO) ou un échec de signature retombent sur l'URL
+  // canonique (le fetch échouera alors côté serveur, sans exposer de lecture
+  // publique).
+  try {
+    const signedUrl = await signStorageUrl(contractUrl)
+    if (signedUrl) pdfUrl = signedUrl
+  } catch { }
 
   try {
     const res = await fetch(pdfUrl)
     if (!res.ok) {
-      console.error(`Failed to download mandat PDF from ${contractUrl} (status: ${res.status})`)
+      // Pas d'URL dans le log : une URL signée embarque un token d'accès.
+      console.error(`Failed to download mandat PDF (mandat ${mandatId}, status: ${res.status})`)
       return null
     }
     const arrayBuffer = await res.arrayBuffer()

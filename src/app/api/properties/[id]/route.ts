@@ -10,6 +10,7 @@ import {
   isBase64DataUrl,
   guessExtensionFromMime,
   extractBucketAndPath,
+  signDocUrls,
 } from '@/lib/supabase/storage'
 
 function generateId() {
@@ -506,7 +507,8 @@ async function enrichSingleProperty(admin: ReturnType<typeof getSupabaseAdminCli
       createdAt: img.created_at,
       propertyId: img.property_id,
     })),
-    documents: (documents ?? []).map((document: any) => ({
+    // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+    documents: await signDocUrls((documents ?? []).map((document: any) => ({
       id: document.id,
       name: document.name,
       type: document.type,
@@ -514,7 +516,7 @@ async function enrichSingleProperty(admin: ReturnType<typeof getSupabaseAdminCli
       description: document.description,
       expiryDate: document.expiry_date,
       createdAt: document.created_at,
-    })),
+    }))),
     similarProperties: (similarRows ?? []).map((similar: any) => ({
       id: similar.id,
       title: similar.title,

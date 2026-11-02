@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { signDocUrls } from '@/lib/supabase/storage'
 import { notify } from '@/lib/notify'
 
 /** Returns a Map of fileId → last rejection date (ISO string) */
@@ -97,9 +98,10 @@ export async function GET(req: NextRequest) {
       : { data: [] as any[] }
     const docPropertyMap = new Map<string, any>((docProperties ?? []).map((p: any) => [p.id, p]))
 
-    const files = filesRaw.map((f: any) => {
+    const files = await Promise.all(filesRaw.map(async (f: any) => {
       const owner = ownerMap.get(f.owner_id)
-      const documents = (docByFile.get(f.id) ?? []).map((d: any) => ({
+      // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+      const documents = await signDocUrls((docByFile.get(f.id) ?? []).map((d: any) => ({
         id: d.id,
         ownerFileId: d.owner_file_id,
         type: d.type,
@@ -110,7 +112,7 @@ export async function GET(req: NextRequest) {
         createdAt: d.created_at,
         propertyId: d.property_id,
         property: docPropertyMap.get(d.property_id) ? { id: docPropertyMap.get(d.property_id).id, title: docPropertyMap.get(d.property_id).title } : null,
-      }))
+      })))
 
       return {
         id: f.id,
@@ -134,7 +136,7 @@ export async function GET(req: NextRequest) {
         } : null,
         documents,
       }
-    })
+    }))
 
     const resp = NextResponse.json({
       files,

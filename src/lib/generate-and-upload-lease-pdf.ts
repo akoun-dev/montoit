@@ -1,6 +1,6 @@
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { generateBailContract, type BailContractData } from '@/lib/generate-bail'
-import { uploadFromBase64, getPublicUrl, BUCKETS } from '@/lib/supabase/storage'
+import { uploadFromBase64, BUCKETS } from '@/lib/supabase/storage'
 import {
   getLeaseAdvanceMonthLabels,
   getLeaseAdvanceRentAmount,

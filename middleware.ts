@@ -123,6 +123,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // ⚠️ _next/hmr, _next/websocket et _next/webpack-hmr DOIVENT être exclus :
+    // le middleware ne préserve pas les en-têtes Upgrade des WebSockets,
+    // ce qui casse le HMR Turbopack (et bloque l'hydratation en dev).
+    '/((?!_next/static|_next/image|_next/hmr|_next/websocket|_next/webpack-hmr|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

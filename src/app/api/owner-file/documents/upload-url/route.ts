@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
-import { BUCKETS, ensureBucketExists } from '@/lib/supabase/storage'
+import { BUCKETS, ensureBucketExists, getSignedUrl, SIGNED_URL_EXPIRES_IN_SECONDS } from '@/lib/supabase/storage'
+import { isAllowedFileName } from '@/lib/file-validation'
 
 export async function POST(req: NextRequest) {
   const auth = await resolveRequestUser(req)
@@ -21,6 +22,15 @@ export async function POST(req: NextRequest) {
 
     if (!ownerFileId || !type || !name) {
       return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
+    }
+
+    // SEC-009 — Whitelist d'extensions : avant, l'extension du `name` client
+    // était reprise telle quelle dans le chemin de stockage.
+    if (!isAllowedFileName(name)) {
+      return NextResponse.json(
+        { error: 'Type de fichier non autorisé (extensions acceptées : jpg, jpeg, png, webp, pdf, doc, docx, xls, xlsx, txt, zip)' },
+        { status: 415 },
+      )
     }
 
     const validTypes = [
@@ -74,13 +84,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Erreur de création du lien de téléchargement" }, { status: 500 })
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from(BUCKETS.OWNER_DOCUMENTS)
-      .getPublicUrl(filePath)
+    // SEC-006 : le bucket owner-documents est privé — on renvoie une URL
+    // signée de lecture (1 h) au lieu de l'URL publique (désormais morte).
+    const readUrl = await getSignedUrl(BUCKETS.OWNER_DOCUMENTS, filePath, SIGNED_URL_EXPIRES_IN_SECONDS)
 
     const response = NextResponse.json({
       uploadUrl: data.signedUrl,
-      publicUrl: publicUrlData.publicUrl,
+      publicUrl: readUrl,
       token: data.token,
       filePath,
     })

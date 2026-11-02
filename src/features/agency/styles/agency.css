@@ -1,0 +1,314 @@
+/* 
+ * Agency Dashboard Styles
+ * Styles spécifiques pour le dashboard d'agence
+ * Extensions du design system principal
+ */
+
+/* ===== VARIABLES AGENCY-SPECIFIC ===== */
+:root {
+  /* Couleurs spécifiques à l'agence */
+  --agency-gradient-primary: linear-gradient(135deg, #ff6c2f 0%, #e05519 100%);
+  --agency-gradient-success: linear-gradient(135deg, #059669 0%, #047857 100%);
+  --agency-gradient-warning: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  --agency-gradient-info: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+
+  /* Ombres premium pour l'agence */
+  --agency-shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --agency-shadow-card-hover:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --agency-shadow-header: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+
+  /* Espacement spécifique */
+  --agency-spacing-section: 2rem;
+  --agency-spacing-card-padding: 1.5rem;
+  --agency-spacing-card-gap: 1.5rem;
+}
+
+/* ===== CLASSES UTILITAIRES AGENCY ===== */
+.agency-gradient-primary {
+  background: var(--agency-gradient-primary);
+}
+
+.agency-gradient-success {
+  background: var(--agency-gradient-success);
+}
+
+.agency-gradient-warning {
+  background: var(--agency-gradient-warning);
+}
+
+.agency-gradient-info {
+  background: var(--agency-gradient-info);
+}
+
+.agency-shadow-card {
+  box-shadow: var(--agency-shadow-card);
+}
+
+.agency-shadow-card-hover {
+  box-shadow: var(--agency-shadow-card-hover);
+}
+
+.agency-shadow-header {
+  box-shadow: var(--agency-shadow-header);
+}
+
+/* ===== SIDEBAR STYLES ===== */
+.agency-sidebar {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(229, 229, 229, 0.8);
+}
+
+.agency-nav-item {
+  @apply flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200;
+}
+
+.agency-nav-item:hover {
+  @apply bg-gray-50 text-orange-600;
+}
+
+.agency-nav-item.active {
+  @apply bg-orange-50 text-orange-700 border border-orange-200;
+}
+
+/* ===== HEADER STYLES ===== */
+.agency-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(229, 229, 229, 0.8);
+  box-shadow: var(--agency-shadow-header);
+}
+
+.agency-search-input {
+  background: rgba(249, 250, 251, 0.8);
+  border: 1px solid rgba(229, 229, 229, 0.8);
+  transition: all 0.2s ease;
+}
+
+.agency-search-input:focus {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #ff6c2f;
+  box-shadow: 0 0 0 3px rgba(255, 108, 47, 0.1);
+}
+
+/* ===== STATS CARDS ===== */
+.agency-stat-card {
+  @apply bg-white rounded-2xl p-6 transition-all duration-300 cursor-pointer;
+  box-shadow: var(--agency-shadow-card);
+  border: 1px solid rgba(229, 229, 229, 0.5);
+}
+
+.agency-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--agency-shadow-card-hover);
+}
+
+.agency-stat-icon {
+  @apply w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300;
+}
+
+.agency-stat-card:hover .agency-stat-icon {
+  transform: scale(1.1);
+}
+
+/* ===== PROPERTIES TABLE ===== */
+.agency-table {
+  @apply w-full;
+}
+
+.agency-table th {
+  @apply text-left py-4 px-4 font-semibold text-neutral-700 border-b-2 border-neutral-200;
+}
+
+.agency-table td {
+  @apply py-4 px-4 border-b border-neutral-100;
+}
+
+.agency-table tr:hover {
+  @apply bg-neutral-50;
+}
+
+.agency-property-card {
+  @apply flex items-center space-x-3 p-4 bg-neutral-50 rounded-xl transition-all duration-200;
+}
+
+.agency-property-card:hover {
+  @apply bg-neutral-100 shadow-sm;
+}
+
+/* ===== REGISTRATION REQUESTS ===== */
+.agency-request-card {
+  @apply bg-white rounded-2xl p-6 transition-all duration-300;
+  box-shadow: var(--agency-shadow-card);
+  border: 1px solid rgba(229, 229, 229, 0.5);
+}
+
+.agency-request-card:hover {
+  box-shadow: var(--agency-shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+.agency-status-badge {
+  @apply inline-flex items-center px-3 py-1 text-xs font-medium rounded-full border;
+}
+
+.agency-status-pending {
+  @apply bg-yellow-100 text-yellow-800 border-yellow-200;
+}
+
+.agency-status-approved {
+  @apply bg-green-100 text-green-800 border-green-200;
+}
+
+.agency-status-rejected {
+  @apply bg-red-100 text-red-800 border-red-200;
+}
+
+/* ===== PERFORMANCE METRICS ===== */
+.agency-metric-progress {
+  @apply w-full bg-neutral-200 rounded-full h-2 overflow-hidden;
+}
+
+.agency-metric-progress-bar {
+  @apply h-full rounded-full transition-all duration-500 ease-out;
+}
+
+.agency-metric-value {
+  @apply text-2xl font-bold transition-colors duration-200;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes agency-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes agency-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes agency-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.agency-animate-slide-in {
+  animation: agency-slide-in 0.3s ease-out;
+}
+
+.agency-animate-fade-in-up {
+  animation: agency-fade-in-up 0.4s ease-out;
+}
+
+.agency-animate-scale-in {
+  animation: agency-scale-in 0.2s ease-out;
+}
+
+/* ===== RESPONSIVE STYLES ===== */
+@media (max-width: 768px) {
+  .agency-stat-card {
+    @apply p-4;
+  }
+
+  .agency-table th,
+  .agency-table td {
+    @apply py-2 px-2;
+  }
+
+  .agency-request-card {
+    @apply p-4;
+  }
+}
+
+@media (max-width: 640px) {
+  .agency-header {
+    @apply px-4;
+  }
+
+  .agency-sidebar {
+    @apply w-full;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+.agency-focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+}
+
+.agency-button {
+  @apply px-4 py-2 font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+
+.agency-button-primary {
+  @apply agency-button bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500;
+}
+
+.agency-button-secondary {
+  @apply agency-button bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 focus:ring-neutral-500;
+}
+
+.agency-button-danger {
+  @apply agency-button bg-red-500 text-white hover:bg-red-600 focus:ring-red-500;
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  .agency-sidebar,
+  .agency-header {
+    display: none !important;
+  }
+
+  .agency-stat-card,
+  .agency-request-card {
+    box-shadow: none !important;
+    border: 1px solid #e5e5e5 !important;
+  }
+}
+
+/* ===== HIGH CONTRAST MODE ===== */
+@media (prefers-contrast: high) {
+  .agency-stat-card,
+  .agency-request-card {
+    border: 2px solid #000;
+  }
+
+  .agency-nav-item.active {
+    border: 2px solid #000;
+  }
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  .agency-stat-card,
+  .agency-request-card,
+  .agency-nav-item,
+  .agency-table tr {
+    transition: none;
+  }
+
+  .agency-animate-slide-in,
+  .agency-animate-fade-in-up,
+  .agency-animate-scale-in {
+    animation: none;
+  }
+}

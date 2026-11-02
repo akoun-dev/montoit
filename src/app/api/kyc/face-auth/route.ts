@@ -3,6 +3,7 @@ import { resolveRequestUser } from '@/lib/auth/request-user'
 import { getEdgeFunctionBearerToken } from '@/lib/get-edge-function-bearer-token'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit } from '@/lib/rate-limiter'
+import { validateBase64Upload, uploadValidationHttpStatus } from '@/lib/file-validation'
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,6 +26,35 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
+
+    // SEC-009 — Magic bytes + taille max sur les pièces KYC (CNI recto/verso).
+    // Le MIME déclaré par le client n'est pas fiable : on vérifie le contenu.
+    if (body?.mode === 'upload') {
+      const kycFields: Array<{ name: string; value: unknown; required: boolean }> = [
+        { name: 'docFile', value: body?.docFile, required: true },
+        { name: 'docFileVerso', value: body?.docFileVerso, required: false },
+      ]
+      for (const field of kycFields) {
+        if (field.value === undefined || field.value === null) {
+          if (field.required) {
+            return NextResponse.json({ error: `${field.name} est requis` }, { status: 400 })
+          }
+          continue
+        }
+        const validation = validateBase64Upload(String(field.value), {
+          allowed: ['jpeg', 'png', 'webp'],
+          maxSizeBytes: 10 * 1024 * 1024,
+        })
+        if (!validation.ok) {
+          console.warn(`[kyc/face-auth][SEC-009] Upload rejeté (${validation.code}) pour ${userId}`)
+          return NextResponse.json(
+            { error: `${field.name} : ${validation.error}` },
+            { status: uploadValidationHttpStatus(validation) },
+          )
+        }
+      }
+    }
+
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/kyc-face-auth`
 
     const bearerToken = getEdgeFunctionBearerToken(accessToken, authSource)

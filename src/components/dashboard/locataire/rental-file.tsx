@@ -15,6 +15,14 @@ import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
+import { useActiveDossierStore } from '@/lib/active-dossier-store'
+import {
+  DEFAULT_RENTAL_FILE_TYPE,
+  normalizeRentalFileType,
+  RENTAL_FILE_TYPES,
+  RENTAL_FILE_TYPE_DESCRIPTIONS,
+  rentalFileTypeLabel,
+} from '@/lib/rental-file-types'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { motion } from 'framer-motion'
@@ -33,6 +41,8 @@ export interface RentalFileDoc {
 export interface RentalFileItem {
   id: string
   status: string
+  /** FUN-002 : type de dossier (STANDARD/FAMILLE/COLOCATION) */
+  fileType?: string
   tenantCategory: string | null
   monthlyIncome: number | null
   employer: string | null
@@ -120,6 +130,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
   const fetchCountRef = useRef(0)
 
   const [formData, setFormData] = useState({
+    fileType: DEFAULT_RENTAL_FILE_TYPE as string,
     tenantCategory: '',
     guarantorName: '',
     guarantorPhone: '',
@@ -133,7 +144,12 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
       const result = await authFetch<RentalFileResponse>('/api/rental-file')
       if (thisFetch !== fetchCountRef.current) return // stale response
       const files = result.data ?? []
-      const file = files.find((f) => f.status === 'VALIDATED' && f.isComplete)
+      // FUN-002 : le dossier affiché est celui du sélecteur (dossier actif),
+      // sinon on retombe sur la priorité historique (validé > brouillon > rejeté…).
+      const activeRef = user?.id ? useActiveDossierStore.getState().activeByUser[user.id] : undefined
+      const activeFile = activeRef ? files.find((f) => f.id === activeRef.id) : undefined
+      const file = activeFile
+        || files.find((f) => f.status === 'VALIDATED' && f.isComplete)
         || files.find((f) => f.status === 'DRAFT')
         || files.find((f) => f.status === 'REJECTED')
         || files.find((f) => f.status === 'TC_REVIEW')
@@ -142,11 +158,20 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         setExistingFile(file)
         rentalFileIdRef.current = file.id
         setFormData({
+          fileType: normalizeRentalFileType(file.fileType),
           tenantCategory: file.tenantCategory || '',
           guarantorName: file.guarantorName || '',
           guarantorPhone: file.guarantorPhone || '',
           guarantorRelation: file.guarantorRelation || '',
         })
+        // Synchronise le store si le dossier actif est invalide ou non défini
+        if (user?.id && (!activeRef || activeRef.id !== file.id)) {
+          useActiveDossierStore.getState().setActiveDossier(user.id, {
+            id: file.id,
+            fileType: normalizeRentalFileType(file.fileType),
+            status: file.status,
+          })
+        }
       } else {
         rentalFileIdRef.current = null
       }
@@ -159,7 +184,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         setLoading(false)
       }
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, user?.id])
 
   useRealtimeRentalFiles({
     userId: user?.id,
@@ -175,6 +200,32 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  /** FUN-002 : recharge la liste et renvoie le DRAFT du type du formulaire (ou null). */
+  const refetchDraftOfType = async (): Promise<string | null> => {
+    const fetchResult = await authFetch<RentalFileResponse>('/api/rental-file')
+    const files = fetchResult.data ?? []
+    const draft =
+      files.find((f) => f.status === 'DRAFT' && normalizeRentalFileType(f.fileType) === formData.fileType)
+      || files.find((f) => f.status === 'DRAFT')
+    if (draft?.id && draft.status === 'DRAFT') {
+      rentalFileIdRef.current = draft.id
+      setExistingFile(draft)
+      setFormData((prev) => ({
+        ...prev,
+        fileType: normalizeRentalFileType(draft.fileType),
+      }))
+      if (user?.id) {
+        useActiveDossierStore.getState().setActiveDossier(user.id, {
+          id: draft.id,
+          fileType: normalizeRentalFileType(draft.fileType),
+          status: draft.status,
+        })
+      }
+      return draft.id
+    }
+    return null
+  }
+
   const handleSaveDraft = async () => {
     setSaving(true)
     try {
@@ -182,6 +233,9 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // FUN-002 : ciblage du dossier en cours d'édition + type de dossier
+          rentalFileId: existingFile?.id || undefined,
+          fileType: formData.fileType,
           tenantCategory: formData.tenantCategory || undefined,
           guarantorName: formData.guarantorName || undefined,
           guarantorPhone: formData.guarantorPhone || undefined,
@@ -214,6 +268,9 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // FUN-002 : ciblage du dossier à soumettre + type de dossier
+          rentalFileId: existingFile?.id || undefined,
+          fileType: formData.fileType,
           tenantCategory: formData.tenantCategory || undefined,
           guarantorName: formData.guarantorName || undefined,
           guarantorPhone: formData.guarantorPhone || undefined,
@@ -283,7 +340,7 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
       // Fetch from DB (the other call may have created the draft)
       const result = await authFetch<RentalFileResponse>('/api/rental-file')
       const files = result.data ?? []
-      const draft = files.find((f) => f.status === 'DRAFT') || files[0]
+      const draft = files.find((f) => f.status === 'DRAFT' && normalizeRentalFileType(f.fileType) === formData.fileType) || files[0]
       if (draft?.id && draft.status === 'DRAFT') {
         rentalFileIdRef.current = draft.id
         setExistingFile(draft)
@@ -299,7 +356,12 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
       const raw: any = await authFetch('/api/rental-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          // FUN-002 : réutiliser le dossier connu (REJECTED/EXPIRED) sinon créer
+          // un brouillon du type choisi dans le formulaire
+          rentalFileId: existingFile?.id || undefined,
+          fileType: formData.fileType,
+        }),
       })
       const draftId: string | undefined = raw?.data?.id
       // Verify that the created/returned file is indeed a DRAFT
@@ -309,16 +371,12 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
         return draftId
       }
       // Fallback: refetch
-      const fetchResult = await authFetch<RentalFileResponse>('/api/rental-file')
-      const files = fetchResult.data ?? []
-      const draft = files.find((f) => f.status === 'DRAFT') || files[0]
-      if (draft?.id && draft.status === 'DRAFT') {
-        rentalFileIdRef.current = draft.id
-        setExistingFile(draft)
-        return draft.id
-      }
-      return null
+      return await refetchDraftOfType()
     } catch {
+      // FUN-002 : 409 possible si un DRAFT du même type existe déjà — on retente
+      // via la liste avant d'afficher une erreur
+      const refetched = await refetchDraftOfType()
+      if (refetched) return refetched
       toast.error('Erreur lors de la création du dossier')
       return null
     } finally {
@@ -456,6 +514,10 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
                 <p className="text-sm font-medium flex flex-wrap items-center gap-1.5">
                   <span className="text-nowrap">Statut du dossier :</span>
                   <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${existingStatus.color}`}>{existingStatus.label}</Badge>
+                  {/* FUN-002 : type du dossier en cours d'édition */}
+                  <Badge variant="outline" className="text-[10px] px-2 py-0.5 border bg-muted text-muted-foreground border-border">
+                    {rentalFileTypeLabel(existingFile.fileType)}
+                  </Badge>
                 </p>
                 {existingFile.validUntil && (
                   <p className="text-xs text-muted-foreground mt-1">Valide jusqu&apos;au {new Date(existingFile.validUntil).toLocaleDateString('fr-FR')}</p>
@@ -577,6 +639,43 @@ export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => voi
           {/* Step 1: Category */}
           {step === 1 && (
             <div className="space-y-4">
+              {/* FUN-002 : type de dossier (Personnel / Familial / Colocation) —
+                  éditable uniquement quand le dossier est modifiable (DRAFT) */}
+              <div className="space-y-2">
+                <Label>Type de dossier</Label>
+                <p className="text-xs text-muted-foreground">
+                  Créez un dossier par configuration de vie : chaque type est validé
+                  séparément et permet de candidater avec le dossier adapté.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {RENTAL_FILE_TYPES.map((type) => {
+                    const selected = formData.fileType === type
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        disabled={isReadOnly}
+                        onClick={() => updateField('fileType', type)}
+                        className={`relative text-left p-3 rounded-xl border-2 transition-all active:scale-[0.98] ${
+                          selected
+                            ? 'border-brand-500 bg-brand-50 shadow-sm shadow-brand-200'
+                            : 'border-border bg-card hover:border-brand-200 hover:bg-brand-50/50'
+                        } ${isReadOnly ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
+                        aria-pressed={selected}
+                      >
+                        <p className="text-sm font-semibold text-foreground">{rentalFileTypeLabel(type)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{RENTAL_FILE_TYPE_DESCRIPTIONS[type]}</p>
+                        {selected && (
+                          <span className="absolute top-2 right-2 size-5 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs font-bold">
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
               <p className="text-sm text-muted-foreground">
                 Sélectionnez votre catégorie pour adapter les documents à fournir.
               </p>

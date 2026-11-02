@@ -9,6 +9,7 @@ import {
   extractBucketAndPath,
   uploadFromBase64,
 } from '@/lib/supabase/storage'
+import { sniffBase64FileType } from '@/lib/file-validation'
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,6 +36,16 @@ export async function POST(req: NextRequest) {
     const base64Payload = avatar.split(',')[1]
     if (!base64Payload) {
       return NextResponse.json({ error: 'Image invalide' }, { status: 400 })
+    }
+
+    // SEC-009 — Magic bytes : le MIME déclaré ne suffit pas, on vérifie le
+    // contenu réel (JPEG / PNG / WEBP uniquement pour un avatar).
+    const sniffedType = sniffBase64FileType(avatar)
+    if (!sniffedType) {
+      return NextResponse.json(
+        { error: 'Contenu d\'image invalide. Utilisez JPG, PNG ou WEBP.' },
+        { status: 415 }
+      )
     }
 
     const estimatedSizeBytes = (base64Payload.length * 3) / 4

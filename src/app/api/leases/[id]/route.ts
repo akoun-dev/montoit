@@ -4,6 +4,8 @@ import { resolveRequestUser } from '@/lib/auth/request-user'
 import crypto from 'crypto'
 import { notify, notifyLeaseActivated, notifyNewLease } from '@/lib/notify'
 import { validateNonNegativeNumber } from '@/lib/validators'
+import { hashOtpCode } from '@/lib/otp-hash'
+import { signStorageUrl } from '@/lib/supabase/storage'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -261,7 +263,8 @@ export async function PATCH(
 
         const updateData: Record<string, unknown> = {
           tenant_signed_at: now.toISOString(),
-          tenant_sign_otp: signOtp,
+          // SEC-007 : trace d'OTP de signature stockée hashée (sel `<leaseId>:tenant`).
+          tenant_sign_otp: hashOtpCode(signOtp, `${id}:tenant`),
           updated_at: now.toISOString(),
         }
         if (lease.owner_signed_at) {
@@ -302,7 +305,8 @@ export async function PATCH(
 
         const updateData: Record<string, unknown> = {
           owner_signed_at: now.toISOString(),
-          owner_sign_otp: signOtp,
+          // SEC-007 : trace d'OTP de signature stockée hashée (sel `<leaseId>:owner`).
+          owner_sign_otp: hashOtpCode(signOtp, `${id}:owner`),
           updated_at: now.toISOString(),
         }
         if (lease.tenant_signed_at) {

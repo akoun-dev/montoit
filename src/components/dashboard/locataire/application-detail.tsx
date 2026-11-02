@@ -10,6 +10,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeApplications } from '@/hooks/use-realtime-applications'
 import { motion } from 'framer-motion'
+import { RentalFileTypeBadge } from './rental-file-type-badge'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface TimelineStep {
@@ -22,6 +23,8 @@ interface TimelineStep {
 interface ApplicationItem {
   id: string
   status: string
+  // FUN-002 : type du dossier porteur (GET /api/applications/[id] → `rentalFileType`)
+  rentalFileType?: string
   monthlyIncome: number | null
   employer: string | null
   employmentType: string | null
@@ -186,8 +189,11 @@ export function ApplicationDetail({  applicationId, onBack
             </p>
           </div>
         </div>
-        <div className="mt-3">
-          <Badge variant="outline" className={`text-xs px-3 py-1 border ${config.color} w-fit`}>
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          {/* FUN-002 §4.3 : « Dossier : Colocation » aussi dans le détail */}
+          <span className="text-xs text-muted-foreground">Dossier :</span>
+          <RentalFileTypeBadge fileType={application.rentalFileType} />
+          <Badge variant="outline" className={`text-xs px-3 py-1 border ${config.color}`}>
             <StatusIcon className="size-3 mr-1" />
             {config.label}
           </Badge>

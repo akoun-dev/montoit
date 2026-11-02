@@ -65,7 +65,8 @@ export async function POST(req: NextRequest) {
     const emailResult = await sendOtpEmail(user.email, otpCode, user.first_name, emailPurpose)
 
     if (!emailResult.success) {
-      console.warn(`[Send Email OTP] Email send failed for ${user.email}, but OTP stored in DB. Code: ${otpCode}`)
+      // SEC-007 : ne jamais logger le code OTP en clair (fuite via les logs).
+      console.warn(`[Send Email OTP] Email send failed for ${user.email}, but OTP stored in DB`)
     }
 
     const isDev = process.env.NODE_ENV !== 'production'

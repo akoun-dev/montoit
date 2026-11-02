@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
-import { BUCKETS, uploadFromBase64 } from '@/lib/supabase/storage'
+import { BUCKETS, signStorageUrl, uploadFromBase64 } from '@/lib/supabase/storage'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-function mapRefund(r: any) {
+/** SEC-006 : le bucket lease-documents est privé — justification servie via
+ * une URL signée (1 h) au lieu de l'URL canonique stockée. */
+async function mapRefund(r: any) {
   return {
     id: r.id,
     leaseId: r.lease_id,
@@ -16,7 +18,7 @@ function mapRefund(r: any) {
     refundAmount: r.refund_amount,
     deductions: r.deductions,
     deductionReason: r.deduction_reason,
-    justificationUrl: r.justification_url,
+    justificationUrl: await signStorageUrl(r.justification_url),
     status: r.status,
     decidedById: r.decided_by_id,
     decidedAt: r.decided_at,
@@ -47,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .eq('lease_id', id)
       .maybeSingle()
 
-    const resp = NextResponse.json({ data: refund ? mapRefund(refund) : null })
+    const resp = NextResponse.json({ data: refund ? await mapRefund(refund) : null })
     return applyCookies(resp)
   } catch (error) {
     console.error('Deposit refund GET error:', error)
@@ -142,7 +144,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         user_id: userId,
       })
 
-      const resp = NextResponse.json({ data: mapRefund(updated) })
+      const resp = NextResponse.json({ data: await mapRefund(updated) })
       return applyCookies(resp)
     }
 
@@ -176,7 +178,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         user_id: userId,
       })
 
-      const resp = NextResponse.json({ data: mapRefund(updated) })
+      const resp = NextResponse.json({ data: await mapRefund(updated) })
       return applyCookies(resp)
     }
 

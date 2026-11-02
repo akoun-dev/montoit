@@ -21,6 +21,26 @@ const PUBLIC_BUCKETS = new Set<BucketName>([
   BUCKETS.PROPERTY_VIDEOS,
 ])
 
+/**
+ * SEC-006 — Buckets contenant des documents sensibles (KYC, baux signés,
+ * mandats, justificatifs). Ils sont passés en `public = false` par la
+ * migration 20261027000001_sec006_storage_private : toute lecture applicative
+ * doit passer par une URL signée (cf. `getSignedUrl` / `signStorageUrl`).
+ */
+const SENSITIVE_BUCKETS = new Set<BucketName>([
+  BUCKETS.OWNER_DOCUMENTS,
+  BUCKETS.RENTAL_DOCUMENTS,
+  BUCKETS.PROPERTY_DOCUMENTS,
+  BUCKETS.LEASE_DOCUMENTS,
+  BUCKETS.MANDAT_DOCUMENTS,
+  BUCKETS.MAINTENANCE_IMAGES,
+  // Bucket privé dès sa création (pièces jointes de messages entre utilisateurs)
+  BUCKETS.MESSAGE_ATTACHMENTS,
+])
+
+/** Durée de vie standard des URLs signées de lecture (1 heure). */
+export const SIGNED_URL_EXPIRES_IN_SECONDS = 3600
+
 export async function ensureBucketExists(bucket: BucketName): Promise<void> {
   const supabase = getSupabaseAdminClient()
   const { data: buckets, error: listError } = await supabase.storage.listBuckets()
@@ -88,6 +108,11 @@ export async function uploadFromBase64(
     throw error
   }
 
+  // SEC-006 : on renvoie l'URL « canonique » (format public). Pour les buckets
+  // sensibles désormais privés, cette URL ne permet PAS la lecture : les routes
+  // de lecture doivent la convertir en URL signée via `signStorageUrl()`.
+  // Ce format canonique reste nécessaire à `extractBucketAndPath` (purge des
+  // fichiers remplacés) et à la persistance en base.
   const url = getPublicUrl(bucket, filePath)
   return url
 }
@@ -110,6 +135,79 @@ export function getPublicUrl(bucket: BucketName, filePath: string): string {
     .getPublicUrl(filePath)
 
   return data.publicUrl
+}
+
+/**
+ * SEC-006 — Crée une URL signée de lecture pour un objet d'un bucket.
+ * À utiliser pour tout bucket sensible (documents KYC, baux signés, mandats…).
+ *
+ * @param expiresIn Durée de validité en secondes (défaut : 1 heure).
+ */
+export async function getSignedUrl(
+  bucket: BucketName,
+  filePath: string,
+  expiresIn: number = SIGNED_URL_EXPIRES_IN_SECONDS
+): Promise<string> {
+  const { data, error } = await getSupabaseAdminClient()
+    .storage
+    .from(bucket)
+    .createSignedUrl(filePath, expiresIn)
+
+  if (error || !data?.signedUrl) {
+    console.error('[getSignedUrl] createSignedUrl error:', error)
+    throw error ?? new Error('Impossible de créer l\'URL signée')
+  }
+  return data.signedUrl
+}
+
+/**
+ * SEC-006 — Convertit une URL de document stockée en base en URL signée si
+ * elle pointe vers un bucket sensible. Tout le reste (URLs externes, data URLs,
+ * buckets publics, URLs déjà signées d'autres buckets) est renvoyé tel quel.
+ *
+ * @param url URL canonique (format public), URL signée, chemin brut ou URL externe.
+ * @param expiresIn Durée de validité en secondes (défaut : 1 heure).
+ */
+export async function signStorageUrl(
+  url: string | null | undefined,
+  expiresIn: number = SIGNED_URL_EXPIRES_IN_SECONDS
+): Promise<string | null | undefined> {
+  if (!url) return url
+
+  // URLs non-Storage (externes, data:) : rien à signer.
+  if (!url.includes('/storage/v1/object/')) return url
+
+  // Format canonique public ou déjà signé : /object/public|sign|authenticated/<bucket>/<path>
+  const match = url.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/)
+  if (!match) return url
+
+  const [, bucket, rawPath] = match
+  if (!SENSITIVE_BUCKETS.has(bucket as BucketName)) return url
+
+  // Retire d'éventuels query params (token d'une ancienne URL signée)
+  const path = rawPath.split('?')[0]
+
+  try {
+    return await getSignedUrl(bucket as BucketName, path, expiresIn)
+  } catch {
+    // En cas d'échec de signature (bucket absent, droit manquant), on renvoie
+    // l'URL d'origine : la lecture échouera côté client comme aujourd'hui.
+    return url
+  }
+}
+
+/**
+ * SEC-006 — Signe en masse le champ `url` d'une liste de documents (lignes de
+ * `owner_file_documents`, `rental_file_documents`, etc.). Les documents hors
+ * buckets sensibles sont renvoyés à l'identique.
+ */
+export async function signDocUrls<T extends { url?: string | null }>(
+  docs: readonly T[] | null | undefined
+): Promise<T[]> {
+  return Promise.all((docs ?? []).map(async (doc) => ({
+    ...doc,
+    url: await signStorageUrl(doc.url),
+  })))
 }
 
 export function extractStoragePath(publicUrl: string): string | null {

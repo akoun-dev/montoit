@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json()
-        const { firstName, lastName, email, phone, role } = body
+        const { firstName, lastName, email, phone, role, userId: linkedUserId } = body
 
         if (!firstName || !lastName || !email) {
             return NextResponse.json(
@@ -163,6 +163,43 @@ export async function POST(req: NextRequest) {
                 { error: "Numéro de téléphone invalide (10 chiffres requis)" },
                 { status: 400 }
             )
+        }
+
+        // DAT-005 — Liaison optionnelle d'un compte users existant à l'agent :
+        // le user doit EXISTER et être LIBRE (non lié à un autre agent).
+        // La contrainte d'unicité partielle en base (uniq_agency_agents_user_id)
+        // sert de dernier rempart si deux requêtes concurrentes passent.
+        let validatedLinkedUserId: string | null = null
+        if (linkedUserId !== undefined && linkedUserId !== null && linkedUserId !== "") {
+            if (typeof linkedUserId !== "string") {
+                return NextResponse.json(
+                    { error: "userId doit être un identifiant utilisateur valide" },
+                    { status: 400 }
+                )
+            }
+            const { data: linkedUser } = await supabase
+                .from("users")
+                .select("id")
+                .eq("id", linkedUserId)
+                .maybeSingle()
+            if (!linkedUser) {
+                return NextResponse.json(
+                    { error: "Compte utilisateur introuvable : l'utilisateur à lier doit exister" },
+                    { status: 404 }
+                )
+            }
+            const { data: alreadyLinked } = await supabase
+                .from("agency_agents")
+                .select("id")
+                .eq("user_id", linkedUserId)
+                .maybeSingle()
+            if (alreadyLinked) {
+                return NextResponse.json(
+                    { error: "Ce compte utilisateur est déjà lié à un agent" },
+                    { status: 409 }
+                )
+            }
+            validatedLinkedUserId = linkedUserId
         }
 
         const { data: existing } = await supabase
@@ -189,6 +226,7 @@ export async function POST(req: NextRequest) {
                 role: role || "AGENT",
                 status: "ACTIVE",
                 agency_id: userId,
+                user_id: validatedLinkedUserId,
             } as any)
             .select()
             .single()

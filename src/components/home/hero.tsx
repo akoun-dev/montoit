@@ -46,7 +46,7 @@ const fadeUp = {
 } as const
 
 function formatNumber(n: number): string {
-  return n.toLocaleString('fr-FR')
+  return (n ?? 0).toLocaleString('fr-FR')
 }
 
 export function Hero() {
@@ -61,7 +61,7 @@ export function Hero() {
 
   useEffect(() => {
     apiFetch('/api/stats')
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('stats indisponibles'))))
       .then((data) => setStats(data))
       .catch(() => {
         setStats({ totalProperties: 0, monthlyVisitors: 0, newToday: 0, satisfactionRate: 0 })

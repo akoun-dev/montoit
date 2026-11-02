@@ -1,0 +1,425 @@
+/**
+ * Premium Ivorian Form Styles
+ * Palette: Chocolat (#2C1810) / Orange (#F16522) / Sable (#A69B95)
+ */
+
+/* ================================
+   CSS Variables for Forms
+   ================================ */
+:root {
+  --form-chocolat: #2c1810;
+  --form-orange: #f16522;
+  --form-sable: #a69b95;
+  --form-ivoire: #f5f0e8;
+  --form-border: #e5ded5;
+  --form-success: #22c55e;
+  --form-error: #ef4444;
+}
+
+/* ================================
+   Form Stepper Styles
+   ================================ */
+.form-step-active {
+  background-color: var(--form-orange);
+  color: white;
+  box-shadow: 0 4px 12px rgba(241, 101, 34, 0.4);
+}
+
+.form-step-completed {
+  background-color: var(--form-chocolat);
+  color: white;
+}
+
+.form-step-inactive {
+  background-color: var(--form-ivoire);
+  color: var(--form-sable);
+  border: 2px solid var(--form-border);
+}
+
+.form-connector-completed {
+  background-color: var(--form-chocolat);
+}
+
+.form-connector-inactive {
+  background-color: var(--form-border);
+}
+
+.form-step-label {
+  color: var(--form-chocolat);
+}
+
+.form-step-counter {
+  color: var(--form-sable);
+}
+
+/* ================================
+   Form Section Card
+   ================================ */
+.form-section-premium {
+  background-color: white;
+  border-radius: 1rem;
+  border: 1px solid var(--form-border);
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease;
+}
+
+.form-section-premium:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* ================================
+   Form Labels
+   ================================ */
+.form-label-premium {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--form-sable);
+  margin-bottom: 0.5rem;
+}
+
+.form-label-premium.required::after {
+  content: ' *';
+  color: var(--form-orange);
+}
+
+/* ================================
+   Form Inputs
+   ================================ */
+.form-input-premium {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--form-border);
+  border-radius: 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--form-chocolat);
+  background-color: white;
+  transition: all 0.2s ease;
+}
+
+.form-input-premium::placeholder {
+  color: var(--form-sable);
+  opacity: 0.7;
+}
+
+.form-input-premium:focus {
+  outline: none;
+  border-color: var(--form-orange);
+  box-shadow: 0 0 0 3px rgba(241, 101, 34, 0.15);
+}
+
+.form-input-premium:disabled {
+  background-color: var(--form-ivoire);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.form-input-premium.error {
+  border-color: var(--form-error);
+}
+
+.form-input-premium.success {
+  border-color: var(--form-success);
+}
+
+/* Textarea */
+.form-textarea-premium {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* Select */
+.form-select-premium {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23A69B95' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+
+/* ================================
+   Form Buttons
+   ================================ */
+.form-button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  background-color: var(--form-orange);
+  color: white;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(241, 101, 34, 0.3);
+}
+
+.form-button-primary:hover:not(:disabled) {
+  background-color: #e55a1b;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(241, 101, 34, 0.4);
+}
+
+.form-button-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.form-button-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.form-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  background-color: transparent;
+  color: var(--form-chocolat);
+  font-weight: 600;
+  border-radius: 0.75rem;
+  border: 2px solid var(--form-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-button-secondary:hover:not(:disabled) {
+  border-color: var(--form-chocolat);
+  background-color: var(--form-ivoire);
+}
+
+.form-button-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-button-chocolat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  background-color: var(--form-chocolat);
+  color: white;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-button-chocolat:hover:not(:disabled) {
+  background-color: #1f110c;
+}
+
+/* ================================
+   Form Toggle Buttons
+   ================================ */
+.form-toggle-group {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.form-toggle-button {
+  padding: 0.75rem 1.25rem;
+  border: 2px solid var(--form-border);
+  border-radius: 0.75rem;
+  background-color: white;
+  color: var(--form-chocolat);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-toggle-button:hover:not(.active) {
+  border-color: var(--form-orange);
+  background-color: rgba(241, 101, 34, 0.05);
+}
+
+.form-toggle-button.active {
+  border-color: var(--form-orange);
+  background-color: var(--form-orange);
+  color: white;
+  box-shadow: 0 4px 12px rgba(241, 101, 34, 0.3);
+}
+
+/* ================================
+   Form Cards (for selection)
+   ================================ */
+.form-card-selectable {
+  padding: 1rem;
+  border: 2px solid var(--form-border);
+  border-radius: 1rem;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-card-selectable:hover:not(.selected) {
+  border-color: var(--form-orange);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.form-card-selectable.selected {
+  border-color: var(--form-orange);
+  background-color: rgba(241, 101, 34, 0.05);
+  box-shadow: 0 4px 12px rgba(241, 101, 34, 0.2);
+}
+
+/* ================================
+   Form Error & Success Messages
+   ================================ */
+.form-error-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 0.75rem;
+  color: var(--form-error);
+  font-size: 0.875rem;
+}
+
+.form-success-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 0.75rem;
+  color: var(--form-success);
+  font-size: 0.875rem;
+}
+
+.form-helper-text {
+  font-size: 0.75rem;
+  color: var(--form-sable);
+  margin-top: 0.25rem;
+}
+
+/* ================================
+   Form Header
+   ================================ */
+.form-header-premium {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.form-header-premium h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--form-chocolat);
+  margin-bottom: 0.5rem;
+}
+
+.form-header-premium p {
+  color: var(--form-sable);
+  font-size: 0.9375rem;
+}
+
+/* ================================
+   Form Footer Actions
+   ================================ */
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--form-border);
+  margin-top: 1.5rem;
+}
+
+.form-actions-right {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* ================================
+   Form Page Container
+   ================================ */
+.form-page-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--form-ivoire) 0%, #faf8f5 100%);
+  padding: 2rem 1rem;
+}
+
+.form-content-wrapper {
+  width: 100%;
+  max-width: none;
+  margin: 0 auto;
+}
+
+/* ================================
+   Responsive Adjustments
+   ================================ */
+@media (max-width: 640px) {
+  .form-section-premium {
+    padding: 1rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions-right {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .form-button-primary,
+  .form-button-secondary {
+    width: 100%;
+  }
+
+  .form-toggle-group {
+    flex-direction: column;
+  }
+
+  .form-toggle-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ================================
+   Dark Mode Support
+   ================================ */
+@media (prefers-color-scheme: dark) {
+  .form-section-premium {
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--border));
+  }
+
+  .form-input-premium {
+    background-color: hsl(var(--background));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+}
+
+/* ================================
+   Reduced Motion Support
+   ================================ */
+@media (prefers-reduced-motion: reduce) {
+  .form-button-primary:hover,
+  .form-card-selectable:hover,
+  .form-toggle-button {
+    transform: none;
+  }
+}

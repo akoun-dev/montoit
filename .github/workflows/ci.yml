@@ -1,0 +1,219 @@
+# CI minimale « Mon Toit CI » — INF-001 (Task 4-d, agent DEVOPS)
+#
+# Périmètre volontairement minimal : install / lint / typecheck / test / secrets-scan / audit.
+# PAS de build (`bun run build` exclu) : coûteux, non nécessaire pour valider un push.
+# Package manager officiel : bun (bun.lock) — le flag --frozen-lockfile garantit
+# que package.json et bun.lock restent synchronisés.
+#
+# Le job secrets-scan est un grep simple sans action tierce :
+#   - clés hex >= 32, préfixe sk-, blocs "PRIVATE KEY", mots de passe / tokens en dur
+#   - ignore .env*, *.example, lockfiles, binaires, tool-results
+#   - allowlist documentée en fin de job (faux positifs connus, ex: creds de seed e2e)
+
+name: CI
+
+on:
+  push:
+    branches: ["4.0.0", "main"]
+  pull_request:
+    branches: ["4.0.0", "main"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: "1.3.14"
+
+jobs:
+  install:
+    name: Install (bun --frozen-lockfile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile
+
+  lint:
+    name: Lint (eslint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: install
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile
+
+      - name: bun run lint
+        run: bun run lint
+
+  typecheck:
+    name: Typecheck (tsc --noEmit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: install
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile
+
+      - name: bunx tsc --noEmit
+        run: bunx tsc --noEmit
+
+  test:
+    name: Test (vitest run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: install
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile
+
+      - name: bun run test:run
+        run: bun run test:run
+
+  secrets-scan:
+    name: Secrets scan (grep inline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Scan des secrets (grep, sans action tierce)
+        run: |
+          set -euo pipefail
+          cat > /tmp/secret-patterns.txt <<'PATTERNS'
+          [a-fA-F0-9]{32,}
+          sk-[a-zA-Z0-9_-]{16,}
+          BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY
+          (password|passwd|pwd|secret|api_?key|apikey|token)["']?[[:space:]]*[:=]+[[:space:]]*["'][^"']{8,}["']
+          PATTERNS
+          cat > /tmp/allowlist.txt <<'ALLOWLIST'
+          Test1234!
+          [:=][[:space:]]*["']password["']
+          env\(
+          googlesource\.com
+          IMG_HASH
+          your[-_]
+          xxxx
+          [xX]{8,}
+          \$\{
+          process\.env
+          import\.meta\.env
+          CHANGEME
+          changeme
+          placeholder
+          <your
+          YOUR_
+          ALLOWLIST
+          # Fichiers analysés : tout le contenu tracké, hors binaires, .env*, *.example,
+          # lockfiles et artefacts d'outillage (tool-results).
+          MATCHES=$(git grep -InEf /tmp/secret-patterns.txt -- . \
+            ':(exclude)*.png' ':(exclude)*.jpg' ':(exclude)*.jpeg' ':(exclude)*.webp' \
+            ':(exclude)*.gif' ':(exclude)*.ico' ':(exclude)*.svg' ':(exclude)*.xlsx' \
+            ':(exclude)*.jar' ':(exclude)*.db' ':(exclude)*.lock' ':(exclude)*.example' \
+            ':(exclude)**/.env*' ':(exclude).env*' ':(exclude)package-lock.json' \
+            ':(exclude)tool-results/**' \
+            | grep -vEf /tmp/allowlist.txt || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::Secrets potentiels détectés — corriger, ou documenter un faux positif dans l'allowlist du job secrets-scan (.github/workflows/ci.yml)"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "OK : aucun secret détecté"
+
+  audit:
+    name: Audit (bun pm audit / npm fallback)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: install
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile
+
+      # bun >= 1.2 n'a pas de `bun pm audit` natif (le scanner se configure via
+      # bunfig.toml) ; on tente donc bun pm audit, puis bun pm scan, puis npm audit
+      # (lockfile npm généré à la volée, sans installation). Le job est
+      # continue-on-error : l'audit renseigne, il ne bloque pas la CI.
+      - name: Audit des dépendances (rapport, non bloquant)
+        continue-on-error: true
+        run: |
+          echo "### Audit dépendances" >> "$GITHUB_STEP_SUMMARY"
+          if bun pm audit; then
+            echo "bun pm audit : OK" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "bun pm audit indisponible sur ce runner — tentative bun pm scan (requiert un scanner bunfig.toml)" >> "$GITHUB_STEP_SUMMARY"
+          if bun pm scan; then
+            echo "bun pm scan : OK" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "bun pm scan indisponible — fallback npm audit" >> "$GITHUB_STEP_SUMMARY"
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm audit --audit-level=low || true
+          npm audit --omit=dev --audit-level=high && echo "npm audit (prod, high+) : OK" >> "$GITHUB_STEP_SUMMARY" || echo "npm audit : vulnérabilités détectées (voir rapport ci-dessus)" >> "$GITHUB_STEP_SUMMARY"

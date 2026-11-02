@@ -15,6 +15,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { useRealtimeUsers } from '@/hooks/use-realtime-users'
+import { LoadingState } from '@/components/shared/states'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -78,7 +79,7 @@ export function ClientFiles() {
 
   const filtered = clients.filter((c) => statusFilter === 'all' || c.status === statusFilter)
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}</div>
+  if (loading) return <LoadingState variant="list" rows={3} />
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">

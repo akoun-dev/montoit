@@ -3,6 +3,21 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
+/**
+ * SEC-012 — Nettoie le terme de recherche avant interpolation dans un filtre
+ * PostgREST `.or(...)`. Les caractères `,` (séparateur de filtres), `(` / `)`
+ * (groupes logiques) et `"` / `'` (guillemets) permettraient d'injecter des
+ * conditions supplémentaires dans la requête (ex : `search=),role.eq.ADMIN`).
+ * On les retire, on borne la longueur ; les jokers `%` / `_` restent tolérés :
+ * ils n'élargissent que la propre recherche de l'utilisateur.
+ */
+function sanitizeSearchTerm(raw: string): string {
+  return raw
+    .replace(/[,()"'\\]/g, '')
+    .trim()
+    .slice(0, 80)
+}
+
 async function authorizeTC(request: NextRequest) {
   const { userId, applyCookies } = await resolveRequestUser(request)
   if (!userId) return { error: applyCookies(NextResponse.json({ error: 'Non authentifié' }, { status: 401 })) }
@@ -37,7 +52,13 @@ export async function GET(request: NextRequest) {
     .limit(100)
 
   if (search) {
-    query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`)
+    // SEC-012 — Terme nettoyé avant interpolation PostgREST (anti-injection .or()).
+    const safeSearch = sanitizeSearchTerm(search)
+    if (safeSearch.length > 0) {
+      query = query.or(
+        `first_name.ilike.%${safeSearch}%,last_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`,
+      )
+    }
   }
 
   switch (filter) {

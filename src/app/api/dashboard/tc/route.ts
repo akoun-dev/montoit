@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { signDocUrls } from '@/lib/supabase/storage'
 
 export async function GET(req: NextRequest) {
   try {
@@ -121,7 +122,7 @@ export async function GET(req: NextRequest) {
     const overdueSlas = slas.filter(s => s.is_overdue && !s.completed_at)
 
     // Map results
-    const mappedPendingRentalFiles = (pendingRentalFiles ?? []).map(rf => {
+    const mappedPendingRentalFiles = await Promise.all((pendingRentalFiles ?? []).map(async rf => {
       const tenant = tenantMap.get(rf.tenant_id)
       const documents = docByRentalFile.get(rf.id) ?? []
       return {
@@ -137,16 +138,17 @@ export async function GET(req: NextRequest) {
           lastName: tenant.last_name,
           phone: tenant.phone,
         } : null,
-        documents: documents.map(d => ({
+        // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+        documents: await signDocUrls(documents.map(d => ({
           id: d.id,
           rentalFileId: d.rental_file_id,
           type: d.type,
           url: d.url,
           name: d.name,
           createdAt: d.created_at,
-        })),
+        }))),
       }
-    })
+    }))
 
     const mappedPendingOwnershipDocs = (pendingOwnershipDocs ?? []).map(d => {
       const owner = ownerMap.get(d.owner_id)

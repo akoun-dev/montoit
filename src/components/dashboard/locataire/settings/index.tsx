@@ -25,10 +25,10 @@ import { normalizePhone } from '@/lib/ansut-messaging'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { CITIES } from '@/lib/cities'
-import type { ProfileData, ScoringData, SessionInfo, NotificationPreferences, SettingsTab } from './types'
+import type { ProfileData, ScoringData, SessionInfo, NotificationPreferences, SettingsTab } from '@/components/shared/settings/types'
 import type { RentalFileItem } from '@/components/dashboard/locataire/rental-file'
-import { ScoreCircle, ScoreComponentCard } from './sub-components'
-import { KycVerificationModal } from '@/components/dashboard/locataire/settings/kyc-modal'
+import { ScoreCircle, ScoreComponentCard } from '@/components/shared/settings/sub-components'
+import { KycVerificationModal } from '@/components/shared/settings/kyc-modal'
 
 
 // ── Animations ──────────────────────────────────────────────────────────────

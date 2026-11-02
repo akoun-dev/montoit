@@ -406,3 +406,159 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Edge Functions planifiées (DAT-002)
+# ─────────────────────────────────────────────────────────────────────────────
+# 8 Edge Functions sont des tâches planifiées (crons) : rappels (remind-*),
+# expirations (expire-*), contrôle impayés et génération des loyers mensuels.
+# Chacune s'authentifie elle-même via le secret `CRON_SECRET` (header
+# `Authorization: Bearer <CRON_SECRET>` vérifié dans le code de la fonction).
+#
+# `verify_jwt = false` est REQUIS : l'ordonnanceur (pg_cron/pg_net sur le
+# projet hébergé) appelle avec CRON_SECRET, pas un JWT Supabase — le gateway
+# rejetterait sinon la requête avant d'atteindre la fonction.
+#
+# Le schéma de config.toml de la CLI Supabase actuelle ne supporte pas de clé
+# `schedule` (options supportées : enabled, verify_jwt, import_map,
+# entrypoint, static_files). Les horaires cron sont donc déployés via
+# pg_cron + pg_net (SQL) et documentés exhaustivement — schedules, fuseaux,
+# effets, procédure de reprise et SQL prêt à l'emploi — dans :
+#   docs/RUNBOOK-CRONS.md
+# Les horaires prévus sont rappelés en commentaire au-dessus de chaque
+# fonction pour rester versionnés à côté de la config.
+#
+# Récapitulatif des schedules (UTC — Abidjan est en GMT/UTC+0 toute l'année) :
+#   generate-monthly-payments        "0 0 1 * *"    1er du mois 00:00
+#   check-overdue-payments           "30 8 * * *"   quotidien 08:30
+#   remind-upcoming-payments         "0 8 * * *"    quotidien 08:00 (J-3/J-1)
+#   remind-upcoming-visits           "0 8 * * *"    quotidien 08:00 (J-1)
+#   remind-lease-expiring            "0 8 * * *"    quotidien 08:00 (J-60)
+#   remind-pending-lease-signatures  "0 8 * * *"    quotidien 08:00 (48 h)
+#   expire-stale-listings            "30 0 * * *"   quotidien 00:30
+#   expire-stale-rental-files        "30 0 * * *"   quotidien 00:30
+
+[functions.generate-monthly-payments]
+# schedule pg_cron : "0 0 1 * *" — 1er du mois à 00:00 UTC
+enabled = true
+verify_jwt = false
+
+[functions.check-overdue-payments]
+# schedule pg_cron : "30 8 * * *" — quotidien à 08:30 UTC (après la vague de rappels de 08:00)
+enabled = true
+verify_jwt = false
+
+[functions.remind-upcoming-payments]
+# schedule pg_cron : "0 8 * * *" — quotidien à 08:00 UTC (J-3 et J-1 avant échéance)
+enabled = true
+verify_jwt = false
+
+[functions.remind-upcoming-visits]
+# schedule pg_cron : "0 8 * * *" — quotidien à 08:00 UTC (J-1 avant visite)
+enabled = true
+verify_jwt = false
+
+[functions.remind-lease-expiring]
+# schedule pg_cron : "0 8 * * *" — quotidien à 08:00 UTC (J-60 avant fin de bail)
+enabled = true
+verify_jwt = false
+
+[functions.remind-pending-lease-signatures]
+# schedule pg_cron : "0 8 * * *" — quotidien à 08:00 UTC (relance 48 h, idempotent via reminder_sent_at)
+enabled = true
+verify_jwt = false
+
+[functions.expire-stale-listings]
+# schedule pg_cron : "30 0 * * *" — quotidien à 00:30 UTC (annonces ACTIVE au-delà de listing_expires_at → SUSPENDED)
+enabled = true
+verify_jwt = false
+
+[functions.expire-stale-rental-files]
+# schedule pg_cron : "30 0 * * *" — quotidien à 00:30 UTC (dossiers VALIDATED au-delà de valid_until → EXPIRED)
+enabled = true
+verify_jwt = false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SEC-008 · verify_jwt des Edge Functions NON planifiées (Task 5-a, finitions)
+# ─────────────────────────────────────────────────────────────────────────────
+# Cohérence avec docs/RUNBOOK-EDGE-FUNCTIONS-SECURITE.md §2/§3 :
+#   - Fonctions utilisateur / métier : JWT Supabase OBLIGATOIRE
+#     (`verify_jwt = true`). Absentes de ce fichier jusqu'ici : le défaut de
+#     déploiement est bien `true`, mais l'entrée explicite verrouille l'intent
+#     et empêche une régression silencieuse lors d'un futur `config.toml`
+#     réécrit ou d'un déploiement flaggué.
+#   - Webhooks entrants externes : `verify_jwt = false` OBLIGATOIRE (l'appelant
+#     n'a pas de JWT Supabase) — la protection de remplacement est le secret
+#     applicatif vérifié DANS la fonction (fail-closed).
+# Classification complète et justifications : RUNBOOK §2.
+
+# ── Fonctions métier / utilisateur (JWT Supabase requis) ────────────────────
+
+[functions.kyc-face-auth]
+verify_jwt = true
+
+[functions.oneci-match]
+verify_jwt = true
+
+[functions.oneci-face-auth]
+verify_jwt = true
+
+[functions.oneci-fingerprint-auth]
+verify_jwt = true
+
+[functions.oneci-person]
+verify_jwt = true
+
+[functions.oneci-subscription]
+verify_jwt = true
+
+[functions.payment-initiate]
+verify_jwt = true
+
+[functions.payment-transfer]
+verify_jwt = true
+
+[functions.generate-certificate]
+verify_jwt = true
+
+[functions.check-certificate]
+verify_jwt = true
+
+[functions.sign]
+verify_jwt = true
+
+[functions.sign-send-otp]
+verify_jwt = true
+
+[functions.signed-file]
+verify_jwt = true
+
+[functions.retrieve-certificates]
+verify_jwt = true
+
+# signature-auth : passer à true APRÈS avoir authentifié /api/signature/auth
+# côté Next (cf. RUNBOOK §2.1 et checklist §6) — volontairement commenté.
+# [functions.signature-auth]
+# verify_jwt = true
+
+# ── Webhooks entrants externes (auth par secret applicatif, pas de JWT) ─────
+
+[functions.payment-callback]
+# Webhook Intouch — chaîne d'appel : fournisseur → proxy Next
+# (/api/payments/callback, HMAC fail-closed SEC-003) → Edge.
+# S3-Edge : verify_jwt = true — le proxy Next appelle l'Edge avec la clé
+# service_role (Bearer SUPABASE_SERVICE_ROLE_KEY, jamais exposée au client),
+# donc le JWT présenté est valide. Couche 1 : gate JWT Supabase ;
+# couche 2 : HMAC-SHA256 du corps brut vérifié dans la fonction Edge
+# (INTOUCH_CALLBACK_SECRET, fail-closed 503 si absent).
+# Si un déploiement ne peut PAS fournir SUPABASE_SERVICE_ROLE_KEY au proxy
+# Next, remettre verify_jwt = false : la vérification HMAC fail-closed de
+# l'Edge reste alors le contrôle primaire.
+verify_jwt = true
+
+[functions.sign-verify]
+# Callback CRYPTONEO — protection : secret partagé à ajouter au callBackUrl
+# (vulnérabilité V10, RUNBOOK §2.2).
+verify_jwt = false
+
+# _test : reliquat de dev (CORS *) — à SUPPRIMER, aucune entrée de config.

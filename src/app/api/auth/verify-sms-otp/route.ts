@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSession, SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from '@/lib/session'
-import { checkRateLimit } from '@/lib/rate-limiter'
+import { checkRateLimit, getClientIp, userIpRateLimitKey } from '@/lib/rate-limiter'
 import { normalizePhone } from '@/lib/ansut-messaging'
+import { hashOtpCode, verifyOtpCandidate } from '@/lib/otp-hash'
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     const normalizedPhone = normalizePhone(phone)
 
-    // Rate limiting par numéro de téléphone
+    // Rate limiting par numéro de téléphone (anti-spam courte durée)
     const { allowed } = checkRateLimit('otp-verify', normalizedPhone, { maxRequests: 10, windowMs: 60_000 })
     if (!allowed) {
       return NextResponse.json(
@@ -23,14 +24,31 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // SEC-007 — Rate-limit strict anti brute-force : 5 tentatives / 15 min
+    // par couple numéro + IP (l'OTP a 10^6 combinaisons et 5 min de validité).
+    const ip = getClientIp(req)
+    const strictAllowed = checkRateLimit(
+      'otp-verify-strict',
+      userIpRateLimitKey(normalizedPhone, ip),
+      { maxRequests: 5, windowMs: 15 * 60_000 }
+    )
+    if (!strictAllowed.allowed) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Veuillez réessayer dans 15 minutes.' },
+        { status: 429, headers: { 'Retry-After': String(15 * 60) } }
+      )
+    }
+
     const supabase = getSupabaseAdminClient()
     const otpType = purpose === 'password_reset' ? 'PASSWORD_RESET' : 'LOGIN'
 
+    // SEC-007 — le code n'étant plus stocké en clair, on récupère la ligne
+    // candidate puis on compare via le hash (avec migration douce des lignes
+    // legacy encore en clair).
     const { data: otp } = await supabase
       .from('otp_codes')
-      .select('id, user_id')
+      .select('id, user_id, code')
       .eq('phone', normalizedPhone)
-      .eq('code', code)
       .eq('type', otpType)
       .eq('is_used', false)
       .gt('expires_at', new Date().toISOString())
@@ -40,6 +58,19 @@ export async function POST(req: NextRequest) {
 
     if (!otp) {
       return NextResponse.json({ error: 'Code invalide ou expiré' }, { status: 400 })
+    }
+
+    const verdict = verifyOtpCandidate(code, normalizedPhone, otp.code)
+    if (!verdict.matched) {
+      return NextResponse.json({ error: 'Code invalide ou expiré' }, { status: 400 })
+    }
+
+    // Migration douce : ligne legacy en clair → re-hash immédiat.
+    if (verdict.needsRehash) {
+      await supabase
+        .from('otp_codes')
+        .update({ code: hashOtpCode(code.trim(), normalizedPhone) })
+        .eq('id', otp.id)
     }
 
     const { data: updatedOtp } = await supabase

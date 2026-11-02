@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { signDocUrls } from '@/lib/supabase/storage'
 import { notify } from '@/lib/notify'
 
 export async function GET(req: NextRequest) {
@@ -68,7 +69,8 @@ export async function GET(req: NextRequest) {
 
     const userMap = new Map<string, any>((usersData ?? []).map((u: any) => [u.id, u]))
 
-    const docs = docsRaw.map((d: any) => ({
+    // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+    const docs = await signDocUrls(docsRaw.map((d: any) => ({
       id: d.id,
       ownerId: d.owner_id,
       name: d.name,
@@ -92,7 +94,7 @@ export async function GET(req: NextRequest) {
         firstName: userMap.get(d.reviewed_by_id).first_name,
         lastName: userMap.get(d.reviewed_by_id).last_name,
       } : null,
-    }))
+    })))
 
     const resp = NextResponse.json({
       docs,

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/lib/auth-store'
+import { useActiveDossierStore } from '@/lib/active-dossier-store'
 import { useFavorites } from '@/lib/use-favorites'
 import { authFetch } from '@/lib/auth-fetch'
 import { apiFetch } from '@/lib/capacitor'
@@ -2427,7 +2428,7 @@ function ApplyDialog({
   submitted: boolean
   setSubmitted: (v: boolean) => void
 }) {
-  const { setView, setDashboardSection } = useAuthStore()
+  const { setView, setDashboardSection, user } = useAuthStore()
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const submittingRef = useRef(false)
@@ -2438,11 +2439,18 @@ function ApplyDialog({
     setSubmitting(true)
     setSubmitError('')
     try {
+      // FUN-002 : candidater avec le dossier actif s'il est validé (sinon
+      // fallback serveur : dossier STANDARD complet le plus récent)
+      const activeDossier = useActiveDossierStore.getState().activeByUser[user?.id ?? '']
       const res = await authFetch<{ error?: string; data?: { rentalFileId?: string } }>('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           propertyId: property.id,
+          rentalFileId:
+            activeDossier && ['VALIDATED', 'ACCEPTED'].includes(activeDossier.status)
+              ? activeDossier.id
+              : undefined,
         }),
       })
       if (res.error) {

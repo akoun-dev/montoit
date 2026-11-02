@@ -1,0 +1,421 @@
+/* ========================================
+   HERO SPECTACULAIRE - MON TOIT
+   Design Premium 2025
+   ======================================== */
+
+/* ========================================
+   1. TYPOGRAPHIE PREMIUM
+   ======================================== */
+
+.hero-title-spectacular {
+  /* Gradient avec contraste renforcé pour WCAG AA */
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    /* Blanc pur pour contraste maximal */ #f8fafc 25%,
+    /* Gris très clair */ #e2e8f0 50%,
+    /* Gris clair */ #1e293b 75%,
+    /* Gris foncé pour contraste */ #0f172a 100% /* Gris très foncé */
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+
+  /* Ombres renforcées pour lisibilité sur tous backgrounds */
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8)) drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6))
+    drop-shadow(0 8px 32px rgba(0, 0, 0, 0.4));
+
+  /* Animation subtile de brillance */
+  animation: hero-shine 3s ease-in-out infinite;
+  background-size: 200% 200%;
+
+  /* Fallback pour le contraste */
+  color: #ffffff;
+  font-weight: 700;
+}
+
+@keyframes hero-shine {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.hero-subtitle-spectacular {
+  /* Contraste WCAG AA compliant */
+  color: #ffffff;
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.9),
+    /* Ombre plus forte */ 0 4px 16px rgba(0, 0, 0, 0.7),
+    /* Ombre medium */ 0 0 32px rgba(0, 0, 0, 0.5); /* Ombre subtile */
+
+  /* Amélioration de la lisibilité */
+  font-weight: 600;
+  letter-spacing: 0.025em;
+
+  /* Effet glow subtil */
+  animation: hero-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes hero-glow {
+  from {
+    text-shadow:
+      0 2px 10px rgba(0, 0, 0, 0.3),
+      0 4px 20px rgba(var(--color-primary-500), 0.2),
+      0 0 40px rgba(var(--color-primary-500), 0.1);
+  }
+  to {
+    text-shadow:
+      0 2px 10px rgba(0, 0, 0, 0.3),
+      0 4px 20px rgba(var(--color-primary-500), 0.4),
+      0 0 60px rgba(var(--color-primary-500), 0.3);
+  }
+}
+
+/* ========================================
+   2. ÉLÉMENTS STATIQUES OPTIMISÉS
+   ======================================== */
+
+/* Suppression des animations lourdes pour performance */
+/* Les particules, waves et animations lettre-par-lettre 
+   ont été supprimées pour améliorer les performances 
+   et respecter les préférences d'accessibilité */
+
+/* ========================================
+   3. EFFETS VISUELS AVANCÉS
+   ======================================== */
+
+/* Glassmorphism avancé sur search bar */
+.hero-search-spectacular {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+    0 0 60px rgba(var(--color-primary-500), 0.2);
+
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-search-spectacular:hover {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 12px 48px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+    0 0 80px rgba(var(--color-primary-500), 0.4);
+  transform: translateY(-2px);
+}
+
+.hero-search-spectacular:focus-within {
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow:
+    0 16px 64px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(var(--color-primary-500), 0.5) inset,
+    0 0 100px rgba(var(--color-primary-500), 0.6);
+  transform: translateY(-4px) scale(1.02);
+}
+
+/* Glow effect orange autour des éléments */
+.hero-glow-orange {
+  position: relative;
+}
+
+.hero-glow-orange::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(
+    circle at center,
+    rgba(var(--color-primary-500), 0.3) 0%,
+    rgba(var(--color-primary-500), 0.1) 40%,
+    transparent 70%
+  );
+  filter: blur(30px);
+  opacity: 0;
+  animation: hero-glow-pulse 3s ease-in-out infinite;
+  z-index: -1;
+  pointer-events: none;
+}
+
+@keyframes hero-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+/* Blur artistique sur les images du diaporama */
+.hero-slide-image {
+  position: relative;
+}
+
+.hero-slide-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    transparent 0%,
+    transparent 20%,
+    rgba(0, 0, 0, 0.4) 70%,
+    /* Assombrissement plus fort */ rgba(0, 0, 0, 0.8) 100% /* Bordures très sombres */
+  );
+  pointer-events: none;
+}
+
+/* Vignette cinématique renforcée pour contraste */
+.hero-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 30%,
+    rgba(0, 0, 0, 0.3) 60%,
+    rgba(0, 0, 0, 0.7) 100% /* Assombrissement renforcé */
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ========================================
+   4. MICRO-INTERACTIONS
+   ======================================== */
+
+/* Parallax sur le texte au scroll */
+.hero-parallax {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Bouton recherche avec ripple effect */
+.hero-button-ripple {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hero-button-ripple::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+  transform: scale(0);
+  opacity: 0;
+  transition:
+    transform 0.6s,
+    opacity 0.6s;
+}
+
+.hero-button-ripple:active::before {
+  transform: scale(4);
+  opacity: 1;
+  transition:
+    transform 0s,
+    opacity 0s;
+}
+
+/* Icons animés */
+.hero-icon-animated {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hero-icon-animated:hover {
+  transform: scale(1.2) rotate(5deg);
+}
+
+/* ========================================
+   5. INDICATEURS DE SLIDES PREMIUM
+   ======================================== */
+
+.hero-indicator {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.hero-indicator:hover {
+  background: rgba(255, 255, 255, 0.7);
+  transform: scale(1.3);
+}
+
+.hero-indicator.active {
+  width: 32px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--color-primary-500), 1) 0%,
+    rgba(255, 153, 51, 1) 100%
+  );
+  box-shadow:
+    0 0 20px rgba(var(--color-primary-500), 0.6),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ========================================
+   6. RESPONSIVE & PERFORMANCE
+   ======================================== */
+
+/* Réduire les animations sur mobile pour performance */
+@media (max-width: 640px) {
+  .hero-title-spectacular {
+    animation: none;
+    font-size: clamp(1.5rem, 5vw, 3rem) !important;
+    line-height: 1.1 !important;
+    filter: drop-shadow(0 0 20px rgba(var(--color-primary-500), 0.4))
+      drop-shadow(0 2px 10px rgba(0, 0, 0, 0.3));
+  }
+
+  .hero-subtitle-spectacular {
+    animation: none;
+    font-size: clamp(0.875rem, 3vw, 1.25rem) !important;
+  }
+
+  /* Les particules et waves sont supprimées pour performance */
+
+  .hero-glow-orange::before {
+    display: none;
+  }
+
+  /* Correction troncature statistiques */
+  .hero-text-enhanced {
+    font-size: clamp(2rem, 8vw, 4rem) !important;
+    line-height: 1.1 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Respecter les préférences d'animation réduites */
+@media (prefers-reduced-motion: reduce) {
+  .hero-title-spectacular,
+  .hero-subtitle-spectacular {
+    animation: none !important;
+  }
+
+  .hero-search-spectacular,
+  .hero-parallax,
+  .hero-button-ripple,
+  .hero-icon-animated,
+  .hero-indicator {
+    transition: none !important;
+  }
+}
+
+/* ========================================
+   7. AMÉLIORATIONS LISIBILITÉ & CONTRASTE
+   ======================================== */
+
+/* Classe pour renforcer le contraste du texte hero */
+.hero-text-enhanced {
+  /* Contraste maximal WCAG AAA (7:1) */
+  color: #ffffff;
+  text-shadow:
+    0 2px 4px rgba(0, 0, 0, 1),
+    /* Ombre noire forte */ 0 4px 8px rgba(0, 0, 0, 0.9),
+    /* Ombre medium forte */ 0 0 20px rgba(0, 0, 0, 0.8); /* Glow sombre */
+
+  /* Amélioration de la lisibilité */
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+/* Contraste renforcé pour les éléments interactifs */
+.hero-button-enhanced {
+  /* Background avec contraste renforcé */
+  background: linear-gradient(135deg, #ff6b35 0%, #e55a2b 100%);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    /* Ombre forte */ 0 2px 4px rgba(255, 107, 53, 0.4); /* Glow orange */
+
+  /* États focus avec contraste renforcé */
+}
+
+.hero-button-enhanced:focus {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 0 4px rgba(255, 255, 255, 0.3);
+}
+
+/* Overlay renforcé pour les zones problématiques */
+.hero-overlay-enhanced {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.4) 0%,
+    /* Sombre en haut */ rgba(0, 0, 0, 0.6) 50%,
+    /* Plus sombre au centre */ rgba(0, 0, 0, 0.8) 100% /* Très sombre en bas */
+  );
+}
+
+/* Amélioration des indicateurs de slide */
+.hero-indicator-enhanced {
+  background: rgba(255, 255, 255, 0.8); /* Plus opaque */
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  min-width: 12px !important;
+  min-height: 12px !important;
+  max-width: 32px !important;
+  max-height: 12px !important;
+}
+
+.hero-indicator-enhanced.active {
+  background: linear-gradient(90deg, #ff6b35 0%, #e55a2b 100%);
+  border-color: #ffffff;
+  box-shadow:
+    0 0 12px rgba(255, 107, 53, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Correction des boutons circulaires tronqués */
+@media (max-width: 640px) {
+  .hero-indicator {
+    min-width: 10px !important;
+    min-height: 10px !important;
+    max-width: 28px !important;
+    max-height: 10px !important;
+  }
+
+  .hero-indicator.active {
+    max-width: 24px !important;
+  }
+}
+
+/* ========================================
+   8. DARK MODE SUPPORT
+   ======================================== */
+
+@media (prefers-color-scheme: dark) {
+  .hero-search-spectacular {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .hero-search-spectacular:hover {
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  .hero-search-spectacular:focus-within {
+    background: rgba(0, 0, 0, 0.5);
+  }
+}

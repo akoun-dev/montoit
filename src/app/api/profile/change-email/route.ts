@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { normalizeEmail, getUserProfileByEmail } from '@/lib/supabase/email-auth'
 import { checkRateLimit } from '@/lib/rate-limiter'
+import { hashOtpCode } from '@/lib/otp-hash'
 import crypto from 'crypto'
 
 const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
@@ -58,10 +59,11 @@ export async function POST(req: NextRequest) {
 
     const otpCode = generateOtpCode(6)
 
+    // SEC-007 : code stocké hashé (SHA-256 + pepper, selé par la nouvelle adresse).
     await admin.from('otp_codes').insert({
       id: crypto.randomUUID(),
       email: normalizedEmail,
-      code: otpCode,
+      code: hashOtpCode(otpCode, normalizedEmail),
       type: 'EMAIL_CHANGE',
       expires_at: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString(),
       user_id: userId,
@@ -69,7 +71,8 @@ export async function POST(req: NextRequest) {
 
     const emailResult = await sendOtpEmail(normalizedEmail, otpCode, 'Utilisateur', 'email_verify')
     if (!emailResult.success) {
-      console.warn(`[Change Email] Email send failed for ${normalizedEmail}, but OTP stored. Code: ${otpCode}`)
+      // SEC-007 : ne jamais logger le code OTP en clair (fuite via les logs).
+      console.warn(`[Change Email] Email send failed for ${normalizedEmail}, but OTP stored`)
     }
 
     const isDev = process.env.NODE_ENV !== 'production'

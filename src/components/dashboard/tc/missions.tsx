@@ -32,6 +32,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useInAppBrowser } from '@/hooks/capacitor'
 import { useRealtimeMissions } from '@/hooks/use-realtime-missions'
+import { MissionAccessPanel } from './mission-token-badge'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1217,6 +1218,13 @@ export function MissionsManagement() {
                   </div>
                 </div>
               )}
+
+              {/* ─── Lien d'accès éphémère de la mission (TC-006) ──────────── */}
+              <MissionAccessPanel
+                missionId={detailDialog.mission.id}
+                missionStatus={detailDialog.mission.status}
+                onOpenUrl={openInWebView}
+              />
 
               {/* Scheduled date */}
               <div className="flex items-center gap-2 text-sm">

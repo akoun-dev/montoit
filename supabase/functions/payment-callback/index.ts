@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
 import { notify } from '../_shared/notify.ts'
+import { extractSignature, verifyHmacSignature } from '../_shared/hmac.ts'
 
 interface IntouchCallbackPayload {
   partner_transaction_id?: string
@@ -262,46 +263,69 @@ serve(async (req) => {
 
   const supabase = getSupabaseAdminClient()
 
-  // ── Callback secret verification ──
-  const callbackSecret = Deno.env.get('INTOUCH_CALLBACK_SECRET')
-  if (callbackSecret) {
-    const url = new URL(req.url)
-    const token = url.searchParams.get('token')
-    if (token !== callbackSecret) {
-      console.error('Payment callback: invalid or missing callback secret')
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+  // ── S3-Edge — Authentification du callback, fail-CLOSED ─────────────────────
+  // 1) Secret obligatoire : si INTOUCH_CALLBACK_SECRET est absent/vide, la
+  //    fonction est DÉSACTIVÉE (503). Avant, la vérification était simplement
+  //    sautée (`if (callbackSecret)`) → n'importe qui pouvait confirmer un
+  //    paiement en appelant l'Edge directement.
+  const callbackSecret = Deno.env.get('INTOUCH_CALLBACK_SECRET')?.trim()
+  if (!callbackSecret) {
+    console.error('Payment callback: INTOUCH_CALLBACK_SECRET manquant — webhook désactivé (503).')
+    return new Response(JSON.stringify({ error: 'Webhook paiement indisponible (secret de callback non configuré)' }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
-  if (req.method === 'POST') {
-    const payload: IntouchCallbackPayload | null = await req.json().catch(() => null)
-    if (!payload) {
-      return new Response(JSON.stringify({ received: true }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    return handleCallback(supabase, payload)
+  // 2) GET supprimé (S3-Edge) : le marquage SUCCESS via de simples query params
+  //    non signés est impossible. Seul POST est traité, 405 sinon.
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
-  if (req.method === 'GET') {
-    const { searchParams } = new URL(req.url)
-    const payload: IntouchCallbackPayload = {
-      partner_transaction_id: searchParams.get('partner_transaction_id') || undefined,
-      status: searchParams.get('status') || undefined,
-      transactionId: searchParams.get('transactionId') || undefined,
-      message: searchParams.get('message') || undefined,
-      error_code: searchParams.get('error_code') || undefined,
-      error_message: searchParams.get('error_message') || undefined,
-    }
-    return handleCallback(supabase, payload)
+  // 3) HMAC-SHA256 timing-safe sur le CORPS BRUT (celui signé par l'émetteur).
+  //    Chaîne d'appel : fournisseur → proxy Next (/api/payments/callback, qui
+  //    vérifie déjà le HMAC côté Next) → présente fonction. Le proxy transmet
+  //    le corps brut TEL QUEL et relaie l'en-tête `x-webhook-signature`, ce qui
+  //    rend possible cette seconde vérification de bout en bout (défense en
+  //    profondeur si l'Edge est exposé directement).
+  //    ⚠ Déploiement : PAYMENT_CALLBACK_SECRET (proxy Next) et
+  //    INTOUCH_CALLBACK_SECRET (Edge) doivent valoir le MÊME secret partagé
+  //    avec le fournisseur de paiement.
+  const signatureHeader = extractSignature(req)
+  if (!signatureHeader) {
+    console.warn('Payment callback: signature HMAC absente (rejeté)')
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
-  return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-    status: 405,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
+  const rawBody = await req.text()
+  const isSignatureValid = await verifyHmacSignature(rawBody, signatureHeader, callbackSecret)
+  if (!isSignatureValid) {
+    console.warn('Payment callback: signature HMAC invalide (rejeté)')
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  // Corps authentifié : on peut le parser en toute confiance.
+  let payload: IntouchCallbackPayload | null = null
+  try {
+    payload = rawBody ? (JSON.parse(rawBody) as IntouchCallbackPayload) : null
+  } catch {
+    payload = null
+  }
+  if (!payload || typeof payload !== 'object') {
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  return handleCallback(supabase, payload)
 })

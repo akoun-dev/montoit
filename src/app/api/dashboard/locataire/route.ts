@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { signDocUrls } from '@/lib/supabase/storage'
 
 export async function GET(req: NextRequest) {
   const auth = await resolveRequestUser(req)
@@ -180,22 +181,25 @@ export async function GET(req: NextRequest) {
 
     const favoritePropIds = new Set((allFavorites ?? []).map((f: any) => f.property_id))
 
-    const rentalFiles = (rawRentalFiles ?? []).map(f => ({
+    const rentalFiles = await Promise.all((rawRentalFiles ?? []).map(async f => ({
       id: f.id,
       tenantId: f.tenant_id,
       status: f.status,
+      // FUN-002 : type de dossier (carte d'aperçu / sélecteur)
+      fileType: f.file_type ?? 'STANDARD',
       tenantCategory: f.tenant_category,
       reviewedById: f.reviewed_by_id,
       createdAt: f.created_at,
       updatedAt: f.updated_at,
-      documents: (docByRentalFile.get(f.id) ?? []).map(d => ({
+      // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+      documents: await signDocUrls((docByRentalFile.get(f.id) ?? []).map(d => ({
         id: d.id,
         rentalFileId: d.rental_file_id,
         type: d.type,
         url: d.url,
         name: d.name,
         createdAt: d.created_at,
-      })),
+      }))),
       leases: (leaseByRentalFile.get(f.id) ?? []).map(l => ({
         id: l.id,
         status: l.status,
@@ -206,11 +210,12 @@ export async function GET(req: NextRequest) {
         tenantId: l.tenant_id,
         ownerId: l.owner_id,
       })),
-    }))
+    })))
 
     // Documents from validated rental files
     const validatedRf = rawRentalFiles?.find(rf => rf.status === 'VALIDATED')
-    const myDocuments = validatedRf ? (docByRentalFile.get(validatedRf.id) ?? []) : []
+    // SEC-006 : URLs signées (1 h)
+    const myDocuments = validatedRf ? await signDocUrls(docByRentalFile.get(validatedRf.id) ?? []) : []
 
     const visitRequests = (rawVisitRequests ?? []).map(v => {
       const prop = propMap.get(v.property_id)

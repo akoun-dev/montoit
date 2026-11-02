@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Eye, MessageSquare, ShieldCheck, Home, MapPin, User, CreditCard,
@@ -24,6 +24,10 @@ import { useRealtimeMaintenance } from '@/hooks/use-realtime-maintenance'
 import { ContactDialog } from '@/components/messaging/contact-dialog'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { useActiveDossier } from '@/lib/active-dossier-store'
+import { normalizeRentalFileType, rentalFileTypeLabel } from '@/lib/rental-file-types'
+import { EmptyState } from '@/components/shared/states'
+import { RentalFileTypeBadge } from './rental-file-type-badge'
 
 interface DashboardData {
   stats: {
@@ -78,6 +82,7 @@ function StatusBadge({ status }: { status: string }) {
     TC_REVIEW: { label: 'En revue', className: 'bg-amber-100 text-amber-700' },
     VALIDATED: { label: 'Validé', className: 'bg-green-100 text-green-700' },
     REJECTED: { label: 'Rejeté', className: 'bg-red-100 text-red-700' },
+    EXPIRED: { label: 'Expiré', className: 'bg-muted text-foreground' },
     PENDING: { label: 'En attente', className: 'bg-amber-100 text-amber-700' },
     ACCEPTED: { label: 'Accepté', className: 'bg-green-100 text-green-700' },
     COMPLETED: { label: 'Terminé', className: 'bg-teal-100 text-teal-700' },
@@ -143,6 +148,24 @@ export function LocataireOverview() {
   useRealtimeRentalFiles({ userId: user?.id, onRentalFileChange: invalidate })
   useRealtimeApplications({ userId: user?.id, onApplicationChange: invalidate })
   useRealtimeMaintenance({ userId: user?.id, onMaintenanceChange: invalidate })
+
+  // FUN-002 : dossier actif = choix persisté du sélecteur du header (store dédié
+  // `active-dossier-store`), sinon fallback sur le dossier STANDARD le plus récent,
+  // sinon le plus récent tout type confondu (spec FUN-002 §5.2 / SC-9).
+  // Lecture seule : l'overview n'écrit jamais dans le store (le sélecteur du
+  // header et la création de dossier en sont les seuls points d'écriture).
+  const activeDossierRef = useActiveDossier(user?.id ?? null)
+  const activeDossier = useMemo(() => {
+    const files = theData.rentalFiles ?? []
+    if (files.length === 0) return null
+    const byRef = activeDossierRef ? files.find((f: any) => f.id === activeDossierRef.id) : undefined
+    if (byRef) return byRef
+    const sorted = [...files].sort(
+      (a: any, b: any) =>
+        new Date(b.updatedAt ?? b.createdAt).getTime() - new Date(a.updatedAt ?? a.createdAt).getTime(),
+    )
+    return sorted.find((f: any) => normalizeRentalFileType(f.fileType) === 'STANDARD') ?? sorted[0]
+  }, [theData.rentalFiles, activeDossierRef])
 
   // Load map when primary lease has coordinates
   useEffect(() => {
@@ -232,7 +255,65 @@ export function LocataireOverview() {
         </motion.div>
       )}
 
-      {/* ─── 2. MON LOGEMENT ──────────────────────────────────────────── */}
+      {/* ─── 2. DOSSIER LOCATIF ACTIF (FUN-002) ──────────────────────── */}
+      <motion.div variants={itemVariants}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <FileText className="size-5 text-brand-500" />
+            <h2 className="text-base font-semibold text-foreground">Dossier locatif</h2>
+          </div>
+          <Button variant="ghost" size="sm" className="text-brand-500 gap-1" onClick={() => setDashboardSection('rental-files-list')}>
+            Gérer <ChevronRight className="size-3" />
+          </Button>
+        </div>
+
+        {activeDossier ? (
+          <Card
+            className="border-border cursor-pointer hover:shadow-sm transition-shadow"
+            onClick={() => setDashboardSection('rental-files-list')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50 shrink-0">
+                  <FileText className="size-5 text-brand-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  {/* Même hiérarchie de badges que les cartes de rental-files-list :
+                      nom + badge type + badge statut */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-foreground">
+                      Dossier {rentalFileTypeLabel(activeDossier.fileType)}
+                    </p>
+                    <RentalFileTypeBadge fileType={activeDossier.fileType} />
+                    <StatusBadge status={activeDossier.status} />
+                  </div>
+                  {/* Mention discrète réservée aux dossiers FAMILLE/COLOCATION :
+                      « nom du dossier » tel qu'affiché dans la liste des dossiers */}
+                  {normalizeRentalFileType(activeDossier.fileType) !== 'STANDARD' && (
+                    <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                      <Info className="size-3 shrink-0" />
+                      <span className="truncate">
+                        {`Dossier ${rentalFileTypeLabel(activeDossier.fileType)} du ${new Date(activeDossier.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                        {' '}&middot; actif pour vos candidatures
+                      </span>
+                    </p>
+                  )}
+                </div>
+                <ChevronRight className="size-4 text-muted-foreground shrink-0 self-center" />
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <EmptyState
+            title="Aucun dossier locatif"
+            description="Créez votre dossier pour commencer à postuler aux logements."
+            icon={FileText}
+            action={{ label: 'Créer mon dossier', onClick: () => setDashboardSection('rental-file') }}
+          />
+        )}
+      </motion.div>
+
+      {/* ─── 3. MON LOGEMENT ──────────────────────────────────────────── */}
       {primaryLease && (
         <motion.div variants={itemVariants}>
           <div className="flex items-center gap-2 mb-3">
@@ -316,7 +397,7 @@ export function LocataireOverview() {
         </motion.div>
       )}
 
-      {/* ─── 3. PAIEMENTS ────────────────────────────────────────────────── */}
+      {/* ─── 4. PAIEMENTS ────────────────────────────────────────────────── */}
       {primaryLease && (
         <motion.div variants={itemVariants}>
           <div className="flex items-center gap-2 mb-3">
@@ -427,7 +508,7 @@ export function LocataireOverview() {
         </Card>
       </motion.div>
 
-      {/* ─── 4. DEMANDES DE MAINTENANCE ────────────────────────────────── */}
+      {/* ─── 5. DEMANDES DE MAINTENANCE ────────────────────────────────── */}
       {theData.maintenanceRequests.length > 0 && (
         <motion.div variants={itemVariants}>
           <div className="flex items-center justify-between mb-3">
@@ -468,7 +549,7 @@ export function LocataireOverview() {
         </motion.div>
       )}
 
-      {/* ─── 5. DOCUMENTS ──────────────────────────────────────────────── */}
+      {/* ─── 6. DOCUMENTS ──────────────────────────────────────────────── */}
       {theData.myDocuments.length > 0 && (
         <motion.div variants={itemVariants}>
           <div className="flex items-center gap-2 mb-3">
@@ -500,7 +581,7 @@ export function LocataireOverview() {
         </motion.div>
       )}
 
-      {/* ─── 6. RECOMMANDATIONS + FAVORIS ──────────────────────────────── */}
+      {/* ─── 7. RECOMMANDATIONS + FAVORIS ──────────────────────────────── */}
       {(theData.recommendedProperties.length > 0 || theData.favoritePropIds.length > 0) && (
         <motion.div variants={itemVariants}>
           <div className="flex items-center gap-2 mb-3">
@@ -544,7 +625,7 @@ export function LocataireOverview() {
         </motion.div>
       )}
 
-      {/* ─── 7. CARTE ──────────────────────────────────────────────────── */}
+      {/* ─── 8. CARTE ──────────────────────────────────────────────────── */}
       {primaryLease?.property?.latitude && primaryLease?.property?.longitude && (
         <motion.div variants={itemVariants}>
           <div className="flex items-center gap-2 mb-3">

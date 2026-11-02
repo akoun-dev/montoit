@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
 import { openValidationSla } from '@/lib/validation-sla'
+import { signDocUrls } from '@/lib/supabase/storage'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -365,7 +366,7 @@ async function enrichOwnerFiles(admin: ReturnType<typeof getSupabaseAdminClient>
   const docMap = groupBy(documents ?? [], 'owner_file_id')
   const reviewerMap = new Map((reviewers ?? []).map((r) => [r.id, r]))
 
-  return files.map((f) => ({
+  return Promise.all(files.map(async (f) => ({
     id: f.id,
     status: f.status,
     monthlyIncome: f.monthly_income,
@@ -382,13 +383,14 @@ async function enrichOwnerFiles(admin: ReturnType<typeof getSupabaseAdminClient>
     updatedAt: f.updated_at,
     ownerId: f.owner_id,
     reviewedById: f.reviewed_by_id,
-    documents: (docMap.get(f.id) ?? []).map(mapOwnerFileDoc),
+    // SEC-006 : URLs signées (1 h) pour les documents du bucket privé
+    documents: await signDocUrls((docMap.get(f.id) ?? []).map(mapOwnerFileDoc)),
     reviewedBy: (() => {
       const r = reviewerMap.get(f.reviewed_by_id)
       if (!r) return undefined
       return { id: r.id, firstName: r.first_name, lastName: r.last_name }
     })(),
-  }))
+  })))
 }
 
 async function enrichOwnerFile(admin: ReturnType<typeof getSupabaseAdminClient>, file: any) {

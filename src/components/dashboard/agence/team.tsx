@@ -19,6 +19,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRealtimeUsers } from '@/hooks/use-realtime-users'
+import { EmptyState, LoadingState } from '@/components/shared/states'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -169,13 +170,7 @@ export function TeamManagement() {
     return true
   })
 
-  if (loading) return (
-    <div className="space-y-6">
-      <div><div className="h-8 w-56 bg-muted animate-pulse rounded" /><div className="h-4 w-72 bg-muted animate-pulse rounded mt-2" /></div>
-      <div className="flex gap-2">{[1,2,3].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>
-      {[1,2,3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}
-    </div>
-  )
+  if (loading) return <LoadingState variant="detail" />
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
@@ -279,17 +274,11 @@ export function TeamManagement() {
       {/* Cards list */}
       {filtered.length === 0 ? (
         <motion.div variants={itemVariants}>
-          <Card className="border-dashed border-border bg-muted/50">
-            <CardContent className="py-12 flex flex-col items-center text-center">
-              <Users className="size-12 text-muted-foreground/40 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-1">
-                {search ? 'Aucun agent trouvé' : 'Aucun agent dans votre équipe'}
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                {search ? 'Essayez de modifier votre recherche.' : 'Ajoutez un agent pour commencer.'}
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Users}
+            title={search ? 'Aucun agent trouvé' : 'Aucun agent dans votre équipe'}
+            description={search ? 'Essayez de modifier votre recherche.' : 'Ajoutez un agent pour commencer.'}
+          />
         </motion.div>
       ) : (
         <AnimatePresence mode="wait">
