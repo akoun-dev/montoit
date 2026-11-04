@@ -2432,6 +2432,43 @@ function ApplyDialog({
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const submittingRef = useRef(false)
+  // État du dossier locataire du locataire — permet de le rediriger vers la
+  // zone « Mon dossier » s'il n'a pas encore de dossier soumis/validé
+  // (le serveur refuse toute candidature sans dossier validé : FUN-002).
+  const [dossierCheck, setDossierCheck] = useState<{
+    loading: boolean
+    hasValidated: boolean
+    hasPending: boolean
+    hasBlocked: boolean
+  } | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setDossierCheck({ loading: true, hasValidated: false, hasPending: false, hasBlocked: false })
+    authFetch<{ data?: Array<{ status?: string }> }>('/api/rental-file')
+      .then((res) => {
+        if (cancelled) return
+        // /api/rental-file répond { data: RentalFileItem[], stats } — authFetch
+        // retourne le body parsé : la liste des dossiers est donc res.data.
+        const files = res.data ?? []
+        setDossierCheck({
+          loading: false,
+          hasValidated: files.some((f) => f.status === 'VALIDATED'),
+          hasPending: files.some((f) => f.status === 'SUBMITTED' || f.status === 'TC_REVIEW'),
+          hasBlocked: files.some((f) => f.status === 'REJECTED' || f.status === 'EXPIRED'),
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        // En cas d'échec de la vérification, on laisse le flux actuel
+        // se dérouler : le serveur revalidera le dossier à la soumission.
+        setDossierCheck({ loading: false, hasValidated: true, hasPending: false, hasBlocked: false })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   const handleSubmit = async () => {
     if (submittingRef.current) return
@@ -2504,6 +2541,41 @@ function ApplyDialog({
                    Fermer
               </Button>
             </div>
+          </div>
+        ) : dossierCheck?.loading ? (
+          <div className="text-center py-10">
+            <Loader2 className="size-8 text-brand-500 animate-spin mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Vérification de votre dossier locataire...</p>
+          </div>
+        ) : dossierCheck && !dossierCheck.hasValidated ? (
+          // Dossier absent, non soumis, en attente ou expiré → redirection
+          // vers la zone « Mon dossier locataire » du dashboard
+          <div className="text-center py-4">
+            <div className="size-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
+              <FileText className="size-8 text-amber-500" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">Dossier locataire requis</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              {dossierCheck.hasPending
+                ? 'Votre dossier est soumis et en cours de validation par le Tiers de Confiance. Vous pourrez candidater à ce bien dès sa validation.'
+                : dossierCheck.hasBlocked
+                  ? 'Votre dossier locataire n\'est plus valide (rejeté ou expiré). Mettez-le à jour puis resoumettez-le pour candidater à ce bien.'
+                  : 'Vous n\'avez pas encore soumis votre dossier locataire. Complétez-le pour pouvoir candidater à ce bien.'}
+            </p>
+            {submitError && (
+              <p className="text-xs text-red-500 text-center mt-3">{submitError}</p>
+            )}
+            <Button
+              onClick={handleCompleteDossier}
+              className="w-full bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold mt-4"
+            >
+              <FileText className="size-4 mr-1.5" />
+              {dossierCheck.hasPending
+                ? 'Voir mon dossier'
+                : dossierCheck.hasBlocked
+                  ? 'Mettre à jour mon dossier'
+                  : 'Compléter mon dossier'}
+            </Button>
           </div>
         ) : (
           <div className="text-center py-6">
