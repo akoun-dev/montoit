@@ -101,6 +101,7 @@ liteRT
 /db/pg.log
 /db/custom.db
 /db/migrations-report.json
+/db/.s.PGSQL.*.lock
 /upload/
 /download/
 /.app-artifact-bak/

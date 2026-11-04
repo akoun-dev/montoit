@@ -86,7 +86,13 @@ export default function RootLayout({
         <meta name="theme-color" content="#FF6C2F" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
       </head>
-      <body className={`${inter.variable} antialiased bg-background text-foreground`}>
+      {/* suppressHydrationWarning : les extensions navigateur (ex. Bitdefender `bis_*`)
+          injectent des attributs dans le DOM avant l'hydratation React — on ignore
+          les écarts d'attributs sur <body> pour ne pas polluer la console. */}
+      <body
+        suppressHydrationWarning
+        className={`${inter.variable} antialiased bg-background text-foreground`}
+      >
         <QueryProvider>
           <ThemeProvider
             attribute="class"

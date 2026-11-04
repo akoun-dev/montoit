@@ -54,7 +54,26 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-useless-escape": "off",
   },
 }, {
-  ignores: ["node_modules/**", ".next/**", ".kilo/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
+  ignores: [
+    "node_modules/**",
+    ".next/**",
+    ".kilo/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "examples/**",
+    "skills",
+    // Dossiers hors application Next.js (artefacts, docs, outils, BD locale)
+    "agent-ctx/**",
+    ".app-artifact-bak/**",
+    ".zscripts/**",
+    "db/**",
+    "docs/**",
+    "download/**",
+    "upload/**",
+    "mini-services/**",
+    "mobile/**",
+  ]
 }];
 
 export default eslintConfig;
