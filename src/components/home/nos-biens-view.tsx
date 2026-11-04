@@ -801,7 +801,14 @@ function MapListItem({ property, onClick, isFavorite, toggleFavorite, distance }
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export function NosBiensView() {
+interface NosBiensViewProps {
+  /** Intégrée au dashboard locataire : sans min-h-screen, clic bien géré par le parent */
+  embedded?: boolean
+  /** Si fourni, le clic sur un bien est délégué au parent (au lieu de la vue publique property-detail) */
+  onSelectProperty?: (propertyId: string) => void
+}
+
+export function NosBiensView({ embedded = false, onSelectProperty }: NosBiensViewProps) {
   const { setView, setSelectedPropertyId, searchParams, setSearchParams } = useAuthStore()
   const resultsTopRef = useRef<HTMLDivElement | null>(null)
 
@@ -905,6 +912,11 @@ export function NosBiensView() {
   }, [])
 
   const openDetail = (propertyId: string) => {
+    if (onSelectProperty) {
+      // Mode intégré (dashboard) : le parent gère la navigation (sidebar conservée)
+      onSelectProperty(propertyId)
+      return
+    }
     setSelectedPropertyId(propertyId)
     setView('property-detail')
   }
@@ -1078,7 +1090,7 @@ export function NosBiensView() {
   // Loading state
   if (isLoading) {
     return (
-      <section className="bg-muted min-h-screen">
+      <section className={embedded ? 'bg-muted' : 'bg-muted min-h-screen'}>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           {/* Search bar skeleton */}
           <div className="space-y-3 mb-6">
@@ -1111,7 +1123,7 @@ export function NosBiensView() {
   // Error state
   if (error) {
     return (
-      <section className="bg-muted min-h-screen">
+      <section className={embedded ? 'bg-muted' : 'bg-muted min-h-screen'}>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="text-center py-20">
             <div className="size-20 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-5">
@@ -1137,7 +1149,7 @@ export function NosBiensView() {
   }
 
   return (
-    <section className="bg-muted min-h-screen">
+    <section className={embedded ? 'bg-muted' : 'bg-muted min-h-screen'}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div ref={resultsTopRef} />
         {/* ── Search Bar + Controls ─────────────────────────────────── */}

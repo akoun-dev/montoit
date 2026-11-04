@@ -46,7 +46,6 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
             { id: 'applications', label: 'Mes candidatures', icon: UserCheck },
             { id: 'my-visits', label: 'Mes visites', icon: Eye },
             { id: 'my-leases', label: 'Mes locations', icon: Home },
-            { id: 'inventory-reports', label: 'États des lieux', icon: FileText },
             { id: 'payments', label: 'Mes paiements', icon: CreditCard },
           ],
         },
@@ -314,10 +313,11 @@ const detailToParent: Record<string, string> = {
   'tenant-detail': 'my-tenants',
   'property-verify-detail': 'property-verifications',
   'inventory-report-form': 'inventory-reports',
+  'property-detail': 'search-properties',
 }
 
 export function SidebarContent({ collapsed = false, onNavigate }: SidebarContentProps) {
-  const { user, dashboardSection, setDashboardSection, setView } = useAuthStore()
+  const { user, dashboardSection, setDashboardSection } = useAuthStore()
   const { unpaidCount } = usePaymentAlerts()
 
   if (!user) return null
@@ -329,12 +329,10 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
   // Determine the active section (map detail views to parent)
   const activeSection = detailToParent[dashboardSection] || dashboardSection
 
+  // Toute la navigation reste dans le dashboard (sidebar toujours visible).
+  // « Chercher un bien » affiche la vue NOS BIENS intégrée à la section search-properties.
   const handleItemClick = (id: string) => {
-    if (id === 'search-properties') {
-      setView('nos-biens')
-    } else {
-      setDashboardSection(id)
-    }
+    setDashboardSection(id)
     onNavigate?.()
   }
 

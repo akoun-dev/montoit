@@ -473,7 +473,13 @@ function PropertyDetailSkeleton() {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export function PropertyDetailView({ propertyId }: { propertyId: string }) {
+interface PropertyDetailViewProps {
+  propertyId: string
+  /** Si fourni, le bouton Retour délègue au parent (mode intégré au dashboard) */
+  onBack?: () => void
+}
+
+export function PropertyDetailView({ propertyId, onBack }: PropertyDetailViewProps) {
   const { setView, setSelectedPropertyId, isAuthenticated, user, previousView } = useAuthStore()
   const { isFavorite: checkIsFavorite, toggleFavorite: apiToggleFavorite, checkSingle } = useFavorites([propertyId])
   const [currentImage, setCurrentImage] = useState(0)
@@ -692,11 +698,20 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
       <div className="min-h-screen flex flex-col items-center justify-center gap-3">
         <AlertCircle className="size-10 text-muted-foreground" />
         <p className="text-muted-foreground">{error || 'Bien introuvable'}</p>
-        <Button variant="outline" onClick={() => setView(previousView === 'property-detail' ? 'home' : previousView)}>
+        <Button variant="outline" onClick={handleBack}>
           Retour
         </Button>
       </div>
     )
+  }
+
+  // Navigation retour : déléguée au parent si intégré au dashboard, sinon vue publique
+  const handleBack = () => {
+    if (onBack) {
+      onBack()
+      return
+    }
+    setView(previousView === 'property-detail' ? 'home' : previousView)
   }
 
   const isRented = property.rentalStatus === 'loue'
@@ -878,7 +893,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
       <div className="bg-card border-b border-border sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           <button
-            onClick={() => setView(previousView === 'property-detail' ? 'home' : previousView)}
+            onClick={handleBack}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-brand-500 transition-colors"
           >
             <ArrowLeft className="size-4" />

@@ -10,7 +10,6 @@ import { RentalFileForm } from './locataire/rental-file'
 import { MyVisits } from './locataire/my-visits'
 import { MyLeases } from './locataire/my-leases'
 import { Messages } from './locataire/messages'
-import { SearchProperties } from './locataire/search-properties'
 import { Favorites } from './locataire/favorites'
 import { Applications } from './locataire/applications'
 import { Payments } from './locataire/payments'
@@ -26,7 +25,6 @@ import { PaymentDetail } from './locataire/payment-detail'
 import { ApplicationDetail } from './locataire/application-detail'
 import { VisitDetail } from './locataire/visit-detail'
 import { LeaseDetail } from './locataire/lease-detail'
-import { LocataireInventoryReports } from './locataire/inventory-reports'
 import { ProprietaireOverview } from './proprietaire/overview'
 import { MyProperties } from './proprietaire/my-properties'
 import { VisitRequests } from './proprietaire/visit-requests'
@@ -98,6 +96,8 @@ import { AgenceMarketing } from './agence/marketing'
 import { ClientFiles } from './agence/client-files'
 import { AgenceSettings } from './agence/settings'
 import { AgenceSecurity } from './agence/security'
+import { PropertyDetailView } from '@/components/home/property-detail-view'
+import { NosBiensView } from '@/components/home/nos-biens-view'
 
 function BackableSection({ sectionKey, onBack, children }: { sectionKey: string; onBack: () => void; children: ReactNode }) {
   useBackHandler(sectionKey, onBack)
@@ -105,7 +105,7 @@ function BackableSection({ sectionKey, onBack, children }: { sectionKey: string;
 }
 
 function LocataireDashboard({ section }: { section: string }) {
-  const { selectedItemId, setDashboardSection, setSelectedItemId, settingsDefaultTab, setSettingsDefaultTab } = useAuthStore()
+  const { selectedItemId, selectedPropertyId, setDashboardSection, setSelectedItemId, setSelectedPropertyId, settingsDefaultTab, setSettingsDefaultTab } = useAuthStore()
 
   const goToPaymentDetail = (id: string) => {
     setSelectedItemId(id)
@@ -141,9 +141,18 @@ function LocataireDashboard({ section }: { section: string }) {
 
   const goBackFromRentalFile = () => setDashboardSection('settings')
 
+  // Vue NOS BIENS intégrée (sidebar conservée) — clic sur un bien → détail dans le dashboard
+  const goToPropertyDetail = (propertyId: string) => {
+    setSelectedPropertyId(propertyId)
+    setDashboardSection('property-detail')
+  }
+
+  const goBackToSearch = () => setDashboardSection('search-properties')
+
   switch (section) {
     case 'overview': return <LocataireOverview />
-    case 'search-properties': return <SearchProperties />
+    case 'search-properties': return <NosBiensView embedded onSelectProperty={goToPropertyDetail} />
+    case 'property-detail': return <BackableSection sectionKey="property-detail" onBack={goBackToSearch}><PropertyDetailView propertyId={selectedPropertyId} onBack={goBackToSearch} /></BackableSection>
     case 'favorites': return <Favorites />
     case 'applications': return <Applications onDetail={goToApplicationDetail} />
     case 'application-detail': return <BackableSection sectionKey="application-detail" onBack={goBackToApplications}><ApplicationDetail applicationId={selectedItemId} onBack={goBackToApplications} /></BackableSection>
@@ -151,7 +160,6 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'my-visits': return <MyVisits onDetail={goToVisitDetail} />
     case 'visit-detail': return <BackableSection sectionKey="visit-detail" onBack={goBackToVisits}><VisitDetail visitId={selectedItemId} onBack={goBackToVisits} /></BackableSection>
     case 'my-leases': return <MyLeases onDetail={goToLeaseDetail} />
-    case 'inventory-reports': return <LocataireInventoryReports />
     case 'lease-detail': return <BackableSection sectionKey="lease-detail" onBack={goBackToLeases}><LeaseDetail leaseId={selectedItemId} onBack={goBackToLeases} /></BackableSection>
     case 'payments': return <Payments onDetail={goToPaymentDetail} />
     case 'payment-detail': return <BackableSection sectionKey="payment-detail" onBack={goBackToPayments}><PaymentDetail paymentId={selectedItemId} onBack={goBackToPayments} /></BackableSection>

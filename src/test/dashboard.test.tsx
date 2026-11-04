@@ -51,8 +51,8 @@ vi.mock('@/components/dashboard/locataire/my-leases', () => ({
 vi.mock('@/components/dashboard/locataire/messages', () => ({
   Messages: () => React.createElement('div', { 'data-testid': 'messages' }, 'Messages'),
 }))
-vi.mock('@/components/dashboard/locataire/search-properties', () => ({
-  SearchProperties: () => React.createElement('div', { 'data-testid': 'search-properties' }),
+vi.mock('@/components/home/nos-biens-view', () => ({
+  NosBiensView: () => React.createElement('div', { 'data-testid': 'search-properties' }),
 }))
 vi.mock('@/components/dashboard/locataire/favorites', () => ({
   Favorites: () => React.createElement('div', { 'data-testid': 'favorites' }),

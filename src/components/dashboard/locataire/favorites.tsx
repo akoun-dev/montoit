@@ -60,7 +60,7 @@ const itemVariants = {
 }
 
 export function Favorites() {
-  const { user, isAuthenticated, setView, setSelectedPropertyId, setDashboardSection } = useAuthStore()
+  const { user, isAuthenticated, setSelectedPropertyId, setDashboardSection } = useAuthStore()
   const [favorites, setFavorites] = useState<FavoriteProperty[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -142,12 +142,14 @@ export function Favorites() {
   }
 
   const handleViewProperty = (propertyId: string) => {
+    // Détail du bien dans le dashboard (sidebar conservée)
     setSelectedPropertyId(propertyId)
-    setView('property-detail')
+    setDashboardSection('property-detail')
   }
 
   const handleBrowseProperties = () => {
-    setView('nos-biens')
+    // Vue NOS BIENS intégrée au dashboard
+    setDashboardSection('search-properties')
   }
 
   if (loading) {
