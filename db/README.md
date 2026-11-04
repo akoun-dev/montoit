@@ -25,17 +25,30 @@ Reset complet : `DROP DATABASE montoit WITH (FORCE)` puis `db:bootstrap` + `db:s
 
 ## Comptes de test (mot de passe : `Test1234!`)
 
-| Email | Rôle | Téléphone |
-|---|---|---|
-| admin@montoit-test.ci | ADMIN | +225 07 00 00 01 |
-| locataire@montoit-test.ci | LOCATAIRE | +225 07 00 00 02 |
-| proprietaire@montoit-test.ci | PROPRIETAIRE | +225 07 00 00 03 |
-| agence@montoit-test.ci | AGENCE | +225 07 00 00 04 |
-| tc1@montoit-test.ci | TIERS_CONFIANCE | +225 07 00 00 05 |
-| tc2@montoit-test.ci | TIERS_CONFIANCE | +225 07 00 00 06 |
+| Email | Rôle | Téléphone | Notes |
+|---|---|---|---|
+| admin@montoit-test.ci | ADMIN | +225 07 00 00 01 | |
+| locataire@montoit-test.ci | LOCATAIRE | +225 07 00 00 02 | Dossier VALIDATED + candidatures, visites, favoris, bail actif |
+| locataire2@montoit-test.ci | LOCATAIRE | +225 07 00 00 07 | Dossier SUBMITTED (en validation) — idéal pour tester la redirection « compléter mon dossier » |
+| proprietaire@montoit-test.ci | PROPRIETAIRE | +225 07 00 00 03 | |
+| proprietaire2@montoit-test.ci | PROPRIETAIRE | +225 07 00 00 08 | Propriétaire de biens seedés |
+| proprietaire3@montoit-test.ci | PROPRIETAIRE | +225 07 00 00 09 | Propriétaire de biens seedés |
+| agence@montoit-test.ci | AGENCE | +225 07 00 00 04 | |
+| tc1@montoit-test.ci | TIERS_CONFIANCE | +225 07 00 00 05 | |
+| tc2@montoit-test.ci | TIERS_CONFIANCE | +225 07 00 00 06 | |
 
-Données métier : 4 propriétés (Cocody/Yopougon/Marcory/Riviera), 1 dossier de location
-VALIDATED, 2 baux (1 ACTIVE, 1 PENDING_SIGNATURE), 4 paiements (2 PAID, 1 PENDING, 1 LATE).
+Données métier (54 biens dont **52 validés actifs** avec images/équipements/modalités,
+42 disponibles à la candidature, quartiers réalistes d'Abidjan + 5 villes intérieures,
+2 en attente de vérification) : 2 dossiers de location (1 VALIDATED, 1 SUBMITTED),
+2 baux (1 ACTIVE, 1 PENDING_SIGNATURE), 4 paiements (2 PAID, 1 PENDING, 1 LATE),
+3 candidatures (SUBMITTED/ACCEPTED/REJECTED), 4 visites (dont contre-proposition et
+terminée notée), 2 avis croisés avec réponse, 5 favoris.
+
+Images : illustrations SVG locales servies par l'app (`public/seed-imgs/`, une série
+par type de bien) — aucune dépendance réseau.
+
+Le seed est déterministe (générateur pseudo-aléatoire seedé) : les mêmes données
+sont régénérées à chaque `bun run db:seed`.
 
 ## Émulation Supabase
 
