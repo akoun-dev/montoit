@@ -8,12 +8,10 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { normalizeRentalFileType, RENTAL_FILE_TYPES, rentalFileTypeLabel } from '@/lib/rental-file-types'
 import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -29,8 +27,6 @@ interface UnifiedItem {
   createdAt: string
   tenantId?: string
   type?: string
-  /** FUN-002 : type de dossier locatif (badge + filtre TC, lecture seule) */
-  fileType?: string
   previouslyRejected?: boolean
   lastRejectedAt?: string | null
 }
@@ -98,8 +94,6 @@ export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaul
 
   useEffect(() => { onFilterConsumed?.() }, [])
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
-  // FUN-002 : filtre par type de dossier locatif (lecture seule, discret)
-  const [fileTypeFilter, setFileTypeFilter] = useState<string>('ALL')
   const [stats, setStats] = useState<TcStats>(defaultStats)
   const [items, setItems] = useState<UnifiedItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -134,8 +128,6 @@ export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaul
           detail: `${f.monthlyIncome?.toLocaleString('fr-FR') ?? '—'} FCFA/mois`,
           status: f.status,
           createdAt: f.createdAt,
-          // FUN-002 : type de dossier (STANDARD pour les dossiers antérieurs à la migration)
-          fileType: normalizeRentalFileType(f.fileType),
           previouslyRejected: f.previouslyRejected,
           lastRejectedAt: f.lastRejectedAt,
         })),
@@ -194,13 +186,9 @@ export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaul
       if (statusFilter !== 'ALL') {
         result = result.filter(i => i.status === statusFilter || (statusFilter === 'VALIDATED' && i.status === 'APPROVED'))
       }
-      // FUN-002 : le filtre par type ne s'applique qu'aux dossiers locataires
-      if (fileTypeFilter !== 'ALL') {
-        result = result.filter(i => i.category !== 'locataire' || normalizeRentalFileType(i.fileType) === fileTypeFilter)
-      }
       return result
     },
-    [items, filter, statusFilter, fileTypeFilter]
+    [items, filter, statusFilter]
   )
 
   const getCount = (key: FilterKey) => {
@@ -362,26 +350,6 @@ export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaul
             {sf.label}
           </button>
         ))}
-
-        {/* FUN-002 : filtre par type de dossier (visible uniquement sur les dossiers locataires) */}
-        {filter === 'locataire' && (
-          <Select value={fileTypeFilter} onValueChange={setFileTypeFilter}>
-            <SelectTrigger
-              className="h-8 w-[170px] text-xs ml-auto"
-              aria-label="Filtrer par type de dossier"
-            >
-              <SelectValue placeholder="Type de dossier" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Tous les types</SelectItem>
-              {RENTAL_FILE_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {rentalFileTypeLabel(type)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
       </div>
 
       {/* ─── Liste unifiée ──────────────────────────────────────── */}
@@ -423,12 +391,6 @@ export function DossierValidations({ defaultFilter, onFilterConsumed }: { defaul
                       <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', statusCfg.class)}>
                         {statusCfg.label}
                       </Badge>
-                      {/* FUN-002 : badge type de dossier locatif (lecture seule, discret) */}
-                      {item.category === 'locataire' && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-border">
-                          {rentalFileTypeLabel(item.fileType)}
-                        </Badge>
-                      )}
                       {item.previouslyRejected && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-orange-50 text-orange-700 border-orange-200 gap-0.5">
                           <RotateCcw className="size-2.5" /> Resoumis

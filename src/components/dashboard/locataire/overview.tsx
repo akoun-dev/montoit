@@ -25,9 +25,8 @@ import { ContactDialog } from '@/components/messaging/contact-dialog'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useActiveDossier } from '@/lib/active-dossier-store'
-import { normalizeRentalFileType, rentalFileTypeLabel } from '@/lib/rental-file-types'
+import { normalizeRentalFileType } from '@/lib/rental-file-types'
 import { EmptyState } from '@/components/shared/states'
-import { RentalFileTypeBadge } from './rental-file-type-badge'
 
 interface DashboardData {
   stats: {
@@ -149,9 +148,9 @@ export function LocataireOverview() {
   useRealtimeApplications({ userId: user?.id, onApplicationChange: invalidate })
   useRealtimeMaintenance({ userId: user?.id, onMaintenanceChange: invalidate })
 
-  // FUN-002 : dossier actif = choix persisté du sélecteur du header (store dédié
-  // `active-dossier-store`), sinon fallback sur le dossier STANDARD le plus récent,
-  // sinon le plus récent tout type confondu (spec FUN-002 §5.2 / SC-9).
+  // Dossier actif = choix persisté du sélecteur du header (store dédié
+  // `active-dossier-store`), sinon fallback sur le dossier STANDARD le plus
+  // récent, sinon le plus récent tout type confondu.
   // Lecture seule : l'overview n'écrit jamais dans le store (le sélecteur du
   // header et la création de dossier en sont les seuls points d'écriture).
   const activeDossierRef = useActiveDossier(user?.id ?? null)
@@ -255,7 +254,7 @@ export function LocataireOverview() {
         </motion.div>
       )}
 
-      {/* ─── 2. DOSSIER LOCATIF ACTIF (FUN-002) ──────────────────────── */}
+      {/* ─── 2. DOSSIER LOCATIF ACTIF ──────────────────────────────── */}
       <motion.div variants={itemVariants}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -278,26 +277,14 @@ export function LocataireOverview() {
                   <FileText className="size-5 text-brand-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  {/* Même hiérarchie de badges que les cartes de rental-files-list :
-                      nom + badge type + badge statut */}
+                  {/* Même hiérarchie que les cartes de rental-files-list :
+                      nom + badge statut */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold text-foreground">
-                      Dossier {rentalFileTypeLabel(activeDossier.fileType)}
+                      Dossier du {new Date(activeDossier.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
-                    <RentalFileTypeBadge fileType={activeDossier.fileType} />
                     <StatusBadge status={activeDossier.status} />
                   </div>
-                  {/* Mention discrète réservée aux dossiers FAMILLE/COLOCATION :
-                      « nom du dossier » tel qu'affiché dans la liste des dossiers */}
-                  {normalizeRentalFileType(activeDossier.fileType) !== 'STANDARD' && (
-                    <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-                      <Info className="size-3 shrink-0" />
-                      <span className="truncate">
-                        {`Dossier ${rentalFileTypeLabel(activeDossier.fileType)} du ${new Date(activeDossier.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`}
-                        {' '}&middot; actif pour vos candidatures
-                      </span>
-                    </p>
-                  )}
                 </div>
                 <ChevronRight className="size-4 text-muted-foreground shrink-0 self-center" />
               </div>

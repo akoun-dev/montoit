@@ -11,7 +11,6 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeApplications } from '@/hooks/use-realtime-applications'
 import { motion } from 'framer-motion'
 import { PaginationControls } from '@/components/ui/pagination-controls'
-import { RentalFileTypeBadge } from './rental-file-type-badge'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface TimelineStep {
@@ -24,9 +23,6 @@ interface TimelineStep {
 interface ApplicationItem {
   id: string
   status: string
-  // FUN-002 : type du dossier porteur de la candidature
-  // (GET /api/applications → `rentalFileType`, déjà normalisé côté serveur)
-  rentalFileType?: string
   monthlyIncome: number | null
   employer: string | null
   employmentType: string | null
@@ -337,7 +333,6 @@ export function Applications({ onDetail }: ApplicationsProps) {
                             {property?.title || 'Candidature'}
                           </p>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <RentalFileTypeBadge fileType={app.rentalFileType} />
                             <Badge variant="outline" className={`shrink-0 text-[10px] px-2 py-0.5 border ${config.color}`}>
                               <StatusIcon className="size-3 mr-1" />
                               {config.label}
