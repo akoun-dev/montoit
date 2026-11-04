@@ -18,7 +18,11 @@
     "cap:copy": "npx cap copy",
     "cap:build": "BUILD_TARGET=capacitor next build && npx cap copy",
     "cap:build:apk": "BUILD_TARGET=capacitor next build && npx cap copy && cd android && ./gradlew assembleDebug",
-    "db:push": "echo \"DB externe Supabase - rien à pousser\""
+    "db:push": "echo \"DB externe Supabase - rien à pousser\"",
+    "db:start": "node db/start-pg.mjs",
+    "db:bootstrap": "node db/bootstrap.mjs",
+    "db:seed": "node db/seed.mjs",
+    "db:test": "node db/verify.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
@@ -110,6 +114,7 @@
     "@vitest/coverage-v8": "^4.1.8",
     "@vitest/ui": "^4.1.8",
     "bun-types": "^1.3.4",
+    "embedded-postgres": "^18.6.0-beta.19",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "jsdom": "^29.1.1",
@@ -118,5 +123,8 @@
     "tw-animate-css": "^1.3.5",
     "typescript": "^5",
     "vitest": "^4.1.8"
-  }
+  },
+  "trustedDependencies": [
+    "@embedded-postgres/linux-x64"
+  ]
 }

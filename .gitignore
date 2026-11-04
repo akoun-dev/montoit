@@ -97,9 +97,15 @@ liteRT
 
 # Runtime local / sandbox — jamais versionnés
 /.zscripts/
-/db/
+/db/pgdata/
+/db/pg.log
+/db/custom.db
+/db/migrations-report.json
 /upload/
 /download/
+/.app-artifact-bak/
+/src/pages/
+/src/pages-index-vite.bak
 /examples/
 /mini-services/
 MES_DATA.txt4
